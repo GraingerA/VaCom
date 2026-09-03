@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wurd",
+      "runtimeExecutable": "php",
+      "runtimeArgs": [
+        "-S", "localhost:8400",
+        "-d", "extension_dir=C:\\php\\ext",
+        "-d", "extension=pdo_sqlite",
+        "-d", "extension=openssl",
+        "-d", "extension=curl",
+        "-d", "extension=mbstring",
+        "-d", "extension=fileinfo",
+        "-d", "extension=gd"
+      ],
+      "port": 8400
+    }
+  ]
+}

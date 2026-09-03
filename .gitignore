@@ -1,0 +1,8 @@
+# Lokale data (database, startwachtwoord) — nooit in git, nooit via FTP
+data/
+inc/config.local.php
+
+# Windows / editors
+desktop.ini
+Thumbs.db
+.DS_Store
