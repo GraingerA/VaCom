@@ -39,7 +39,7 @@ VaCom als een echte app, zonder adresbalk.
 
 ## Lokaal testen
 
-Zie `CLAUDE.md` (launch-configs `vacom-in-portal` en `vacom`).
+Start de Portal-dev-server (launch-config `portal`, poort 8010) en open http://localhost:8010/vacom/. Zie `CLAUDE.md`.
 
 ## Technische opzet
 

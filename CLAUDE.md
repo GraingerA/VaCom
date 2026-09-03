@@ -4,9 +4,10 @@ VaCom (van Vastgoed Communicatie) is de interne Slack-variant van Invite:
 kanalen, directe berichten, zoeken door alles. Doorzoekbaarheid is de kernbelofte.
 Werktitel tot 3 sept 2026 was "wurd"; identifiers zijn toen hernoemd naar `vacom`.
 
-Lokale map: `Documents\VaCom` (tot de hernoeming `Documents\Wurd`). Online:
-`portal.invite.nl/vacom/` — als submap van de Invite Project Portal, in **Portal-modus**.
-GitHub: `GraingerA/VaCom`.
+VaCom is een **submap van de Portal-repo**: lokaal `Invite Project Portal\root\vacom\`,
+online `portal.invite.nl/vacom/` (Portal-modus), GitHub `GraingerA/Invite-Project-Portal`
+(map `vacom/`). Eén repo, één upload — maar VaCom heeft zijn eigen versienummer,
+changelog en deze CLAUDE.md. Tot 3 sept 2026 was het een losse repo (`GraingerA/VaCom`).
 
 ## Gebruiker
 
@@ -101,25 +102,21 @@ insets voor de iPhone-notch.
 2. Voeg bovenaan `changelog.php` een blok toe (nieuwste eerst, begrijpelijk Nederlands).
 3. Test lokaal, commit + push naar GitHub.
 4. Ad upload zelf via FTP naar `public_html/vacom/` op portal.invite.nl — **nooit
-   `data/`, `tools/` of `.claude/`** meesturen.
+   `data/` of `tools/`** meesturen.
 5. Noem het nieuwe versienummer in het antwoord.
 
 ## Lokaal testen
 
-Portal-modus (aanbevolen): launch-config `vacom-in-portal` serveert de Portal-map
-op poort 8000; de VaCom-map hangt daar via een junction als `root\vacom` onder →
-http://localhost:8000/vacom/. Inloggen met een account uit de lokale
-`ipp_data/users.json` (testaccount Bram / test1234). Na het hernoemen van de map
-moet de junction opnieuw naar `Documents\VaCom` wijzen:
+Start de Portal-dev-server (launch-config `portal` in `root\.claude\launch.json`,
+poort 8010; die laadt ook pdo_sqlite) en open http://localhost:8010/vacom/.
+Inloggen met een account uit de lokale `ipp_data/users.json` (testaccount
+Bram / test1234). VaCom draait dan in Portal-modus, precies zoals online.
+Lokale VaCom-data staat in `vacom/data/` (git-ignored).
 
-```powershell
-Remove-Item "C:\Users\Ad Grainger\Documents\Invite Project Portal\root\vacom"; New-Item -ItemType Junction -Path "C:\Users\Ad Grainger\Documents\Invite Project Portal\root\vacom" -Target "C:\Users\Ad Grainger\Documents\VaCom"
-```
-
-Losse modus: launch-config `vacom` (poort 8400); lokaal Ad / test1234.
+Losse modus testen (zonder Portal): serveer alleen de map `vacom`:
 
 ```bash
-php -S localhost:8400 -d extension_dir=C:\php\ext -d extension=pdo_sqlite -d extension=openssl -d extension=curl -d extension=mbstring -d extension=fileinfo -d extension=gd
+php -S localhost:8400 -t vacom -d extension_dir=C:\php\ext -d extension=pdo_sqlite -d extension=openssl -d extension=curl -d extension=mbstring -d extension=fileinfo -d extension=gd
 ```
 
 Voor EC-sleutels (push, later) op Windows: `OPENSSL_CONF=C:\php\extras\ssl\openssl.cnf`.
