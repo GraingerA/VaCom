@@ -52,7 +52,27 @@ function kanaal_voor_mij(PDO $db, int $kanaalId, int $userId): array {
     return $k;
 }
 
-/** Berichten van één kanaal, met auteur, als lijst voor de client. */
+/** Reacties bij een set berichten: map bericht-id => [{emoji, count, user_ids}]. */
+function reacties_bij(PDO $db, array $ids): array {
+    if (!$ids) return [];
+    $vraag = implode(',', array_fill(0, count($ids), '?'));
+    $st = $db->prepare("SELECT message_id, emoji, user_id FROM reactions WHERE message_id IN ($vraag) ORDER BY created, rowid");
+    $st->execute(array_map('intval', $ids));
+    $per = [];
+    foreach ($st->fetchAll() as $r) {
+        $mid = (int)$r['message_id'];
+        $per[$mid][$r['emoji']]['user_ids'][] = (int)$r['user_id'];
+    }
+    $uit = [];
+    foreach ($per as $mid => $emojis) {
+        foreach ($emojis as $emoji => $d) {
+            $uit[$mid][] = ['emoji' => (string)$emoji, 'count' => count($d['user_ids']), 'user_ids' => $d['user_ids']];
+        }
+    }
+    return $uit;
+}
+
+/** Berichten van één kanaal, met auteur en reacties, als lijst voor de client. */
 function berichten_uit(PDO $db, string $where, array $params, int $limiet, bool $oplopend): array {
     $sql = "SELECT m.id, m.channel_id, m.user_id, m.parent_id, m.body, m.created, m.edited, m.deleted, u.name AS author
             FROM messages m JOIN users u ON u.id = m.user_id
@@ -61,7 +81,18 @@ function berichten_uit(PDO $db, string $where, array $params, int $limiet, bool 
     $st->execute($params);
     $rijen = $st->fetchAll();
     if (!$oplopend) $rijen = array_reverse($rijen);
-    return array_map('bericht_uit', $rijen);
+    $lijst = array_map('bericht_uit', $rijen);
+    $reacties = reacties_bij($db, array_column($lijst, 'id'));
+    foreach ($lijst as &$m) $m['reactions'] = $reacties[$m['id']] ?? [];
+    unset($m);
+    return $lijst;
+}
+
+/** Mag deze tekst als reactie-emoji? Kort, en alleen emoji-achtige tekens. */
+function emoji_ok(string $e): bool {
+    if ($e === '' || mb_strlen($e) > 8) return false;
+    // Emoji-blokken + samenstellers (huidskleur, ZWJ, variatie-selector, vlaggen).
+    return (bool)preg_match('/^[\x{1F000}-\x{1FAFF}\x{2190}-\x{2BFF}\x{2600}-\x{27BF}\x{FE0F}\x{200D}\x{1F1E6}-\x{1F1FF}\x{1F3FB}-\x{1F3FF}\x{2764}\x{203C}\x{2049}\x{3030}\x{00A9}\x{00AE}\x{2122}]+$/u', $e);
 }
 
 function bericht_uit(array $r): array {
@@ -97,24 +128,38 @@ case 'berichten': {
 }
 
 case 'poll': {
-    // Het hart van "live": goedkoop als er niets is. Twee tellers: max_id (nieuw
-    // bericht ergens) en state (nieuw kanaal / gebruiker). Allebei gelijk aan wat
-    // de client al weet? Dan één klein antwoord en klaar.
+    // Het hart van "live": goedkoop als er niets is. Drie tellers: max_id (nieuw
+    // bericht ergens), state (nieuw kanaal / gebruiker) en rx (reacties — die
+    // maken geen nieuw bericht-id aan en hebben dus een eigen teller, v0.3).
+    // Alles gelijk aan wat de client al weet? Dan één klein antwoord en klaar.
     $maxId   = vacom_max_message_id();
     $state   = (int)vacom_meta('state');
+    $rx      = (int)vacom_meta('rx');
     $sinceId = param_int($invoer, 'since_id');
     $kanaalId = param_int($invoer, 'channel_id');
-    if ($maxId <= $sinceId && $state === param_int($invoer, 'state')) {
-        vacom_json(['ok' => true, 'changed' => false, 'max_id' => $maxId, 'state' => $state]);
+    if ($maxId <= $sinceId && $state === param_int($invoer, 'state') && $rx === param_int($invoer, 'rx')) {
+        vacom_json(['ok' => true, 'changed' => false, 'max_id' => $maxId, 'state' => $state, 'rx' => $rx]);
     }
-    $antwoord = ['ok' => true, 'changed' => true, 'max_id' => $maxId, 'state' => $state];
-    // Nieuwe berichten in het geopende kanaal meesturen (mits lid).
-    if ($kanaalId > 0 && $maxId > $sinceId) {
+    $antwoord = ['ok' => true, 'changed' => true, 'max_id' => $maxId, 'state' => $state, 'rx' => $rx];
+    $isLid = false;
+    if ($kanaalId > 0) {
         $st = $db->prepare('SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?');
         $st->execute([$kanaalId, $mijnId]);
-        if ($st->fetchColumn()) {
-            $antwoord['messages'] = berichten_uit($db, 'm.channel_id = ? AND m.id > ? AND m.parent_id IS NULL', [$kanaalId, $sinceId], 200, true);
-        }
+        $isLid = (bool)$st->fetchColumn();
+    }
+    // Nieuwe berichten in het geopende kanaal meesturen (mits lid).
+    if ($isLid && $maxId > $sinceId) {
+        $antwoord['messages'] = berichten_uit($db, 'm.channel_id = ? AND m.id > ? AND m.parent_id IS NULL', [$kanaalId, $sinceId], 200, true);
+    }
+    // Reacties veranderd? Stuur de actuele reactie-sets van de laatste 100
+    // berichten van het open kanaal mee; de client werkt bij wat hij kent.
+    if ($isLid && $rx !== param_int($invoer, 'rx')) {
+        $st = $db->prepare('SELECT id FROM messages WHERE channel_id = ? AND parent_id IS NULL ORDER BY id DESC LIMIT 100');
+        $st->execute([$kanaalId]);
+        $ids = array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
+        $sets = reacties_bij($db, $ids);
+        // Ook lege sets meesturen: een wéggehaalde laatste reactie moet ook aankomen.
+        $antwoord['reactions'] = ['ids' => $ids, 'sets' => (object)$sets];
     }
     // Ongelezen-tellers per kanaal (voor de badges in de zijbalk).
     $st = $db->prepare('SELECT c.id,
@@ -143,6 +188,36 @@ case 'stuur': {
     $db->commit();
     $lijst = berichten_uit($db, 'm.id = ?', [$id], 1, true);
     vacom_json(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id()]);
+}
+
+case 'reageer': {
+    // Emoji-reactie op een bericht aan- of uitzetten (v0.3).
+    $berichtId = param_int($invoer, 'message_id');
+    $emoji     = param_str($invoer, 'emoji');
+    $aan       = param_int($invoer, 'value') === 1;
+    if (!emoji_ok($emoji)) vacom_fout('Ongeldige emoji.');
+    $st = $db->prepare('SELECT channel_id, deleted FROM messages WHERE id = ?');
+    $st->execute([$berichtId]);
+    $m = $st->fetch();
+    if (!$m || (int)$m['deleted'] === 1) vacom_fout('Bericht niet gevonden.', 404);
+    kanaal_voor_mij($db, (int)$m['channel_id'], $mijnId); // lidmaatschap-check
+    if ($aan) {
+        // Max 20 verschillende emoji per bericht — houdt het leesbaar en
+        // voorkomt dat iemand een bericht volplempt.
+        $st = $db->prepare('SELECT COUNT(DISTINCT emoji) FROM reactions WHERE message_id = ?');
+        $st->execute([$berichtId]);
+        $st2 = $db->prepare('SELECT 1 FROM reactions WHERE message_id = ? AND emoji = ? LIMIT 1');
+        $st2->execute([$berichtId, $emoji]);
+        if ((int)$st->fetchColumn() >= 20 && !$st2->fetchColumn()) vacom_fout('Genoeg emoji op dit bericht. :-)');
+        $db->prepare('INSERT OR IGNORE INTO reactions(message_id, user_id, emoji, created) VALUES (?,?,?,?)')
+           ->execute([$berichtId, $mijnId, $emoji, vacom_now()]);
+    } else {
+        $db->prepare('DELETE FROM reactions WHERE message_id = ? AND user_id = ? AND emoji = ?')
+           ->execute([$berichtId, $mijnId, $emoji]);
+    }
+    $db->exec("UPDATE meta SET value = CAST(value AS INTEGER) + 1 WHERE key = 'rx'");
+    $sets = reacties_bij($db, [$berichtId]);
+    vacom_json(['ok' => true, 'message_id' => $berichtId, 'reactions' => $sets[$berichtId] ?? [], 'rx' => (int)vacom_meta('rx')]);
 }
 
 case 'gelezen': {

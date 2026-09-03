@@ -30,6 +30,16 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.3.0 <span class="stil">— 3 september 2026</span></h2>
+    <ul>
+      <li><strong>Reageer met emoji.</strong> Wijs een bericht aan (of tik erop) en klik op het ☺+ — kies een emoji en hij verschijnt als knopje onder het bericht. Nog een keer klikken haalt jouw reactie weer weg; je ziet wie er gereageerd hebben als je erop aanwijst.</li>
+      <li><strong>Emoji in je bericht.</strong> Nieuw smiley-knopje naast het schrijfveld met een handig palet.</li>
+      <li><strong>Gifs en afbeeldingen spelen af in het gesprek.</strong> Plak een link naar een gif of afbeelding (bijv. van Tenor of Giphy: kopieer de gif-link) als los bericht, en het beeld verschijnt gewoon in het kanaal.</li>
+      <li>Een bericht met alleen een paar emoji wordt lekker groot getoond. 🎉</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.2.0 <span class="stil">— 3 september 2026</span></h2>
     <ul>
       <li><strong>VaCom hoort nu bij de Portal.</strong> Je logt in met je Portal-naam en -wachtwoord; wie in de Portal al ingelogd is, is in VaCom ook ingelogd. Klanten hebben geen toegang.</li>

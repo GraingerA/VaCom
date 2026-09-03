@@ -18,7 +18,7 @@
     csrf: window.VACOM.csrf,
     me: null, channels: [], users: [], state: 0, maxId: 0, portalUrl: '',
     current: null, msgs: [], hasMore: false,
-    pollTimer: null, pollFouten: 0, versturen: false, gelezenTot: 0,
+    pollTimer: null, pollFouten: 0, versturen: false, gelezenTot: 0, rx: 0,
   };
 
   const el = {
@@ -96,7 +96,30 @@
     mentionRegex = namen.length ? new RegExp('@(' + namen.join('|') + ')(?![\\p{L}\\p{N}])', 'giu') : null;
   }
 
+  // Is dit bericht precies één link naar een afbeelding of gif? Dan tonen we
+  // het beeld zelf (v0.3) — zo plak je een gif-link (bijv. van Tenor of
+  // Giphy) en speelt hij gewoon af in het gesprek.
+  function alsAfbeelding(body) {
+    const kaal = body.trim();
+    if (/\s/.test(kaal)) return null;
+    if (!/^https:\/\/[^\s]+\.(gif|png|jpe?g|webp)(\?[^\s]*)?$/i.test(kaal)) return null;
+    return kaal;
+  }
+
+  // Bestaat een bericht alleen uit een paar emoji? Dan groot tonen (v0.3).
+  function isAlleenEmoji(body) {
+    const kaal = body.replace(/\s+/g, '');
+    if (!kaal || [...kaal].length > 6) return false;
+    return /^(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}|[\u{1F3FB}-\u{1F3FF}\u{FE0F}\u{200D}\u{20E3}])+$/u.test(kaal);
+  }
+
   function opmaak(body) {
+    const img = alsAfbeelding(body);
+    if (img) {
+      // Laadt het beeld niet (verwijderd, geblokkeerd)? Toon dan de kale link.
+      const url = esc(img);
+      return `<a href="${url}" target="_blank" rel="noopener"><img class="bericht-beeld" src="${url}" alt="" loading="lazy" onerror="this.parentElement.textContent = this.src"></a>`;
+    }
     let s = esc(body);
     s = s.replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)"'\]])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
     if (mentionRegex) {
@@ -107,6 +130,117 @@
     }
     return s;
   }
+
+  /* ---------- Emoji-reacties (v0.3) ---------- */
+
+  const EMOJI = ['👍','❤️','😂','😮','🎉','✅','🙏','👀','🔥','💪','😅','😢','🤔','👌','🚀','☕','🍀','😍','🤣','😉','🥳','👏','🫶','💡','⚡','🌟','🧡','😴','🤷','🤞','🍰','🍻','🌞','🌧️','📸','✏️','📌','🏠','🏗️','🗓️'];
+
+  function reactieChips(m) {
+    const lijst = m.reactions || [];
+    if (!lijst.length && m.deleted) return '';
+    const chips = lijst.map((r) => {
+      const mijn = r.user_ids.includes(S.me.id);
+      const namen = r.user_ids.map((id) => { const u = gebruiker(id); return u ? u.name : 'iemand'; }).join(', ');
+      return `<button type="button" class="reactie-chip${mijn ? ' mijn' : ''}" data-toggle-reactie="${esc(r.emoji)}" data-bericht="${m.id}" title="${esc(namen)}">${esc(r.emoji)}<span class="aantal">${r.count}</span></button>`;
+    });
+    // Het plusje om te reageren; bij een bericht zonder reacties verschijnt
+    // het alleen bij aanwijzen (CSS), zodat het gesprek rustig blijft.
+    if (!m.deleted) chips.push(`<button type="button" class="reactie-chip plus" data-reageer="${m.id}" title="Reageer met emoji" aria-label="Reageer met emoji">☺<span class="plusje">+</span></button>`);
+    if (!chips.length) return '';
+    return `<div class="reacties${lijst.length ? '' : ' zonder'}">${chips.join('')}</div>`;
+  }
+
+  function zetReacties(berichtId, reactions) {
+    const m = S.msgs.find((x) => x.id === berichtId);
+    if (!m) return;
+    m.reactions = reactions;
+    const onderaan = bijnaOnderaan();
+    renderBerichten(onderaan);
+  }
+
+  async function toggleReactie(berichtId, emoji) {
+    const m = S.msgs.find((x) => x.id === berichtId);
+    if (!m) return;
+    const set = (m.reactions || []).find((r) => r.emoji === emoji);
+    const mijn = !!set && set.user_ids.includes(S.me.id);
+    // Optimistisch bijwerken; de server is daarna de waarheid.
+    if (mijn) {
+      set.user_ids = set.user_ids.filter((id) => id !== S.me.id);
+      set.count--;
+      if (!set.count) m.reactions = m.reactions.filter((r) => r !== set);
+    } else if (set) {
+      set.user_ids.push(S.me.id); set.count++;
+    } else {
+      m.reactions = (m.reactions || []).concat([{ emoji, count: 1, user_ids: [S.me.id] }]);
+    }
+    renderBerichten(bijnaOnderaan());
+    try {
+      const j = await api('reageer', { message_id: berichtId, emoji, value: mijn ? 0 : 1 });
+      zetReacties(berichtId, j.reactions);
+      S.rx = Math.max(S.rx, j.rx || 0);
+    } catch (e) { toast(e.message); }
+  }
+
+  /* ---------- Emoji-picker ---------- */
+  // Eén klein paneel voor twee doelen: een reactie op een bericht kiezen, of
+  // een emoji in het schrijfveld invoegen. Native emoji, geen plaatjes.
+
+  let pickerDoel = null; // {soort:'reactie', berichtId} of {soort:'invoer'}
+
+  function pickerEl() {
+    let p = $('#emoji-picker');
+    if (p) return p;
+    p = document.createElement('div');
+    p.id = 'emoji-picker';
+    p.className = 'glas';
+    p.hidden = true;
+    p.innerHTML = EMOJI.map((e) => `<button type="button" data-emoji="${e}">${e}</button>`).join('');
+    document.body.appendChild(p);
+    p.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-emoji]');
+      if (!b || !pickerDoel) return;
+      const emoji = b.dataset.emoji;
+      if (pickerDoel.soort === 'reactie') {
+        toggleReactie(pickerDoel.berichtId, emoji);
+      } else {
+        const inv = el.invoer;
+        const p1 = inv.selectionStart ?? inv.value.length;
+        inv.value = inv.value.slice(0, p1) + emoji + inv.value.slice(inv.selectionEnd ?? p1);
+        inv.selectionStart = inv.selectionEnd = p1 + emoji.length;
+        autoGroei();
+        if (!isTouch) inv.focus();
+      }
+      sluitPicker();
+    });
+    return p;
+  }
+
+  function openPicker(doel, bijElement) {
+    const p = pickerEl();
+    pickerDoel = doel;
+    p.hidden = false;
+    if (isMobiel()) {
+      p.classList.add('onderin');
+      p.style.left = p.style.top = p.style.right = '';
+    } else {
+      p.classList.remove('onderin');
+      const r = bijElement.getBoundingClientRect();
+      const b = p.getBoundingClientRect();
+      p.style.left = Math.max(8, Math.min(r.left, window.innerWidth - b.width - 8)) + 'px';
+      p.style.top = (r.top - b.height - 8 > 8 ? r.top - b.height - 8 : r.bottom + 8) + 'px';
+    }
+  }
+
+  function sluitPicker() {
+    const p = $('#emoji-picker');
+    if (p) p.hidden = true;
+    pickerDoel = null;
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#emoji-picker') && !e.target.closest('[data-reageer]') && !e.target.closest('#knop-emoji')) sluitPicker();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') sluitPicker(); });
 
   let toastTimer = null;
   function toast(tekst) {
@@ -231,12 +365,14 @@
       const vervolg = vorige && vorige.user_id === m.user_id && dagSleutel(vorige.created) === dagSleutel(m.created)
         && new Date(m.created) - new Date(vorige.created) < 5 * 60 * 1000;
       const tekst = m.deleted ? '<em class="stil">bericht verwijderd</em>' : opmaak(m.body);
+      const groot = !m.deleted && isAlleenEmoji(m.body) ? ' alleen-emoji' : '';
+      const chips = reactieChips(m);
       if (vervolg) {
-        delen.push(`<div class="bericht vervolg" data-id="${m.id}"><div class="avatar"></div><div class="inhoud"><span class="tijd-klein">${tijd(m.created)}</span><div class="tekst">${tekst}</div></div></div>`);
+        delen.push(`<div class="bericht vervolg" data-id="${m.id}"><div class="avatar"></div><div class="inhoud"><span class="tijd-klein">${tijd(m.created)}</span><div class="tekst${groot}">${tekst}</div>${chips}</div></div>`);
       } else {
         delen.push(`<div class="bericht eerste" data-id="${m.id}">
           <div class="avatar" style="background:${avatarKleur(m.user_id)}">${esc(initiaal(m.author))}</div>
-          <div class="inhoud"><div class="bericht-kop"><span class="auteur">${esc(m.author)}</span><span class="tijd">${tijd(m.created)}</span></div><div class="tekst">${tekst}</div></div>
+          <div class="inhoud"><div class="bericht-kop"><span class="auteur">${esc(m.author)}</span><span class="tijd">${tijd(m.created)}</span></div><div class="tekst${groot}">${tekst}</div>${chips}</div>
         </div>`);
       }
       vorige = m;
@@ -302,7 +438,7 @@
   async function poll() {
     if (document.hidden) return;
     try {
-      const q = new URLSearchParams({ actie: 'poll', since_id: S.maxId, state: S.state, channel_id: S.current ? S.current.id : 0 });
+      const q = new URLSearchParams({ actie: 'poll', since_id: S.maxId, state: S.state, rx: S.rx, channel_id: S.current ? S.current.id : 0 });
       const r = await fetch('api.php?' + q, { cache: 'no-store', headers: { Accept: 'application/json' } });
       if (r.status === 401) { location.href = 'login.php'; return; }
       const j = await r.json();
@@ -316,6 +452,19 @@
           renderZijbalk();
         }
         if (j.messages && j.messages.length) { voegToe(j.messages); markeerGelezen(); }
+        // Reactie-wijzigingen in het open kanaal verwerken (v0.3): de server
+        // stuurt de actuele sets van de laatste berichten; lege set = chips weg.
+        if (j.reactions && S.current) {
+          let anders = false;
+          for (const id of j.reactions.ids) {
+            const m = S.msgs.find((x) => x.id === id);
+            if (!m) continue;
+            const nieuw = j.reactions.sets[id] || [];
+            if (JSON.stringify(nieuw) !== JSON.stringify(m.reactions || [])) { m.reactions = nieuw; anders = true; }
+          }
+          if (anders) renderBerichten(bijnaOnderaan());
+        }
+        S.rx = Math.max(S.rx, j.rx || 0);
         S.maxId = Math.max(S.maxId, j.max_id);
       } else if (S.users.some((u) => u.id !== S.me.id)) {
         // Niets nieuws — wel af en toe de online-stipjes verversen.
@@ -355,6 +504,10 @@
   /* ---------- Gebeurtenissen ---------- */
 
   document.addEventListener('click', async (e) => {
+    const chip = e.target.closest('[data-toggle-reactie]');
+    if (chip) { toggleReactie(Number(chip.dataset.bericht), chip.dataset.toggleReactie); return; }
+    const plus = e.target.closest('[data-reageer]');
+    if (plus) { openPicker({ soort: 'reactie', berichtId: Number(plus.dataset.reageer) }, plus); return; }
     const kanaalKnop = e.target.closest('[data-kanaal]');
     if (kanaalKnop) {
       if (el.zoekDialoog.open) el.zoekDialoog.close();
@@ -374,6 +527,12 @@
   });
 
   el.terug.addEventListener('click', () => { document.body.dataset.pane = 'lijst'; history.replaceState(null, '', location.pathname); });
+
+  $('#knop-emoji').addEventListener('click', (e) => {
+    const p = $('#emoji-picker');
+    if (p && !p.hidden && pickerDoel && pickerDoel.soort === 'invoer') { sluitPicker(); return; }
+    openPicker({ soort: 'invoer' }, e.currentTarget);
+  });
 
   el.schrijver.addEventListener('submit', (e) => { e.preventDefault(); stuur(); });
   el.invoer.addEventListener('input', autoGroei);

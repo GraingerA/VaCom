@@ -127,6 +127,16 @@ SQL);
         $pdo->exec('CREATE UNIQUE INDEX idx_channels_project ON channels(project_token)');
         $pdo->exec('PRAGMA user_version = 2');
     }
+
+    if ($versie < 3) {
+        // v0.3: emoji-reacties. De reactions-tabel bestond al sinds v1; nieuw
+        // is de 'rx'-teller in meta. Reacties maken geen nieuw bericht-id aan,
+        // dus de poll heeft een eigen teller nodig om te zien dat er iets
+        // veranderd is (zelfde idee als 'state' voor kanalen/gebruikers).
+        $pdo->exec("INSERT OR IGNORE INTO meta(key, value) VALUES ('rx', '1')");
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_reactions_message ON reactions(message_id)');
+        $pdo->exec('PRAGMA user_version = 3');
+    }
 }
 
 /* ---------- Kleine helpers rond de database ---------- */
