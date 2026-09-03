@@ -256,6 +256,85 @@ case 'kanaal_topic': {
     vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
 }
 
+/* ---- Kanaal-opties (v0.4): leden, toevoegen, verlaten, sluiten, verwijderen ---- */
+
+case 'kanaal_leden': {
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
+    if ($k['type'] !== 'public') vacom_fout('Een gesprek heeft geen ledenlijst.');
+    $st = $db->prepare('SELECT u.id, u.name, m.via FROM channel_members m JOIN users u ON u.id = m.user_id
+                        WHERE m.channel_id = ? AND u.active = 1 ORDER BY u.name COLLATE NOCASE');
+    $st->execute([(int)$k['id']]);
+    $leden = array_map(fn($r) => ['id' => (int)$r['id'], 'name' => $r['name'], 'via' => $r['via']], $st->fetchAll());
+    $isProject = $k['project_token'] !== null && $k['project_token'] !== '';
+    vacom_json([
+        'ok'          => true,
+        'members'     => $leden,
+        'is_project'  => $isProject,
+        'kan_sluiten' => !$isProject && (vacom_is_superadmin() || (int)$k['created_by'] === $mijnId),
+        'kan_wissen'  => !$isProject && vacom_is_superadmin(),
+    ]);
+}
+
+case 'lid_toevoegen': {
+    // Ieder lid mag een collega toevoegen. Wie zo binnenkomt is 'handmatig'
+    // lid en blijft dat, ook als de Portal-koppeling hem niet kent.
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
+    if ($k['type'] !== 'public') vacom_fout('Aan een gesprek kun je niemand toevoegen.');
+    $ander = vacom_user_by_id(param_int($invoer, 'user_id'));
+    if ($ander === null || (int)$ander['active'] !== 1) vacom_fout('Collega niet gevonden.');
+    $db->prepare("INSERT OR IGNORE INTO channel_members(channel_id, user_id, last_read_id, joined, via) VALUES (?,?,?,?,'handmatig')")
+       ->execute([(int)$k['id'], (int)$ander['id'], vacom_max_message_id(), vacom_now()]);
+    vacom_bump_state();
+    vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
+}
+
+case 'lid_verwijderen': {
+    // Jezelf (verlaten) mag altijd; een ander alleen als superadmin. Wie via
+    // de Portal gekoppeld is, komt bij de volgende sync gewoon terug — dat
+    // regel je in de Portal, niet hier.
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
+    if ($k['type'] !== 'public') vacom_fout('Een gesprek verlaat je niet.');
+    $wie = param_int($invoer, 'user_id') ?: $mijnId;
+    if ($wie !== $mijnId && !vacom_is_superadmin()) vacom_fout('Alleen de superadmin kan iemand anders verwijderen.', 403);
+    $st = $db->prepare('SELECT via FROM channel_members WHERE channel_id = ? AND user_id = ?');
+    $st->execute([(int)$k['id'], $wie]);
+    $via = $st->fetchColumn();
+    if ($via === false) vacom_fout('Geen lid van dit kanaal.');
+    if ($via === 'portal') vacom_fout('Deze collega is via de Portal aan het project gekoppeld; ontkoppelen doe je daar.');
+    if ($via === 'auto' && ($k['project_token'] === null || $k['project_token'] === '')) {
+        vacom_fout('Van een algemeen kanaal is iedereen lid; dat kun je niet verlaten.');
+    }
+    $db->prepare('DELETE FROM channel_members WHERE channel_id = ? AND user_id = ?')->execute([(int)$k['id'], $wie]);
+    vacom_bump_state();
+    vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
+}
+
+case 'kanaal_sluiten': {
+    // Archiveren: uit de zijbalk, wél doorzoekbaar. Alleen losse kanalen;
+    // projectkanalen volgen het project in de Portal.
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
+    if ($k['type'] !== 'public' || ($k['project_token'] !== null && $k['project_token'] !== '')) vacom_fout('Een projectkanaal sluit je via de Portal.');
+    if (!vacom_is_superadmin() && (int)$k['created_by'] !== $mijnId) vacom_fout('Alleen de superadmin of wie het kanaal aanmaakte kan het sluiten.', 403);
+    $db->prepare('UPDATE channels SET archived = 1 WHERE id = ?')->execute([(int)$k['id']]);
+    vacom_bump_state();
+    vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
+}
+
+case 'kanaal_verwijderen': {
+    // Definitief weg, inclusief alle berichten. Superadmin, losse kanalen.
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
+    if (!vacom_is_superadmin()) vacom_fout('Alleen de superadmin kan een kanaal verwijderen.', 403);
+    if ($k['type'] !== 'public' || ($k['project_token'] !== null && $k['project_token'] !== '')) vacom_fout('Een projectkanaal verwijder je via de Portal.');
+    $db->beginTransaction();
+    $db->prepare('DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE channel_id = ?)')->execute([(int)$k['id']]);
+    $db->prepare('DELETE FROM messages WHERE channel_id = ?')->execute([(int)$k['id']]);
+    $db->prepare('DELETE FROM channel_members WHERE channel_id = ?')->execute([(int)$k['id']]);
+    $db->prepare('DELETE FROM channels WHERE id = ?')->execute([(int)$k['id']]);
+    vacom_bump_state();
+    $db->commit();
+    vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
+}
+
 case 'dm': {
     // DM openen met een collega: bestaat er al een, dan die; anders aanmaken.
     $ander = vacom_user_by_id(param_int($invoer, 'user_id'));

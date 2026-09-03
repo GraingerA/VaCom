@@ -93,6 +93,7 @@ $start = [
         <p id="chat-topic" class="chat-topic"></p>
       </div>
       <a class="knop mini chat-portal" id="chat-portal" hidden target="_blank" rel="noopener">Open in Portal ↗</a>
+      <button class="knop icoon" id="knop-kanaal-opties" hidden title="Kanaal-opties" aria-label="Kanaal-opties">⋯</button>
     </header>
 
     <div class="berichten" id="berichten">
@@ -139,6 +140,32 @@ $start = [
       <button type="submit" class="knop primair">Aanmaken</button>
     </div>
   </form>
+</dialog>
+
+<!-- Kanaal-opties (v0.4): leden, collega toevoegen, verlaten, sluiten/verwijderen -->
+<dialog id="dialoog-opties" class="dialoog klein">
+  <div class="dialoog-kop">
+    <h2 id="opties-titel">Kanaal</h2>
+    <button type="button" class="knop mini" id="opties-sluit" aria-label="Sluiten">✕</button>
+  </div>
+  <div class="opties-body">
+    <p class="stil" id="opties-project" hidden>Projectkanaal — leden volgen de koppeling in de Portal (projectmanager en designers).</p>
+    <label>Onderwerp
+      <input type="text" id="opties-topic" maxlength="200" placeholder="Waar gaat dit kanaal over?">
+    </label>
+    <h3 class="opties-kop">Leden <span class="stil" id="opties-aantal"></span></h3>
+    <ul class="leden" id="opties-leden"></ul>
+    <div class="toevoegen">
+      <select id="opties-collega"></select>
+      <button type="button" class="knop" id="opties-toevoegen">Toevoegen</button>
+    </div>
+    <p class="melding fout" id="opties-fout" hidden></p>
+    <div class="dialoog-knoppen opties-knoppen">
+      <button type="button" class="knop" id="opties-verlaten" hidden>Kanaal verlaten</button>
+      <button type="button" class="knop" id="opties-archiveren" hidden>Kanaal sluiten</button>
+      <button type="button" class="knop gevaar" id="opties-verwijderen" hidden>Verwijderen</button>
+    </div>
+  </div>
 </dialog>
 
 <!-- Installatie-tip voor iPhone -->

@@ -30,6 +30,9 @@
     kanaalDialoog: $('#dialoog-kanaal'), kanaalForm: $('#form-kanaal'), kanaalNaam: $('#kanaal-naam'),
     kanaalTopic: $('#kanaal-topic'), kanaalFout: $('#kanaal-fout'),
     bannerIos: $('#banner-ios'),
+    optiesKnop: $('#knop-kanaal-opties'), optiesDialoog: $('#dialoog-opties'), optiesTitel: $('#opties-titel'),
+    optiesProject: $('#opties-project'), optiesTopic: $('#opties-topic'), optiesLeden: $('#opties-leden'),
+    optiesAantal: $('#opties-aantal'), optiesCollega: $('#opties-collega'), optiesFout: $('#opties-fout'),
   };
 
   const isMobiel = () => window.matchMedia('(max-width: 800px)').matches;
@@ -308,6 +311,7 @@
     }
     el.leeg.hidden = true;
     el.schrijver.hidden = false;
+    el.optiesKnop.hidden = k.type !== 'public'; // v0.4: opties alleen bij kanalen, niet bij gesprekken
     el.invoer.placeholder = k.type === 'dm' ? `Bericht aan ${kanaalNaam(k)}` : `Bericht in ${kanaalNaam(k)}`;
     el.berichten.innerHTML = '';
     history.replaceState(null, '', '#k=' + id);
@@ -324,6 +328,8 @@
 
   function sluitKanaal() {
     S.current = null; S.msgs = [];
+    el.optiesKnop.hidden = true;
+    if (el.optiesDialoog.open) el.optiesDialoog.close();
     document.body.dataset.pane = 'lijst';
     el.naam.textContent = 'Welkom'; el.topic.textContent = '';
     el.leeg.hidden = false; el.schrijver.hidden = true;
@@ -562,6 +568,138 @@
       pasOverzichtToe(j);
       kiesKanaal(j.channel_id);
     } catch (err) { el.kanaalFout.textContent = err.message; el.kanaalFout.hidden = false; }
+  });
+
+  /* ---------- Kanaal-opties (v0.4) ---------- */
+  // Leden bekijken, collega toevoegen (mag ieder lid), verlaten, en voor de
+  // superadmin/aanmaker: losse kanalen sluiten of verwijderen. Projectkanalen
+  // volgen de Portal: hun leden zijn de gekoppelde manager en designers.
+
+  let optiesInfo = null;
+
+  function optiesFout(tekst) {
+    el.optiesFout.textContent = tekst || '';
+    el.optiesFout.hidden = !tekst;
+  }
+
+  async function openOpties() {
+    const k = S.current;
+    if (!k || k.type !== 'public') return;
+    optiesFout('');
+    el.optiesTitel.textContent = kanaalNaam(k);
+    el.optiesTopic.value = k.topic || '';
+    el.optiesLeden.innerHTML = '<li class="stil">Laden…</li>';
+    el.optiesDialoog.showModal();
+    try {
+      const j = await api('kanaal_leden', { channel_id: k.id });
+      if (S.current !== k) return;
+      optiesInfo = j;
+      renderOpties();
+    } catch (e) { optiesFout(e.message); }
+  }
+
+  function renderOpties() {
+    const k = S.current, j = optiesInfo;
+    if (!k || !j) return;
+    el.optiesProject.hidden = !j.is_project;
+    el.optiesTopic.disabled = j.is_project; // onderwerp van een projectkanaal komt uit de Portal
+    el.optiesAantal.textContent = `(${j.members.length})`;
+    const superadmin = S.me && S.me.role === 'superadmin';
+    el.optiesLeden.innerHTML = j.members.map((m) => {
+      const ik = m.id === S.me.id;
+      const label = m.via === 'portal' ? '<span class="lid-via">via Portal</span>'
+        : m.via === 'handmatig' ? '<span class="lid-via">toegevoegd</span>' : '';
+      const magWeg = !ik && superadmin && m.via === 'handmatig';
+      const weg = magWeg ? `<button type="button" class="knop mini" data-lid-weg="${m.id}" title="Verwijderen uit kanaal">✕</button>` : '';
+      return `<li><span class="stip${isOnline(gebruiker(m.id) || {}) ? ' online' : ''}"></span><span class="naam">${esc(m.name)}${ik ? ' <span class="stil">(jij)</span>' : ''}</span>${label}${weg}</li>`;
+    }).join('') || '<li class="stil">Nog geen leden.</li>';
+    // Collega's die nog geen lid zijn
+    const lidIds = new Set(j.members.map((m) => m.id));
+    const kandidaten = S.users.filter((u) => u.active && !lidIds.has(u.id));
+    el.optiesCollega.innerHTML = kandidaten.length
+      ? '<option value="">Collega toevoegen…</option>' + kandidaten.map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('')
+      : '<option value="">Iedereen is al lid</option>';
+    $('#opties-toevoegen').disabled = !kandidaten.length;
+    // Verlaten kan alleen als je 'handmatig' lid bent (anders kom je terug of hoor je er gewoon bij)
+    const mijnLid = j.members.find((m) => m.id === S.me.id);
+    $('#opties-verlaten').hidden = !(mijnLid && mijnLid.via === 'handmatig');
+    $('#opties-archiveren').hidden = !j.kan_sluiten;
+    $('#opties-verwijderen').hidden = !j.kan_wissen;
+  }
+
+  el.optiesKnop.addEventListener('click', openOpties);
+  $('#opties-sluit').addEventListener('click', () => el.optiesDialoog.close());
+  el.optiesDialoog.addEventListener('click', (e) => { if (e.target === el.optiesDialoog) el.optiesDialoog.close(); });
+
+  el.optiesTopic.addEventListener('change', async () => {
+    if (!S.current || optiesInfo?.is_project) return;
+    try {
+      const j = await api('kanaal_topic', { channel_id: S.current.id, topic: el.optiesTopic.value });
+      pasOverzichtToe(j);
+      el.topic.textContent = S.current.topic || '';
+      toast('Onderwerp bijgewerkt');
+    } catch (e) { optiesFout(e.message); }
+  });
+
+  $('#opties-toevoegen').addEventListener('click', async () => {
+    const uid = Number(el.optiesCollega.value);
+    if (!uid || !S.current) return;
+    const k = S.current;
+    try {
+      const j = await api('lid_toevoegen', { channel_id: k.id, user_id: uid });
+      pasOverzichtToe(j);
+      const naam = (gebruiker(uid) || {}).name || 'collega';
+      toast(`${naam} toegevoegd aan ${kanaalNaam(k)}`);
+      optiesInfo = await api('kanaal_leden', { channel_id: k.id });
+      renderOpties();
+    } catch (e) { optiesFout(e.message); }
+  });
+
+  el.optiesLeden.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-lid-weg]');
+    if (!b || !S.current) return;
+    const k = S.current;
+    try {
+      const j = await api('lid_verwijderen', { channel_id: k.id, user_id: Number(b.dataset.lidWeg) });
+      pasOverzichtToe(j);
+      optiesInfo = await api('kanaal_leden', { channel_id: k.id });
+      renderOpties();
+    } catch (err) { optiesFout(err.message); }
+  });
+
+  $('#opties-verlaten').addEventListener('click', async () => {
+    if (!S.current) return;
+    const naam = kanaalNaam(S.current);
+    try {
+      const j = await api('lid_verwijderen', { channel_id: S.current.id });
+      el.optiesDialoog.close();
+      pasOverzichtToe(j); // je zit er niet meer in → sluitKanaal() via pasOverzichtToe
+      toast(`Je hebt ${naam} verlaten`);
+    } catch (e) { optiesFout(e.message); }
+  });
+
+  $('#opties-archiveren').addEventListener('click', async () => {
+    if (!S.current) return;
+    const naam = kanaalNaam(S.current);
+    if (!confirm(`${naam} sluiten? Het kanaal verdwijnt uit de zijbalk maar blijft doorzoekbaar.`)) return;
+    try {
+      const j = await api('kanaal_sluiten', { channel_id: S.current.id });
+      el.optiesDialoog.close();
+      pasOverzichtToe(j);
+      toast(`${naam} gesloten`);
+    } catch (e) { optiesFout(e.message); }
+  });
+
+  $('#opties-verwijderen').addEventListener('click', async () => {
+    if (!S.current) return;
+    const naam = kanaalNaam(S.current);
+    if (!confirm(`${naam} DEFINITIEF verwijderen, inclusief alle berichten? Dit kan niet ongedaan worden gemaakt.`)) return;
+    try {
+      const j = await api('kanaal_verwijderen', { channel_id: S.current.id });
+      el.optiesDialoog.close();
+      pasOverzichtToe(j);
+      toast(`${naam} verwijderd`);
+    } catch (e) { optiesFout(e.message); }
   });
 
   $('#knop-uitloggen').addEventListener('click', async () => {

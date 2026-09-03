@@ -137,6 +137,21 @@ SQL);
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_reactions_message ON reactions(message_id)');
         $pdo->exec('PRAGMA user_version = 3');
     }
+
+    if ($versie < 4) {
+        // v0.4: lidmaatschap krijgt een herkomst, zodat de Portal-sync weet
+        // wat van hem is en wat niet:
+        //   'auto'      = iedereen-lid (losse kanalen zoals #algemeen);
+        //   'portal'    = gekoppeld via de Portal (manager/designer van het project);
+        //   'handmatig' = door een collega toegevoegd — blijft staan, ook als
+        //                 de Portal-koppeling ontbreekt.
+        $pdo->exec("ALTER TABLE channel_members ADD COLUMN via TEXT NOT NULL DEFAULT 'auto'");
+        // De Portal-sync moet één keer opnieuw draaien om het lidmaatschap van
+        // de projectkanalen volgens de nieuwe regels te zetten, ook al zijn de
+        // Portal-bestanden niet veranderd.
+        $pdo->exec("DELETE FROM meta WHERE key = 'portal_stempel'");
+        $pdo->exec('PRAGMA user_version = 4');
+    }
 }
 
 /* ---------- Kleine helpers rond de database ---------- */

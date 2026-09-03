@@ -347,3 +347,20 @@ select option { background: #1a2029; color: var(--tekst); }
   border-radius: var(--r-kaart); border: 1px solid var(--lijn); margin-top: 2px;
 }
 .tekst.alleen-emoji { font-size: 34px; line-height: 1.25; }
+
+/* ---------- Kanaal-opties (v0.4) ---------- */
+
+.opties-body { padding: 16px 20px 20px; }
+.opties-body label { margin-bottom: 14px; }
+.opties-body input:disabled { opacity: 0.6; }
+.opties-kop { font-size: 13px; font-weight: 700; color: var(--stil); margin: 8px 0 6px; }
+.leden { list-style: none; margin: 0 0 12px; padding: 0; max-height: 240px; overflow-y: auto; }
+.leden li { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-top: 1px solid var(--lijn); font-size: 14px; }
+.leden li:first-child { border-top: 0; }
+.leden .naam { flex: 1; }
+.lid-via { font-size: 11px; color: var(--stil); background: var(--vlak); border: 1px solid var(--lijn); border-radius: 999px; padding: 1px 8px; }
+.toevoegen { display: flex; gap: 8px; align-items: center; }
+.toevoegen select { flex: 1; margin: 0; }
+.opties-knoppen { justify-content: flex-start; flex-wrap: wrap; margin-top: 16px; }
+.knop.gevaar { color: var(--rood); border-color: rgba(224, 85, 95, 0.4); }
+.knop.gevaar:hover { background: rgba(224, 85, 95, 0.12); }

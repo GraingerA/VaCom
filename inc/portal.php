@@ -10,7 +10,11 @@
  *     gaat altijd via de Portal);
  *   - per Portal-project automatisch een kanaal (projects.json); verdwijnt een
  *     project in de prullenbak, dan wordt het kanaal gearchiveerd (blijft
- *     doorzoekbaar).
+ *     doorzoekbaar);
+ *   - v0.4: van een projectkanaal is alleen lid wie in de Portal aan het
+ *     project gekoppeld is (projectmanager of designer van een middel), plus
+ *     wie handmatig is toegevoegd. Ook de superadmin ziet alleen zijn eigen
+ *     projecten. Losse kanalen (#algemeen e.d.) blijven voor iedereen.
  *
  * Alles hier is LEZEN uit ipp_data. VaCom schrijft nooit in de Portal-data.
  * De synchronisatie is goedkoop: drie filemtime()-aanroepen per request, en
@@ -41,13 +45,22 @@ function vacom_portal_gebruikers(): array {
     return $uit;
 }
 
-/** Actieve projecten (token => [name, manager]) en tokens in de prullenbak. */
+/** Actieve projecten (token => [name, manager, gekoppeld]) en tokens in de prullenbak.
+ *  'gekoppeld' = naam-sleutels van iedereen die in de Portal aan het project hangt:
+ *  de projectmanager en de designers van de middelen (v0.4). */
 function vacom_portal_projecten(): array {
     $actief = [];
     foreach (vacom_portal_lees('projects.json') ?? [] as $p) {
         $token = (string)($p['token'] ?? '');
         if ($token === '' || trim((string)($p['name'] ?? '')) === '') continue;
-        $actief[$token] = ['name' => trim((string)$p['name']), 'manager' => trim((string)($p['manager'] ?? ''))];
+        $manager = trim((string)($p['manager'] ?? ''));
+        $gekoppeld = [];
+        if ($manager !== '') $gekoppeld[vacom_naam_sleutel($manager)] = true;
+        foreach ($p['onderdelen'] ?? [] as $o) {
+            $d = trim((string)($o['designer'] ?? ''));
+            if ($d !== '') $gekoppeld[vacom_naam_sleutel($d)] = true;
+        }
+        $actief[$token] = ['name' => trim((string)$p['name']), 'manager' => $manager, 'gekoppeld' => $gekoppeld];
     }
     $prullenbak = [];
     foreach (vacom_portal_lees('trash.json') ?? [] as $t) {
@@ -91,6 +104,12 @@ function vacom_portal_stempel(): string {
 function vacom_portal_sync(bool $forceer = false): void {
     if (!VACOM_PORTAL) return;
     $stempel = vacom_portal_stempel();
+    // v0.4: zolang de lidmaatschapsregels van deze versie nog nooit zijn
+    // toegepast, altijd draaien — ook als de Portal-bestanden niet veranderd
+    // zijn. Dit vlaggetje wordt alleen door déze code gezet, zodat een oude
+    // portal.php (bv. halverwege een FTP-upload) het niet per ongeluk kan
+    // afvinken.
+    if (vacom_meta('lidmaatschap') !== '4') $forceer = true;
     if (!$forceer && $stempel === vacom_meta('portal_stempel')) return;
 
     $db = vacom_db();
@@ -176,14 +195,51 @@ function vacom_portal_sync(bool $forceer = false): void {
         }
     }
 
-    /* ---- Iedereen lid van elk openbaar kanaal (nieuwe rijen beginnen bij "nu") ---- */
-    $st = $db->prepare("INSERT OR IGNORE INTO channel_members(channel_id, user_id, last_read_id, joined)
-                        SELECT c.id, u.id, ?, ? FROM channels c, users u
-                        WHERE c.type = 'public' AND c.archived = 0 AND u.active = 1");
+    /* ---- Losse kanalen: iedereen lid (nieuwe rijen beginnen bij "nu") ---- */
+    $st = $db->prepare("INSERT OR IGNORE INTO channel_members(channel_id, user_id, last_read_id, joined, via)
+                        SELECT c.id, u.id, ?, ?, 'auto' FROM channels c, users u
+                        WHERE c.type = 'public' AND c.archived = 0 AND c.project_token IS NULL AND u.active = 1");
     $st->execute([$maxId, $nu]);
     if ($st->rowCount() > 0) $veranderd = true;
 
+    /* ---- Projectkanalen: alleen wie gekoppeld is (v0.4) ----
+       Lid via 'portal' = manager of designer van een middel, volgens de Portal.
+       De sync voegt gekoppelden toe en haalt wie niet meer gekoppeld is er weer
+       uit — maar laat 'handmatig' toegevoegde collega's met rust. Oude
+       'auto'-rijen (van vóór v0.4, toen iedereen overal lid was) worden hier
+       omgezet of opgeruimd. Superadmin krijgt bewust géén uitzondering. */
+    $userIdPerKey = [];
+    foreach ($db->query('SELECT id, name_key FROM users WHERE active = 1')->fetchAll() as $u) {
+        $userIdPerKey[$u['name_key']] = (int)$u['id'];
+    }
+    $kanaalRijen = $db->query('SELECT id, project_token FROM channels WHERE project_token IS NOT NULL AND archived = 0')->fetchAll();
+    $insLid  = $db->prepare("INSERT OR IGNORE INTO channel_members(channel_id, user_id, last_read_id, joined, via) VALUES (?,?,?,?,'portal')");
+    $updLid  = $db->prepare("UPDATE channel_members SET via = 'portal' WHERE channel_id = ? AND user_id = ? AND via = 'auto'");
+    foreach ($kanaalRijen as $k) {
+        $keys = $projecten['actief'][$k['project_token']]['gekoppeld'] ?? [];
+        $ids  = [];
+        foreach (array_keys($keys) as $key) {
+            if (isset($userIdPerKey[$key])) $ids[] = $userIdPerKey[$key];
+        }
+        foreach ($ids as $uid) {
+            $insLid->execute([(int)$k['id'], $uid, $maxId, $nu]);
+            if ($insLid->rowCount() > 0) $veranderd = true;
+            $updLid->execute([(int)$k['id'], $uid]);
+        }
+        // Wie niet (meer) gekoppeld is en niet handmatig is toegevoegd → eruit.
+        $sql = "DELETE FROM channel_members WHERE channel_id = ? AND via IN ('auto','portal')";
+        $params = [(int)$k['id']];
+        if ($ids) {
+            $sql .= ' AND user_id NOT IN (' . implode(',', array_fill(0, count($ids), '?')) . ')';
+            $params = array_merge($params, $ids);
+        }
+        $del = $db->prepare($sql);
+        $del->execute($params);
+        if ($del->rowCount() > 0) $veranderd = true;
+    }
+
     $db->prepare("INSERT OR REPLACE INTO meta(key, value) VALUES ('portal_stempel', ?)")->execute([$stempel]);
+    $db->exec("INSERT OR REPLACE INTO meta(key, value) VALUES ('lidmaatschap', '4')");
     if ($veranderd) vacom_bump_state();
     $db->commit();
 }

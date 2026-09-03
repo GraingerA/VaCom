@@ -30,6 +30,15 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.4.0 <span class="stil">— 3 september 2026</span></h2>
+    <ul>
+      <li><strong>Je ziet alleen nog de projectkanalen van je eigen projecten</strong> — waar je projectmanager bent of designer van een middel (zoals in de Portal vastgelegd). Dat geldt voor iedereen, ook voor de superadmin. Word je aan een project gekoppeld, dan verschijnt het kanaal vanzelf; ga je eraf, dan verdwijnt het weer. #algemeen en andere losse kanalen blijven voor iedereen.</li>
+      <li><strong>Kanaal-opties</strong> via de ⋯-knop rechtsboven in een kanaal: leden bekijken, een collega toevoegen (mag iedereen), het onderwerp aanpassen en een kanaal verlaten. De superadmin kan losse kanalen sluiten (blijft doorzoekbaar) of definitief verwijderen.</li>
+      <li>Collega's die je handmatig toevoegt blijven lid, ook als de Portal ze niet aan het project koppelt.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.3.0 <span class="stil">— 3 september 2026</span></h2>
     <ul>
       <li><strong>Reageer met emoji.</strong> Wijs een bericht aan (of tik erop) en klik op het ☺+ — kies een emoji en hij verschijnt als knopje onder het bericht. Nog een keer klikken haalt jouw reactie weer weg; je ziet wie er gereageerd hebben als je erop aanwijst.</li>
