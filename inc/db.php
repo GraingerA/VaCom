@@ -120,6 +120,13 @@ CREATE TABLE ratelimit (
 PRAGMA user_version = 1;
 SQL);
     }
+
+    if ($versie < 2) {
+        // v0.2: Portal-modus — een kanaal kan aan een Portal-project hangen.
+        $pdo->exec('ALTER TABLE channels ADD COLUMN project_token TEXT');
+        $pdo->exec('CREATE UNIQUE INDEX idx_channels_project ON channels(project_token)');
+        $pdo->exec('PRAGMA user_version = 2');
+    }
 }
 
 /* ---------- Kleine helpers rond de database ---------- */

@@ -16,13 +16,14 @@
 
   const S = {
     csrf: window.VACOM.csrf,
-    me: null, channels: [], users: [], state: 0, maxId: 0,
+    me: null, channels: [], users: [], state: 0, maxId: 0, portalUrl: '',
     current: null, msgs: [], hasMore: false,
     pollTimer: null, pollFouten: 0, versturen: false, gelezenTot: 0,
   };
 
   const el = {
     kanalen: $('#lijst-kanalen'), dms: $('#lijst-dms'), collegas: $('#lijst-collegas'),
+    projecten: $('#lijst-projecten'), sectieProjecten: $('#sectie-projecten'), chatPortal: $('#chat-portal'),
     berichten: $('#berichten'), leeg: $('#leeg'), naam: $('#chat-naam'), topic: $('#chat-topic'),
     schrijver: $('#schrijver'), invoer: $('#invoer'), stuur: $('#knop-stuur'), terug: $('#knop-terug'),
     zoekDialoog: $('#dialoog-zoeken'), zoekInvoer: $('#zoek-invoer'), zoekResultaten: $('#zoek-resultaten'),
@@ -120,6 +121,7 @@
 
   function pasOverzichtToe(o) {
     S.me = o.me; S.channels = o.channels; S.users = o.users; S.state = o.state;
+    S.portalUrl = o.portal ? (o.portal_url || '') : '';
     S.maxId = Math.max(S.maxId, o.max_id);
     if (S.current) {
       const k = S.channels.find((c) => c.id === S.current.id);
@@ -136,7 +138,11 @@
       const badge = k.unread ? `<span class="badge">${k.unread}</span>` : '';
       return `<li><button type="button" data-kanaal="${k.id}" class="${klassen}">${extra}<span class="naam">${esc(label)}</span>${badge}</button></li>`;
     };
-    el.kanalen.innerHTML = S.channels.filter((k) => k.type === 'public')
+    // Projectkanalen (uit de Portal) apart van de losse kanalen.
+    const projecten = S.channels.filter((k) => k.type === 'public' && k.project_token);
+    el.sectieProjecten.hidden = projecten.length === 0;
+    el.projecten.innerHTML = projecten.map((k) => item(k, k.name, '<span class="hash">#</span>')).join('');
+    el.kanalen.innerHTML = S.channels.filter((k) => k.type === 'public' && !k.project_token)
       .map((k) => item(k, k.name, '<span class="hash">#</span>')).join('');
     el.dms.innerHTML = S.channels.filter((k) => k.type === 'dm')
       .map((k) => {
@@ -160,6 +166,12 @@
     document.body.dataset.pane = 'chat';
     el.naam.textContent = kanaalNaam(k);
     el.topic.textContent = k.type === 'dm' ? '' : (k.topic || '');
+    if (k.project_token && S.portalUrl) {
+      el.chatPortal.href = S.portalUrl + 'project_ipp.php?p=' + encodeURIComponent(k.project_token);
+      el.chatPortal.hidden = false;
+    } else {
+      el.chatPortal.hidden = true;
+    }
     el.leeg.hidden = true;
     el.schrijver.hidden = false;
     el.invoer.placeholder = k.type === 'dm' ? `Bericht aan ${kanaalNaam(k)}` : `Bericht in ${kanaalNaam(k)}`;
@@ -423,7 +435,11 @@
   if (m && S.channels.some((c) => c.id === Number(m[1]))) {
     kiesKanaal(Number(m[1]));
   } else if (!isMobiel() && S.channels.length) {
-    kiesKanaal(S.channels[0].id);
+    // Standaard #algemeen, anders het eerste losse kanaal, anders het eerste wat er is.
+    const start = S.channels.find((c) => c.type === 'public' && c.name === 'algemeen')
+      || S.channels.find((c) => c.type === 'public' && !c.project_token)
+      || S.channels[0];
+    kiesKanaal(start.id);
   }
   planPoll();
 })();

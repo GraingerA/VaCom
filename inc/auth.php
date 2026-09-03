@@ -14,16 +14,23 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/portal.php';
 
 define('VACOM_SESSIE_DUUR', 30 * 24 * 60 * 60);
 define('VACOM_BOOTSTRAP_FILE', VACOM_DATA . '/BOOTSTRAP_WACHTWOORD.txt');
 
 /* ---------- Sessies ---------- */
 
+/**
+ * In Portal-modus gebruiken we bewust de standaard sessienaam: dat is precies
+ * de sessie die de Portal zet bij het inloggen (met logged_in_as, role,
+ * is_external). Los draaiend krijgt VaCom een eigen sessienaam zodat hij
+ * niet botst met andere apps op dezelfde (gedeelde) server.
+ */
 function vacom_session_start(): void {
     if (session_status() === PHP_SESSION_ACTIVE) return;
     ini_set('session.gc_maxlifetime', (string)VACOM_SESSIE_DUUR);
-    session_name('vacom_sessie');
+    if (!VACOM_PORTAL) session_name('vacom_sessie');
     $cookie = [
         'lifetime' => VACOM_SESSIE_DUUR,
         'path'     => '/',
@@ -36,7 +43,7 @@ function vacom_session_start(): void {
     session_start();
 
     // Sliding expiry: elk bezoek van een ingelogde gebruiker verlengt de cookie.
-    if (!empty($_SESSION['vacom_user_id'])) {
+    if (!empty($_SESSION['vacom_user_id']) || !empty($_SESSION['logged_in_as'])) {
         $cookie['expires'] = time() + VACOM_SESSIE_DUUR;
         unset($cookie['lifetime']);
         setcookie(session_name(), session_id(), $cookie);
@@ -105,12 +112,14 @@ function vacom_create_user(string $naam, string $wachtwoord, string $rol = 'lid'
  */
 function vacom_bootstrap_if_needed(): void {
     $db = vacom_db();
-    if ((int)$db->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0) return;
-
     if ((int)$db->query('SELECT COUNT(*) FROM channels')->fetchColumn() === 0) {
         $db->prepare("INSERT INTO channels(type, name, topic, created) VALUES ('public', 'algemeen', 'Voor alles en iedereen', ?)")
            ->execute([vacom_now()]);
     }
+    // In Portal-modus komen de accounts uit de Portal; geen eigen superadmin nodig.
+    if (VACOM_PORTAL) return;
+    if ((int)$db->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0) return;
+
     $wachtwoord = bin2hex(random_bytes(12));
     if (vacom_create_user('Ad', $wachtwoord, 'superadmin') === null) return;
     $tekst  = "VaCom — eenmalig startwachtwoord\n\n";
@@ -146,6 +155,7 @@ function vacom_client_ip(): string {
 
 /** Probeer in te loggen. Geeft de gebruiker terug, of een foutmelding als string. */
 function vacom_login(string $naam, string $wachtwoord) {
+    if (VACOM_PORTAL) return 'Log in via de Portal.';
     vacom_bootstrap_if_needed();
     if (!vacom_ratelimit_ok('login:' . vacom_client_ip(), 8, 15 * 60)) {
         return 'Te veel pogingen. Probeer het over een kwartier opnieuw.';
@@ -182,12 +192,18 @@ function vacom_user(): ?array {
     static $cache = false;
     if ($cache !== false) return $cache;
     vacom_session_start();
-    $id = (int)($_SESSION['vacom_user_id'] ?? 0);
-    if ($id <= 0) return $cache = null;
-    $u = vacom_user_by_id($id);
-    if ($u === null || !(int)$u['active']) {
-        unset($_SESSION['vacom_user_id']);
-        return $cache = null;
+    if (VACOM_PORTAL) {
+        $u = vacom_portal_sessie_gebruiker();
+        if ($u === null) return $cache = null;
+        $id = (int)$u['id'];
+    } else {
+        $id = (int)($_SESSION['vacom_user_id'] ?? 0);
+        if ($id <= 0) return $cache = null;
+        $u = vacom_user_by_id($id);
+        if ($u === null || !(int)$u['active']) {
+            unset($_SESSION['vacom_user_id']);
+            return $cache = null;
+        }
     }
     if (empty($u['last_seen']) || strtotime($u['last_seen']) < time() - 60) {
         $u['last_seen'] = vacom_now();

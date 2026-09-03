@@ -1,8 +1,10 @@
 <?php
 /**
  * VaCom — gebruikers.
- * Superadmin: collega's toevoegen, wachtwoord resetten, (de)activeren, rol.
- * Iedereen: eigen wachtwoord wijzigen.
+ * Losse modus — superadmin: collega's toevoegen, wachtwoord resetten,
+ * (de)activeren, rol; iedereen: eigen wachtwoord wijzigen.
+ * Portal-modus: accounts en wachtwoorden leven in de Portal; deze pagina
+ * toont alleen wie er meedoen en verwijst door.
  */
 
 declare(strict_types=1);
@@ -11,11 +13,11 @@ require_once __DIR__ . '/inc/auth.php';
 
 $ik = vacom_require_login();
 $db = vacom_db();
-$admin = vacom_is_superadmin();
+$admin = vacom_is_superadmin() && !VACOM_PORTAL;
 $melding = '';
 $fout = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (!VACOM_PORTAL && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!vacom_csrf_ok($_POST['csrf'] ?? null)) {
         $fout = 'De pagina was verlopen. Probeer het opnieuw.';
     } else {
@@ -88,11 +90,32 @@ $csrf = vacom_csrf();
 <main class="pagina">
   <header class="pagina-kop">
     <a class="knop" href="index.php">‹ Terug naar VaCom</a>
-    <h1><?= $admin ? 'Gebruikers' : 'Mijn account' ?></h1>
+    <h1><?= VACOM_PORTAL ? 'Collega\'s' : ($admin ? 'Gebruikers' : 'Mijn account') ?></h1>
   </header>
 
   <?php if ($fout !== ''): ?><p class="melding fout"><?= h($fout) ?></p><?php endif; ?>
   <?php if ($melding !== ''): ?><p class="melding ok"><?= $melding ?></p><?php endif; ?>
+
+  <?php if (VACOM_PORTAL): ?>
+  <section class="kaart glas">
+    <h2>Accounts komen uit de Portal</h2>
+    <p class="uitleg">VaCom gebruikt de inlog van de Invite Project Portal. Een collega toevoegen,
+      een wachtwoord wijzigen of iemand de toegang ontnemen doe je dus <a href="<?= VACOM_PORTAL_URL ?>">in de Portal</a>;
+      VaCom neemt dat vanzelf over. Klanten (externe accounts) hebben geen toegang tot VaCom.</p>
+    <table class="tabel">
+      <thead><tr><th>Naam</th><th>Rol in VaCom</th><th>Laatst gezien</th></tr></thead>
+      <tbody>
+      <?php foreach ($gebruikers as $u): if (!(int)$u['active']) continue; ?>
+        <tr>
+          <td><?= h($u['name']) ?><?= (int)$u['id'] === (int)$ik['id'] ? ' <span class="tag">jij</span>' : '' ?></td>
+          <td><?= h($u['role']) ?></td>
+          <td class="stil"><?= $u['last_seen'] ? h(date('d-m-Y H:i', strtotime($u['last_seen']))) : '—' ?></td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  </section>
+  <?php else: ?>
 
   <section class="kaart glas">
     <h2>Mijn wachtwoord wijzigen</h2>
@@ -161,6 +184,7 @@ $csrf = vacom_csrf();
       </tbody>
     </table>
   </section>
+  <?php endif; ?>
   <?php endif; ?>
 
   <p class="login-voet">VaCom v<?= VACOM_VERSION ?> · <a href="changelog.php">wat is er nieuw</a></p>

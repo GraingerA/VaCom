@@ -13,7 +13,7 @@ require_once __DIR__ . '/auth.php';
 function vacom_overzicht(PDO $db, array $ik): array {
     $mijnId = (int)$ik['id'];
     $st = $db->prepare(<<<'SQL'
-SELECT c.id, c.type, c.name, c.topic, c.dm_key, m.last_read_id,
+SELECT c.id, c.type, c.name, c.topic, c.dm_key, c.project_token, m.last_read_id,
        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.id > m.last_read_id AND x.user_id != m.user_id AND x.deleted = 0) AS unread,
        (SELECT MAX(id) FROM messages x WHERE x.channel_id = c.id) AS last_id
 FROM channels c JOIN channel_members m ON m.channel_id = c.id
@@ -24,12 +24,13 @@ SQL);
     $kanalen = [];
     foreach ($st->fetchAll() as $k) {
         $rij = [
-            'id'      => (int)$k['id'],
-            'type'    => $k['type'],
-            'name'    => $k['name'],
-            'topic'   => $k['topic'],
-            'unread'  => (int)$k['unread'],
-            'last_id' => (int)($k['last_id'] ?? 0),
+            'id'            => (int)$k['id'],
+            'type'          => $k['type'],
+            'name'          => $k['name'],
+            'topic'         => $k['topic'],
+            'project_token' => $k['project_token'] ?: null,
+            'unread'        => (int)$k['unread'],
+            'last_id'       => (int)($k['last_id'] ?? 0),
         ];
         if ($k['type'] === 'dm') {
             [$a, $b] = array_map('intval', explode(':', (string)$k['dm_key']));
@@ -39,11 +40,13 @@ SQL);
     }
     $gebruikers = array_map('vacom_public_user', $db->query('SELECT * FROM users ORDER BY name COLLATE NOCASE')->fetchAll());
     return [
-        'me'       => vacom_public_user($ik),
-        'channels' => $kanalen,
-        'users'    => $gebruikers,
-        'state'    => (int)vacom_meta('state'),
-        'max_id'   => vacom_max_message_id(),
-        'version'  => VACOM_VERSION,
+        'me'         => vacom_public_user($ik),
+        'channels'   => $kanalen,
+        'users'      => $gebruikers,
+        'state'      => (int)vacom_meta('state'),
+        'max_id'     => vacom_max_message_id(),
+        'version'    => VACOM_VERSION,
+        'portal'     => VACOM_PORTAL,
+        'portal_url' => VACOM_PORTAL ? VACOM_PORTAL_URL : '',
     ];
 }

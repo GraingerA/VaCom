@@ -65,6 +65,10 @@ $start = [
         <h2>Berichten</h2>
         <ul id="lijst-dms"></ul>
       </section>
+      <section id="sectie-projecten" hidden>
+        <h2>Projecten</h2>
+        <ul id="lijst-projecten"></ul>
+      </section>
       <section>
         <h2>Collega's</h2>
         <ul id="lijst-collegas"></ul>
@@ -74,7 +78,7 @@ $start = [
     <div class="zijbalk-voet">
       <span class="ik"><span class="stip online"></span><?= h($ik['name']) ?></span>
       <span class="voet-knoppen">
-        <a class="knop mini" href="gebruikers.php" title="<?= vacom_is_superadmin() ? 'Gebruikers' : 'Mijn wachtwoord' ?>">⚙</a>
+        <a class="knop mini" href="gebruikers.php" title="<?= VACOM_PORTAL ? 'Collega\'s' : (vacom_is_superadmin() ? 'Gebruikers' : 'Mijn wachtwoord') ?>">⚙</a>
         <button class="knop mini" id="knop-uitloggen" title="Uitloggen">⏻</button>
       </span>
     </div>
@@ -88,6 +92,7 @@ $start = [
         <h1 id="chat-naam">Welkom</h1>
         <p id="chat-topic" class="chat-topic"></p>
       </div>
+      <a class="knop mini chat-portal" id="chat-portal" hidden target="_blank" rel="noopener">Open in Portal ↗</a>
     </header>
 
     <div class="berichten" id="berichten">

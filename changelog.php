@@ -30,9 +30,20 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.2.0 <span class="stil">— 3 september 2026</span></h2>
+    <ul>
+      <li><strong>VaCom hoort nu bij de Portal.</strong> Je logt in met je Portal-naam en -wachtwoord; wie in de Portal al ingelogd is, is in VaCom ook ingelogd. Klanten hebben geen toegang.</li>
+      <li>Collega's komen automatisch uit de Portal. Accounts en wachtwoorden beheer je daar.</li>
+      <li><strong>Elk Portal-project krijgt zijn eigen kanaal</strong>, onder "Projecten" in de zijbalk, met een knop naar het project. Gaat een project in de prullenbak, dan verdwijnt het kanaal uit de lijst maar blijft het doorzoekbaar.</li>
+      <li>Losse kanalen (#algemeen en wat je zelf aanmaakt) blijven gewoon bestaan.</li>
+      <li>De naam: VaCom, van Vastgoed Communicatie. Eerder heette de testversie wurd.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.1.0 <span class="stil">— 3 september 2026</span></h2>
     <ul>
-      <li>Eerste testversie van VaCom: inloggen, kanalen, directe berichten en collega's in de zijbalk.</li>
+      <li>Eerste testversie: inloggen, kanalen, directe berichten en collega's in de zijbalk.</li>
       <li>Berichten verschijnen binnen een paar seconden bij iedereen (de app vraagt elke 3 seconden om nieuws).</li>
       <li>Zoeken door alle berichten (vergrootglas linksboven).</li>
       <li>Ongelezen-tellers per kanaal en in de tabbladtitel; groene stip bij collega's die online zijn.</li>
