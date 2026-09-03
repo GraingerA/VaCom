@@ -4,7 +4,7 @@
  *
  *   php -d extension_dir=C:\php\ext -d extension=gd tools/maak_iconen.php
  *
- * Ontwerp: donkere achtergrond, gouden tekstballon met een 'w'.
+ * Ontwerp: donkere achtergrond, gouden tekstballon met een 'V'.
  */
 
 declare(strict_types=1);
@@ -48,12 +48,12 @@ function maak(int $maat, string $pad, string $font, bool $maskable): void {
 
     // De letter w, gecentreerd in de ballon
     $pt = $b * 0.52 * 0.75;                    // puntgrootte ~ pixels * 0.75
-    $box = imagettfbbox($pt, 0, $font, 'w');
+    $box = imagettfbbox($pt, 0, $font, 'V');
     $tw = $box[2] - $box[0];
     $th = $box[1] - $box[7];
     $tx = (int)($x + ($b - $tw) / 2 - $box[0]);
     $ty = (int)($y + ($hgt + $th) / 2 - $box[1] - $th * 0.06);
-    imagettftext($img, $pt, 0, $tx, $ty, $bg, $font, 'w');
+    imagettftext($img, $pt, 0, $tx, $ty, $bg, $font, 'V');
 
     imagepng($img, $pad, 6);
     echo "→ $pad\n";

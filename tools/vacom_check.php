@@ -1,10 +1,10 @@
 <?php
 /**
- * wurd — servercheck.
+ * VaCom — servercheck.
  *
- * Zet dit bestand via FTP op de server (bijv. test.invite.nl/wurd/wurd_check.php),
+ * Zet dit bestand via FTP op de server (bijv. test.invite.nl/vacom/vacom_check.php),
  * open het in de browser en stuur de uitkomst door. Het test wat de hosting
- * aankan voor wurd: SQLite + full-text search, de cryptografie voor
+ * aankan voor VaCom: SQLite + full-text search, de cryptografie voor
  * pushnotificaties, schrijfrechten buiten de webroot en de PHP-limieten.
  *
  * Verwijder het bestand daarna weer van de server — het toont serverdetails.
@@ -50,21 +50,21 @@ foreach ([
 
 /* ---------- Schrijven buiten de webroot ---------- */
 $webroot = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?: __DIR__), '/\\');
-$buiten  = dirname($webroot) . '/wurd_check_tmp';
+$buiten  = dirname($webroot) . '/vacom_check_tmp';
 $kanBuiten = @mkdir($buiten, 0755) || is_dir($buiten);
 $kanBuiten = $kanBuiten && @file_put_contents($buiten . '/test.txt', 'ok') !== false;
 check('Schrijven buiten de webroot', $kanBuiten,
     $kanBuiten ? "gelukt in $buiten" : "niet gelukt ($buiten) — dan gebruiken we .json.php-slot + submap in de webroot", false);
 if ($kanBuiten) { @unlink($buiten . '/test.txt'); @rmdir($buiten); }
 
-$lokaal = __DIR__ . '/wurd_check_tmp';
+$lokaal = __DIR__ . '/vacom_check_tmp';
 $kanLokaal = @mkdir($lokaal, 0755) || is_dir($lokaal);
 $kanLokaal = $kanLokaal && @file_put_contents($lokaal . '/test.txt', 'ok') !== false;
 check('Schrijven in de eigen map', $kanLokaal, $kanLokaal ? 'gelukt' : 'niet gelukt — maprechten controleren');
 if ($kanLokaal) { @unlink($lokaal . '/test.txt'); @rmdir($lokaal); }
 
 /* ---------- SQLite: WAL + FTS5 ---------- */
-$dbPad = __DIR__ . '/wurd_check.sqlite';
+$dbPad = __DIR__ . '/vacom_check.sqlite';
 try {
     if (!extension_loaded('pdo_sqlite')) throw new RuntimeException('pdo_sqlite ontbreekt');
     $pdo = new PDO('sqlite:' . $dbPad, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
@@ -75,8 +75,8 @@ try {
         'WAL laat lezen en schrijven tegelijk toe (meerdere collega\'s tegelijk)', false);
     try {
         $pdo->exec('create virtual table t using fts5(body)');
-        $pdo->exec("insert into t(body) values ('Wurd is Frysk foar wurd'), ('hjoed gjin nijs')");
-        $hit = $pdo->query("select count(*) from t where t match 'frysk'")->fetchColumn();
+        $pdo->exec("insert into t(body) values ('VaCom is de interne chat van Invite'), ('hjoed gjin nijs')");
+        $hit = $pdo->query("select count(*) from t where t match 'chat'")->fetchColumn();
         check('SQLite FTS5 (full-text search)', (int)$hit === 1, 'zoeken door alle berichten in milliseconden');
     } catch (Throwable $e) {
         check('SQLite FTS5 (full-text search)', false, 'niet beschikbaar (' . $e->getMessage() . ') — dan LIKE-zoeken of eigen index', false);
@@ -126,7 +126,7 @@ $ok = array_reduce($rows, fn($c, $r) => $c && ($r[1] || !$r[3]), true);
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>wurd — servercheck</title>
+<title>VaCom — servercheck</title>
 <style>
   body { font: 15px/1.5 system-ui, sans-serif; background: #14181f; color: #e8e6df; margin: 0; padding: 24px; }
   h1 { color: #fbbc43; font-size: 22px; margin: 0 0 4px; }
@@ -141,11 +141,11 @@ $ok = array_reduce($rows, fn($c, $r) => $c && ($r[1] || !$r[3]), true);
 </style>
 </head>
 <body>
-<h1>wurd — servercheck</h1>
+<h1>VaCom — servercheck</h1>
 <p class="sub"><?= htmlspecialchars((string)($_SERVER['HTTP_HOST'] ?? ''), ENT_QUOTES) ?> · <?= date('d-m-Y H:i') ?></p>
 
 <div class="kop"><?= $ok
-    ? '<span class="ok">Alles wat wurd nodig heeft is aanwezig.</span>'
+    ? '<span class="ok">Alles wat VaCom nodig heeft is aanwezig.</span>'
     : '<span class="warn">Niet alles is aanwezig — zie de rode regels; daar hebben we een alternatief voor.</span>' ?></div>
 
 <table>

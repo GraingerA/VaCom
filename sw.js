@@ -1,11 +1,11 @@
 /*
- * wurd — service worker.
- * Bewust minimaal: wurd is een live-app, dus we cachen géén pagina's of API-
+ * VaCom — service worker.
+ * Bewust minimaal: VaCom is een live-app, dus we cachen géén pagina's of API-
  * antwoorden (dat zou na een FTP-upload oude versies laten hangen). De worker
  * is er zodat de app installeerbaar is en om een nette offline-pagina te tonen.
  * Pushnotificaties komen hier later bij.
  */
-const VERSIE = 'wurd-0.1.0';
+const VERSIE = 'vacom-0.1.0';
 const OFFLINE = './offline.html';
 
 self.addEventListener('install', (e) => {

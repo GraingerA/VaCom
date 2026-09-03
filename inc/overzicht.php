@@ -1,6 +1,6 @@
 <?php
 /**
- * wurd — het overzicht voor de app: mijn kanalen met ongelezen-tellers, alle
+ * VaCom — het overzicht voor de app: mijn kanalen met ongelezen-tellers, alle
  * collega's, en de tellers waarmee de client pollt. Wordt gebruikt door
  * index.php (eerste keer laden) én api.php (daarna), zodat beide altijd
  * hetzelfde teruggeven.
@@ -10,7 +10,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/auth.php';
 
-function wurd_overzicht(PDO $db, array $ik): array {
+function vacom_overzicht(PDO $db, array $ik): array {
     $mijnId = (int)$ik['id'];
     $st = $db->prepare(<<<'SQL'
 SELECT c.id, c.type, c.name, c.topic, c.dm_key, m.last_read_id,
@@ -37,13 +37,13 @@ SQL);
         }
         $kanalen[] = $rij;
     }
-    $gebruikers = array_map('wurd_public_user', $db->query('SELECT * FROM users ORDER BY name COLLATE NOCASE')->fetchAll());
+    $gebruikers = array_map('vacom_public_user', $db->query('SELECT * FROM users ORDER BY name COLLATE NOCASE')->fetchAll());
     return [
-        'me'       => wurd_public_user($ik),
+        'me'       => vacom_public_user($ik),
         'channels' => $kanalen,
         'users'    => $gebruikers,
-        'state'    => (int)wurd_meta('state'),
-        'max_id'   => wurd_max_message_id(),
-        'version'  => WURD_VERSION,
+        'state'    => (int)vacom_meta('state'),
+        'max_id'   => vacom_max_message_id(),
+        'version'  => VACOM_VERSION,
     ];
 }

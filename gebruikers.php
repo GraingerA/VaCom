@@ -1,6 +1,6 @@
 <?php
 /**
- * wurd — gebruikers.
+ * VaCom — gebruikers.
  * Superadmin: collega's toevoegen, wachtwoord resetten, (de)activeren, rol.
  * Iedereen: eigen wachtwoord wijzigen.
  */
@@ -9,14 +9,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/inc/auth.php';
 
-$ik = wurd_require_login();
-$db = wurd_db();
-$admin = wurd_is_superadmin();
+$ik = vacom_require_login();
+$db = vacom_db();
+$admin = vacom_is_superadmin();
 $melding = '';
 $fout = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!wurd_csrf_ok($_POST['csrf'] ?? null)) {
+    if (!vacom_csrf_ok($_POST['csrf'] ?? null)) {
         $fout = 'De pagina was verlopen. Probeer het opnieuw.';
     } else {
         $actie = (string)($_POST['actie'] ?? '');
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $naam = (string)($_POST['naam'] ?? '');
             $ww   = trim((string)($_POST['wachtwoord'] ?? ''));
             $rol  = (string)($_POST['rol'] ?? 'lid');
-            $u = wurd_create_user($naam, $ww, $rol, (string)($_POST['email'] ?? ''));
+            $u = vacom_create_user($naam, $ww, $rol, (string)($_POST['email'] ?? ''));
             if ($u === null) {
                 $fout = 'Niet gelukt: naam leeg of al in gebruik, of wachtwoord korter dan 8 tekens.';
             } else {
@@ -56,19 +56,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($actie === 'actief' && $doelId > 0 && $doelId !== (int)$ik['id']) {
             $aan = (int)($_POST['aan'] ?? 0) ? 1 : 0;
             $db->prepare('UPDATE users SET active = ? WHERE id = ?')->execute([$aan, $doelId]);
-            wurd_bump_state();
+            vacom_bump_state();
             $melding = $aan ? 'Account geactiveerd.' : 'Account gedeactiveerd — kan niet meer inloggen.';
         } elseif ($actie === 'rol' && $doelId > 0 && $doelId !== (int)$ik['id']) {
             $rol = ($_POST['rol'] ?? '') === 'superadmin' ? 'superadmin' : 'lid';
             $db->prepare('UPDATE users SET role = ? WHERE id = ?')->execute([$rol, $doelId]);
-            wurd_bump_state();
+            vacom_bump_state();
             $melding = 'Rol gewijzigd.';
         }
     }
 }
 
 $gebruikers = $db->query('SELECT * FROM users ORDER BY active DESC, name COLLATE NOCASE')->fetchAll();
-$csrf = wurd_csrf();
+$csrf = vacom_csrf();
 ?>
 <!doctype html>
 <html lang="nl">
@@ -76,7 +76,7 @@ $csrf = wurd_csrf();
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1319">
-<title>Gebruikers — wurd</title>
+<title>Gebruikers — VaCom</title>
 <link rel="icon" href="assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -87,7 +87,7 @@ $csrf = wurd_csrf();
 <div class="aurora" aria-hidden="true"></div>
 <main class="pagina">
   <header class="pagina-kop">
-    <a class="knop" href="index.php">‹ Terug naar wurd</a>
+    <a class="knop" href="index.php">‹ Terug naar VaCom</a>
     <h1><?= $admin ? 'Gebruikers' : 'Mijn account' ?></h1>
   </header>
 
@@ -163,7 +163,7 @@ $csrf = wurd_csrf();
   </section>
   <?php endif; ?>
 
-  <p class="login-voet">wurd v<?= WURD_VERSION ?> · <a href="changelog.php">wat is er nieuw</a></p>
+  <p class="login-voet">VaCom v<?= VACOM_VERSION ?> · <a href="changelog.php">wat is er nieuw</a></p>
 </main>
 </body>
 </html>

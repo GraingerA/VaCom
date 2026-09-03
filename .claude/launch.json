@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "wurd",
+      "name": "vacom",
       "runtimeExecutable": "php",
       "runtimeArgs": [
         "-S", "localhost:8400",

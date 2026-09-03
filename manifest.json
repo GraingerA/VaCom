@@ -1,7 +1,7 @@
 {
-  "name": "wurd",
-  "short_name": "wurd",
-  "description": "Weromfynbere Útwikseling fan Reaksjes en Data — het interne kanaal van Invite",
+  "name": "VaCom",
+  "short_name": "VaCom",
+  "description": "Het interne kanaal van Invite Vastgoedcommunicatie",
   "start_url": "./index.php",
   "scope": "./",
   "display": "standalone",

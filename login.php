@@ -1,24 +1,24 @@
 <?php
 /**
- * wurd — inloggen.
+ * VaCom — inloggen.
  */
 
 declare(strict_types=1);
 
 require_once __DIR__ . '/inc/auth.php';
 
-if (wurd_user() !== null) {
+if (vacom_user() !== null) {
     header('Location: index.php');
     exit;
 }
-wurd_bootstrap_if_needed();
+vacom_bootstrap_if_needed();
 
 $fout = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!wurd_csrf_ok($_POST['csrf'] ?? null)) {
+    if (!vacom_csrf_ok($_POST['csrf'] ?? null)) {
         $fout = 'De pagina was verlopen. Probeer het opnieuw.';
     } else {
-        $r = wurd_login((string)($_POST['naam'] ?? ''), (string)($_POST['wachtwoord'] ?? ''));
+        $r = vacom_login((string)($_POST['naam'] ?? ''), (string)($_POST['wachtwoord'] ?? ''));
         if (is_array($r)) {
             header('Location: index.php');
             exit;
@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fout = $r;
     }
 }
-$eersteKeer = is_file(WURD_BOOTSTRAP_FILE);
+$eersteKeer = is_file(VACOM_BOOTSTRAP_FILE);
 ?>
 <!doctype html>
 <html lang="nl">
@@ -34,7 +34,7 @@ $eersteKeer = is_file(WURD_BOOTSTRAP_FILE);
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1319">
-<title>Inloggen — wurd</title>
+<title>Inloggen — VaCom</title>
 <link rel="icon" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
@@ -47,10 +47,10 @@ $eersteKeer = is_file(WURD_BOOTSTRAP_FILE);
 <div class="aurora" aria-hidden="true"></div>
 <main class="login-kaart glas">
   <div class="logo groot">
-    <span class="logo-bubbel">w</span>
-    <span class="logo-naam">wurd</span>
+    <span class="logo-bubbel">V</span>
+    <span class="logo-naam">VaCom</span>
   </div>
-  <p class="login-sub">Weromfynbere Útwikseling fan Reaksjes en Data</p>
+  <p class="login-sub">Het interne kanaal van Invite</p>
 
   <?php if ($fout !== ''): ?>
     <p class="melding fout"><?= h($fout) ?></p>
@@ -61,7 +61,7 @@ $eersteKeer = is_file(WURD_BOOTSTRAP_FILE);
   <?php endif; ?>
 
   <form method="post" autocomplete="on">
-    <input type="hidden" name="csrf" value="<?= h(wurd_csrf()) ?>">
+    <input type="hidden" name="csrf" value="<?= h(vacom_csrf()) ?>">
     <label>Naam
       <input type="text" name="naam" required autofocus autocapitalize="words" autocomplete="username"
              value="<?= h((string)($_POST['naam'] ?? '')) ?>">
@@ -71,7 +71,7 @@ $eersteKeer = is_file(WURD_BOOTSTRAP_FILE);
     </label>
     <button type="submit" class="knop primair breed">Inloggen</button>
   </form>
-  <p class="login-voet">wurd v<?= WURD_VERSION ?> · Invite</p>
+  <p class="login-voet">VaCom v<?= VACOM_VERSION ?> · Invite</p>
 </main>
 </body>
 </html>

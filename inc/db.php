@@ -1,11 +1,11 @@
 <?php
 /**
- * wurd — database (SQLite).
+ * VaCom — database (SQLite).
  *
- * Eén bestand in de datamap: wurd.sqlite. WAL-modus zodat lezen en schrijven
+ * Eén bestand in de datamap: vacom.sqlite. WAL-modus zodat lezen en schrijven
  * elkaar niet blokkeren, en FTS5 voor het zoeken door alle berichten.
  * Het schema wordt hier beheerd met een versienummer (PRAGMA user_version);
- * een nieuwe versie = een nieuw blok in wurd_migreer(). Zo hoeft er nooit
+ * een nieuwe versie = een nieuw blok in vacom_migreer(). Zo hoeft er nooit
  * handmatig iets aan de database op de server te gebeuren.
  */
 
@@ -13,12 +13,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
 
-function wurd_db(): PDO {
+function vacom_db(): PDO {
     static $pdo = null;
     if ($pdo instanceof PDO) return $pdo;
 
-    wurd_ensure_data_dir();
-    $pdo = new PDO('sqlite:' . WURD_DATA . '/wurd.sqlite', null, null, [
+    vacom_ensure_data_dir();
+    $pdo = new PDO('sqlite:' . VACOM_DATA . '/vacom.sqlite', null, null, [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
@@ -26,11 +26,11 @@ function wurd_db(): PDO {
     $pdo->exec('PRAGMA synchronous = NORMAL');
     $pdo->exec('PRAGMA foreign_keys = ON');
     $pdo->exec('PRAGMA busy_timeout = 5000');
-    wurd_migreer($pdo);
+    vacom_migreer($pdo);
     return $pdo;
 }
 
-function wurd_migreer(PDO $pdo): void {
+function vacom_migreer(PDO $pdo): void {
     $versie = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
 
     if ($versie < 1) {
@@ -124,22 +124,22 @@ SQL);
 
 /* ---------- Kleine helpers rond de database ---------- */
 
-function wurd_meta(string $key): string {
-    $st = wurd_db()->prepare('SELECT value FROM meta WHERE key = ?');
+function vacom_meta(string $key): string {
+    $st = vacom_db()->prepare('SELECT value FROM meta WHERE key = ?');
     $st->execute([$key]);
     return (string)($st->fetchColumn() ?: '');
 }
 
 /** Verhoog de state-teller: clients halen daarna hun overzicht opnieuw op. */
-function wurd_bump_state(): void {
-    wurd_db()->exec("UPDATE meta SET value = CAST(value AS INTEGER) + 1 WHERE key = 'state'");
+function vacom_bump_state(): void {
+    vacom_db()->exec("UPDATE meta SET value = CAST(value AS INTEGER) + 1 WHERE key = 'state'");
 }
 
-function wurd_max_message_id(): int {
-    return (int)wurd_db()->query('SELECT COALESCE(MAX(id), 0) FROM messages')->fetchColumn();
+function vacom_max_message_id(): int {
+    return (int)vacom_db()->query('SELECT COALESCE(MAX(id), 0) FROM messages')->fetchColumn();
 }
 
 /** Sleutel voor een DM tussen twee gebruikers, onafhankelijk van wie begon. */
-function wurd_dm_key(int $a, int $b): string {
+function vacom_dm_key(int $a, int $b): string {
     return min($a, $b) . ':' . max($a, $b);
 }

@@ -1,6 +1,6 @@
 <?php
 /**
- * wurd — de app. Eén pagina; assets/app.js doet de rest via api.php.
+ * VaCom — de app. Eén pagina; assets/app.js doet de rest via api.php.
  * Het eerste overzicht (kanalen, collega's) wordt hier al meegegeven, zodat de
  * app direct staat zonder extra rondje naar de server.
  */
@@ -9,15 +9,15 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/inc/auth.php';
 
-$ik = wurd_require_login();
+$ik = vacom_require_login();
 
 // Het overzicht bouwen we met dezelfde code als de API, zodat het nooit uiteenloopt.
-$db = wurd_db();
+$db = vacom_db();
 require_once __DIR__ . '/inc/overzicht.php';
 $start = [
-    'csrf'      => wurd_csrf(),
-    'overzicht' => wurd_overzicht($db, $ik),
-    'is_dev'    => WURD_IS_DEV,
+    'csrf'      => vacom_csrf(),
+    'overzicht' => vacom_overzicht($db, $ik),
+    'is_dev'    => VACOM_IS_DEV,
 ];
 ?>
 <!doctype html>
@@ -29,8 +29,8 @@ $start = [
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="wurd">
-<title>wurd</title>
+<meta name="apple-mobile-web-app-title" content="VaCom">
+<title>VaCom</title>
 <link rel="icon" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
@@ -48,8 +48,8 @@ $start = [
   <aside class="zijbalk glas" id="zijbalk">
     <div class="zijbalk-kop">
       <div class="logo">
-        <span class="logo-bubbel">w</span>
-        <span class="logo-naam">wurd</span>
+        <span class="logo-bubbel">V</span>
+        <span class="logo-naam">VaCom</span>
       </div>
       <button class="knop icoon" id="knop-zoeken" title="Zoeken" aria-label="Zoeken">
         <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -74,7 +74,7 @@ $start = [
     <div class="zijbalk-voet">
       <span class="ik"><span class="stip online"></span><?= h($ik['name']) ?></span>
       <span class="voet-knoppen">
-        <a class="knop mini" href="gebruikers.php" title="<?= wurd_is_superadmin() ? 'Gebruikers' : 'Mijn wachtwoord' ?>">⚙</a>
+        <a class="knop mini" href="gebruikers.php" title="<?= vacom_is_superadmin() ? 'Gebruikers' : 'Mijn wachtwoord' ?>">⚙</a>
         <button class="knop mini" id="knop-uitloggen" title="Uitloggen">⏻</button>
       </span>
     </div>
@@ -92,7 +92,7 @@ $start = [
 
     <div class="berichten" id="berichten">
       <div class="leeg" id="leeg">
-        <div class="logo groot"><span class="logo-bubbel">w</span><span class="logo-naam">wurd</span></div>
+        <div class="logo groot"><span class="logo-bubbel">V</span><span class="logo-naam">VaCom</span></div>
         <p>Kies links een kanaal of een collega.</p>
       </div>
     </div>
@@ -135,11 +135,11 @@ $start = [
 
 <!-- Installatie-tip voor iPhone -->
 <div class="banner" id="banner-ios" hidden>
-  <p>Zet wurd op je beginscherm voor meldingen: tik op <strong>Delen</strong> <span class="ios-deel">⎋</span> en dan <strong>Zet op beginscherm</strong>.</p>
+  <p>Zet VaCom op je beginscherm voor meldingen: tik op <strong>Delen</strong> <span class="ios-deel">⎋</span> en dan <strong>Zet op beginscherm</strong>.</p>
   <button class="knop mini" id="banner-ios-sluit" aria-label="Sluiten">✕</button>
 </div>
 
-<script>window.WURD = <?= json_encode($start, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?>;</script>
+<script>window.VACOM = <?= json_encode($start, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?>;</script>
 <script src="<?= asset('assets/app.js') ?>"></script>
 </body>
 </html>

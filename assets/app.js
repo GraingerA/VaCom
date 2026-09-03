@@ -1,5 +1,5 @@
 /*
- * wurd — de app. Vanilla JS, geen build-stap.
+ * VaCom — de app. Vanilla JS, geen build-stap.
  *
  * Hoe "live" werkt: er is geen open verbinding met de server (kan niet op
  * gedeelde hosting). De app vraagt elke 3 seconden via api.php?actie=poll of
@@ -15,7 +15,7 @@
   const ONLINE_MS = 3 * 60 * 1000;
 
   const S = {
-    csrf: window.WURD.csrf,
+    csrf: window.VACOM.csrf,
     me: null, channels: [], users: [], state: 0, maxId: 0,
     current: null, msgs: [], hasMore: false,
     pollTimer: null, pollFouten: 0, versturen: false, gelezenTot: 0,
@@ -39,7 +39,7 @@
   async function api(actie, data = {}) {
     const r = await fetch('api.php', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Wurd-Csrf': S.csrf },
+      headers: { 'Content-Type': 'application/json', 'X-VaCom-Csrf': S.csrf },
       body: JSON.stringify({ actie, ...data }),
     });
     if (r.status === 401) { location.href = 'login.php'; throw new Error('Niet ingelogd'); }
@@ -148,7 +148,7 @@
       .join('') || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen collega\'s</li>';
 
     const totaal = S.channels.reduce((n, k) => n + (k.unread || 0), 0);
-    document.title = (totaal ? `(${totaal}) ` : '') + 'wurd';
+    document.title = (totaal ? `(${totaal}) ` : '') + 'VaCom';
   }
 
   /* ---------- Kanaal openen ---------- */
@@ -404,11 +404,11 @@
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const standalone = navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
     let gezien = false;
-    try { gezien = localStorage.getItem('wurd_ios_tip') === '1'; } catch (e) { /* privé-modus */ }
+    try { gezien = localStorage.getItem('vacom_ios_tip') === '1'; } catch (e) { /* privé-modus */ }
     if (isIos && !standalone && !gezien) el.bannerIos.hidden = false;
     $('#banner-ios-sluit').addEventListener('click', () => {
       el.bannerIos.hidden = true;
-      try { localStorage.setItem('wurd_ios_tip', '1'); } catch (e) { /* prima */ }
+      try { localStorage.setItem('vacom_ios_tip', '1'); } catch (e) { /* prima */ }
     });
   })();
 
@@ -418,7 +418,7 @@
 
   /* ---------- Start ---------- */
 
-  pasOverzichtToe(window.WURD.overzicht);
+  pasOverzichtToe(window.VACOM.overzicht);
   const m = location.hash.match(/#k=(\d+)/);
   if (m && S.channels.some((c) => c.id === Number(m[1]))) {
     kiesKanaal(Number(m[1]));
