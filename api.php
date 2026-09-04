@@ -42,14 +42,29 @@ $mijnId = (int)$ik['id'];
 function param_int(array $in, string $k): int { return (int)($in[$k] ?? 0); }
 function param_str(array $in, string $k): string { return trim((string)($in[$k] ?? '')); }
 
-/** Is deze gebruiker lid van dit kanaal? Geeft de kanaalrij terug of stopt met 404. */
-function kanaal_voor_mij(PDO $db, int $kanaalId, int $userId): array {
+/**
+ * Is deze gebruiker lid van dit kanaal? Geeft de kanaalrij terug of stopt met 404.
+ * v0.4.1: een gesloten (gearchiveerd) kanaal is zoals in Slack alleen-lezen.
+ * Lees-acties geven $ookGesloten = true mee; schrijf-acties niet en krijgen
+ * dan een duidelijke melding i.p.v. een raadselachtig "niet gevonden".
+ */
+function kanaal_voor_mij(PDO $db, int $kanaalId, int $userId, bool $ookGesloten = false): array {
     $st = $db->prepare('SELECT c.* FROM channels c JOIN channel_members m ON m.channel_id = c.id AND m.user_id = ?
-                        WHERE c.id = ? AND c.archived = 0');
+                        WHERE c.id = ?');
     $st->execute([$userId, $kanaalId]);
     $k = $st->fetch();
     if (!$k) vacom_fout('Kanaal niet gevonden.', 404);
+    if ((int)$k['archived'] === 1 && !$ookGesloten) vacom_fout('Dit kanaal is gesloten — je kunt het alleen nog lezen.', 403);
     return $k;
+}
+
+/** Mag deze gebruiker een los kanaal sluiten of heropenen? (superadmin of de aanmaker) */
+function mag_kanaal_beheren(array $k, int $userId): bool {
+    return vacom_is_superadmin() || (int)$k['created_by'] === $userId;
+}
+
+function is_projectkanaal(array $k): bool {
+    return $k['project_token'] !== null && $k['project_token'] !== '';
 }
 
 /** Reacties bij een set berichten: map bericht-id => [{emoji, count, user_ids}]. */
@@ -118,7 +133,7 @@ case 'overzicht':
 
 case 'berichten': {
     // De laatste 60 berichten van een kanaal, of de 60 vóór 'before' (omhoog scrollen).
-    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId, true); // ook gesloten: lezen mag
     $before = param_int($invoer, 'before');
     $where = 'm.channel_id = ? AND m.parent_id IS NULL';
     $params = [(int)$k['id']];
@@ -221,7 +236,7 @@ case 'reageer': {
 }
 
 case 'gelezen': {
-    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId, true); // leesmarkering mag ook in een gesloten kanaal
     $tot = param_int($invoer, 'last_id');
     $db->prepare('UPDATE channel_members SET last_read_id = MAX(last_read_id, ?) WHERE channel_id = ? AND user_id = ?')
        ->execute([$tot, (int)$k['id'], $mijnId]);
@@ -259,19 +274,22 @@ case 'kanaal_topic': {
 /* ---- Kanaal-opties (v0.4): leden, toevoegen, verlaten, sluiten, verwijderen ---- */
 
 case 'kanaal_leden': {
-    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId, true); // ook van een gesloten kanaal
     if ($k['type'] !== 'public') vacom_fout('Een gesprek heeft geen ledenlijst.');
     $st = $db->prepare('SELECT u.id, u.name, m.via FROM channel_members m JOIN users u ON u.id = m.user_id
                         WHERE m.channel_id = ? AND u.active = 1 ORDER BY u.name COLLATE NOCASE');
     $st->execute([(int)$k['id']]);
     $leden = array_map(fn($r) => ['id' => (int)$r['id'], 'name' => $r['name'], 'via' => $r['via']], $st->fetchAll());
-    $isProject = $k['project_token'] !== null && $k['project_token'] !== '';
+    $isProject = is_projectkanaal($k);
+    $gesloten  = (int)$k['archived'] === 1;
     vacom_json([
-        'ok'          => true,
-        'members'     => $leden,
-        'is_project'  => $isProject,
-        'kan_sluiten' => !$isProject && (vacom_is_superadmin() || (int)$k['created_by'] === $mijnId),
-        'kan_wissen'  => !$isProject && vacom_is_superadmin(),
+        'ok'            => true,
+        'members'       => $leden,
+        'is_project'    => $isProject,
+        'archived'      => $gesloten,
+        'kan_sluiten'   => !$isProject && !$gesloten && mag_kanaal_beheren($k, $mijnId),
+        'kan_heropenen' => !$isProject &&  $gesloten && mag_kanaal_beheren($k, $mijnId),
+        'kan_wissen'    => !$isProject && vacom_is_superadmin(),
     ]);
 }
 
@@ -310,21 +328,36 @@ case 'lid_verwijderen': {
 }
 
 case 'kanaal_sluiten': {
-    // Archiveren: uit de zijbalk, wél doorzoekbaar. Alleen losse kanalen;
-    // projectkanalen volgen het project in de Portal.
+    // Archiveren, zoals in Slack (v0.4.1): het kanaal verhuist naar "Gesloten
+    // kanalen" onderin de zijbalk, blijft leesbaar en doorzoekbaar, maar
+    // niemand kan er nog in schrijven. Alleen losse kanalen; projectkanalen
+    // volgen het project in de Portal (prullenbak = gesloten, herstel = open).
     $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
-    if ($k['type'] !== 'public' || ($k['project_token'] !== null && $k['project_token'] !== '')) vacom_fout('Een projectkanaal sluit je via de Portal.');
-    if (!vacom_is_superadmin() && (int)$k['created_by'] !== $mijnId) vacom_fout('Alleen de superadmin of wie het kanaal aanmaakte kan het sluiten.', 403);
+    if ($k['type'] !== 'public' || is_projectkanaal($k)) vacom_fout('Een projectkanaal sluit je via de Portal.');
+    if (!mag_kanaal_beheren($k, $mijnId)) vacom_fout('Alleen de superadmin of wie het kanaal aanmaakte kan het sluiten.', 403);
     $db->prepare('UPDATE channels SET archived = 1 WHERE id = ?')->execute([(int)$k['id']]);
     vacom_bump_state();
     vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
 }
 
+case 'kanaal_heropenen': {
+    // Het omgekeerde van sluiten (v0.4.1): terug naar de gewone lijst, en er
+    // kan weer geschreven worden. Zelfde rechten als sluiten.
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId, true);
+    if ($k['type'] !== 'public' || is_projectkanaal($k)) vacom_fout('Een projectkanaal heropen je via de Portal (project herstellen uit de prullenbak).');
+    if ((int)$k['archived'] !== 1) vacom_fout('Dit kanaal is niet gesloten.');
+    if (!mag_kanaal_beheren($k, $mijnId)) vacom_fout('Alleen de superadmin of wie het kanaal aanmaakte kan het heropenen.', 403);
+    $db->prepare('UPDATE channels SET archived = 0 WHERE id = ?')->execute([(int)$k['id']]);
+    vacom_bump_state();
+    vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
+}
+
 case 'kanaal_verwijderen': {
-    // Definitief weg, inclusief alle berichten. Superadmin, losse kanalen.
-    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
+    // Definitief weg, inclusief alle berichten. Superadmin, losse kanalen —
+    // ook gesloten kanalen (die ruim je zo alsnog definitief op).
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId, true);
     if (!vacom_is_superadmin()) vacom_fout('Alleen de superadmin kan een kanaal verwijderen.', 403);
-    if ($k['type'] !== 'public' || ($k['project_token'] !== null && $k['project_token'] !== '')) vacom_fout('Een projectkanaal verwijder je via de Portal.');
+    if ($k['type'] !== 'public' || is_projectkanaal($k)) vacom_fout('Een projectkanaal verwijder je via de Portal.');
     $db->beginTransaction();
     $db->prepare('DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE channel_id = ?)')->execute([(int)$k['id']]);
     $db->prepare('DELETE FROM messages WHERE channel_id = ?')->execute([(int)$k['id']]);
@@ -358,7 +391,9 @@ case 'dm': {
 }
 
 case 'zoek': {
-    // Full-text search over alle berichten in kanalen waar ik lid van ben.
+    // Full-text search over alle berichten in kanalen waar ik lid van ben —
+    // gesloten kanalen doen gewoon mee (v0.4.1: en zijn vanuit de treffer ook
+    // te openen, alleen-lezen).
     $q = mb_substr(param_str($invoer, 'q'), 0, 200);
     if ($q === '') vacom_json(['ok' => true, 'results' => []]);
     // Elke term als prefix-zoekterm, veilig tussen aanhalingstekens (FTS5-syntax).

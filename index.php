@@ -73,6 +73,13 @@ $start = [
         <h2>Collega's</h2>
         <ul id="lijst-collegas"></ul>
       </section>
+      <!-- Gesloten kanalen (v0.4.1): ingeklapt onderin, zoals de archief-lijst in Slack -->
+      <section id="sectie-gesloten" hidden>
+        <details class="gesloten-details">
+          <summary>Gesloten kanalen <span class="stil" id="gesloten-aantal"></span></summary>
+          <ul id="lijst-gesloten"></ul>
+        </details>
+      </section>
     </nav>
 
     <div class="zijbalk-voet">
@@ -95,6 +102,13 @@ $start = [
       <a class="knop mini chat-portal" id="chat-portal" hidden target="_blank" rel="noopener">Open in Portal ↗</a>
       <button class="knop icoon" id="knop-kanaal-opties" hidden title="Kanaal-opties" aria-label="Kanaal-opties">⋯</button>
     </header>
+
+    <!-- Alleen-lezen-balk voor een gesloten kanaal (v0.4.1) -->
+    <div class="gesloten-balk" id="gesloten-balk" hidden>
+      <span class="slotje" aria-hidden="true">🔒</span>
+      <span id="gesloten-tekst"></span>
+      <button type="button" class="knop mini" id="knop-heropenen" hidden>Heropenen</button>
+    </div>
 
     <div class="berichten" id="berichten">
       <div class="leeg" id="leeg">
@@ -150,6 +164,7 @@ $start = [
   </div>
   <div class="opties-body">
     <p class="stil" id="opties-project" hidden>Projectkanaal — leden volgen de koppeling in de Portal (projectmanager en designers).</p>
+    <p class="melding info" id="opties-gesloten" hidden>Dit kanaal is gesloten: iedereen kan het lezen en doorzoeken, maar er kan niets meer in geplaatst worden.</p>
     <label>Onderwerp
       <input type="text" id="opties-topic" maxlength="200" placeholder="Waar gaat dit kanaal over?">
     </label>
@@ -163,6 +178,7 @@ $start = [
     <div class="dialoog-knoppen opties-knoppen">
       <button type="button" class="knop" id="opties-verlaten" hidden>Kanaal verlaten</button>
       <button type="button" class="knop" id="opties-archiveren" hidden>Kanaal sluiten</button>
+      <button type="button" class="knop" id="opties-heropenen" hidden>Kanaal heropenen</button>
       <button type="button" class="knop gevaar" id="opties-verwijderen" hidden>Verwijderen</button>
     </div>
   </div>

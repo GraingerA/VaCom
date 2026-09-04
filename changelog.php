@@ -30,6 +30,15 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.4.1 <span class="stil">— 4 september 2026</span></h2>
+    <ul>
+      <li><strong>Gesloten kanalen werken nu zoals in Slack.</strong> Een gesloten kanaal verdween uit de zijbalk en was daarna nergens meer terug te vinden; klikken op een zoekresultaat eruit gaf zelfs "Kanaal niet gevonden". Nu staat er onderin de zijbalk een inklapbaar kopje <em>Gesloten kanalen</em>: je kunt zo'n kanaal gewoon openen en teruglezen, alleen schrijven en reageren kan niet meer (er staat een 🔒-balkje boven het gesprek). Zoekresultaten uit gesloten kanalen zijn gemarkeerd en klikbaar.</li>
+      <li><strong>Heropenen.</strong> De superadmin of wie het kanaal aanmaakte kan het weer openen — via de knop in het 🔒-balkje of via de kanaal-opties (⋯). Projectkanalen volgen zoals altijd de Portal: project terug uit de prullenbak = kanaal weer open.</li>
+      <li>Een gesloten kanaal kan de superadmin ook alsnog definitief verwijderen (via ⋯).</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.4.0 <span class="stil">— 3 september 2026</span></h2>
     <ul>
       <li><strong>Je ziet alleen nog de projectkanalen van je eigen projecten</strong> — waar je projectmanager bent of designer van een middel (zoals in de Portal vastgelegd). Dat geldt voor iedereen, ook voor de superadmin. Word je aan een project gekoppeld, dan verschijnt het kanaal vanzelf; ga je eraf, dan verdwijnt het weer. #algemeen en andere losse kanalen blijven voor iedereen.</li>

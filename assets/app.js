@@ -33,6 +33,10 @@
     optiesKnop: $('#knop-kanaal-opties'), optiesDialoog: $('#dialoog-opties'), optiesTitel: $('#opties-titel'),
     optiesProject: $('#opties-project'), optiesTopic: $('#opties-topic'), optiesLeden: $('#opties-leden'),
     optiesAantal: $('#opties-aantal'), optiesCollega: $('#opties-collega'), optiesFout: $('#opties-fout'),
+    optiesGesloten: $('#opties-gesloten'),
+    // v0.4.1: gesloten kanalen (zijbalk-sectie + alleen-lezen-balk boven het gesprek)
+    gesloten: $('#lijst-gesloten'), sectieGesloten: $('#sectie-gesloten'), geslotenAantal: $('#gesloten-aantal'),
+    geslotenBalk: $('#gesloten-balk'), geslotenTekst: $('#gesloten-tekst'), knopHeropenen: $('#knop-heropenen'),
   };
 
   const isMobiel = () => window.matchMedia('(max-width: 800px)').matches;
@@ -148,7 +152,8 @@
     });
     // Het plusje om te reageren; bij een bericht zonder reacties verschijnt
     // het alleen bij aanwijzen (CSS), zodat het gesprek rustig blijft.
-    if (!m.deleted) chips.push(`<button type="button" class="reactie-chip plus" data-reageer="${m.id}" title="Reageer met emoji" aria-label="Reageer met emoji">☺<span class="plusje">+</span></button>`);
+    // In een gesloten kanaal (alleen-lezen) geen plusje.
+    if (!m.deleted && !(S.current && S.current.archived)) chips.push(`<button type="button" class="reactie-chip plus" data-reageer="${m.id}" title="Reageer met emoji" aria-label="Reageer met emoji">☺<span class="plusje">+</span></button>`);
     if (!chips.length) return '';
     return `<div class="reacties${lijst.length ? '' : ' zonder'}">${chips.join('')}</div>`;
   }
@@ -164,6 +169,7 @@
   async function toggleReactie(berichtId, emoji) {
     const m = S.msgs.find((x) => x.id === berichtId);
     if (!m) return;
+    if (S.current && S.current.archived) { toast('Dit kanaal is gesloten — alleen lezen.'); return; }
     const set = (m.reactions || []).find((r) => r.emoji === emoji);
     const mijn = !!set && set.user_ids.includes(S.me.id);
     // Optimistisch bijwerken; de server is daarna de waarheid.
@@ -262,7 +268,9 @@
     S.maxId = Math.max(S.maxId, o.max_id);
     if (S.current) {
       const k = S.channels.find((c) => c.id === S.current.id);
-      if (k) { k.unread = 0; S.current = k; } else { sluitKanaal(); }
+      // Kanaal net gesloten of heropend? Dan blijft het open staan, maar
+      // wisselt het van modus (schrijfveld ↔ alleen-lezen-balk).
+      if (k) { k.unread = 0; S.current = k; toonKanaalModus(k); } else { sluitKanaal(); }
     }
     bouwMentionRegex();
     renderZijbalk();
@@ -270,17 +278,23 @@
 
   function renderZijbalk() {
     const actiefId = S.current ? S.current.id : 0;
-    const item = (k, label, extra = '') => {
-      const klassen = ['', k.id === actiefId ? 'actief' : '', k.unread ? 'ongelezen' : ''].join(' ').trim();
+    const item = (k, label, extra = '', extraKlas = '') => {
+      const klassen = [extraKlas, k.id === actiefId ? 'actief' : '', k.unread ? 'ongelezen' : ''].join(' ').trim();
       const badge = k.unread ? `<span class="badge">${k.unread}</span>` : '';
       return `<li><button type="button" data-kanaal="${k.id}" class="${klassen}">${extra}<span class="naam">${esc(label)}</span>${badge}</button></li>`;
     };
-    // Projectkanalen (uit de Portal) apart van de losse kanalen.
-    const projecten = S.channels.filter((k) => k.type === 'public' && k.project_token);
+    // Projectkanalen (uit de Portal) apart van de losse kanalen. Gesloten
+    // kanalen (v0.4.1) staan in geen van beide, maar onderin bij "Gesloten".
+    const open = S.channels.filter((k) => !k.archived);
+    const projecten = open.filter((k) => k.type === 'public' && k.project_token);
     el.sectieProjecten.hidden = projecten.length === 0;
     el.projecten.innerHTML = projecten.map((k) => item(k, k.name, '<span class="hash">#</span>')).join('');
-    el.kanalen.innerHTML = S.channels.filter((k) => k.type === 'public' && !k.project_token)
+    el.kanalen.innerHTML = open.filter((k) => k.type === 'public' && !k.project_token)
       .map((k) => item(k, k.name, '<span class="hash">#</span>')).join('');
+    const gesloten = S.channels.filter((k) => k.archived);
+    el.sectieGesloten.hidden = gesloten.length === 0;
+    el.geslotenAantal.textContent = gesloten.length ? `(${gesloten.length})` : '';
+    el.gesloten.innerHTML = gesloten.map((k) => item(k, k.name, '<span class="hash">#</span>', 'gesloten')).join('');
     el.dms.innerHTML = S.channels.filter((k) => k.type === 'dm')
       .map((k) => {
         const u = gebruiker(k.other_id);
@@ -310,7 +324,7 @@
       el.chatPortal.hidden = true;
     }
     el.leeg.hidden = true;
-    el.schrijver.hidden = false;
+    toonKanaalModus(k);
     el.optiesKnop.hidden = k.type !== 'public'; // v0.4: opties alleen bij kanalen, niet bij gesprekken
     el.invoer.placeholder = k.type === 'dm' ? `Bericht aan ${kanaalNaam(k)}` : `Bericht in ${kanaalNaam(k)}`;
     el.berichten.innerHTML = '';
@@ -326,9 +340,40 @@
     if (!isTouch) el.invoer.focus();
   }
 
+  // Open kanaal: schrijfveld. Gesloten kanaal (v0.4.1): alleen-lezen-balk met,
+  // voor wie dat mag, een Heropenen-knop. Projectkanalen heropen je via de
+  // Portal (project uit de prullenbak halen), dus daar geen knop.
+  function magHeropenen(k) {
+    return !!k.archived && !k.project_token && !!S.me && (S.me.role === 'superadmin' || k.created_by === S.me.id);
+  }
+
+  function toonKanaalModus(k) {
+    const dicht = !!k.archived;
+    el.schrijver.hidden = dicht;
+    el.geslotenBalk.hidden = !dicht;
+    if (!dicht) return;
+    el.geslotenTekst.textContent = k.project_token
+      ? 'Dit projectkanaal is gesloten omdat het project in de prullenbak van de Portal staat. Je kunt het alleen nog lezen.'
+      : 'Dit kanaal is gesloten — je kunt het alleen nog lezen.';
+    el.knopHeropenen.hidden = !magHeropenen(k);
+  }
+
+  async function heropenKanaal() {
+    const k = S.current;
+    if (!k || !k.archived) return;
+    const naam = kanaalNaam(k);
+    try {
+      const j = await api('kanaal_heropenen', { channel_id: k.id });
+      if (el.optiesDialoog.open) el.optiesDialoog.close();
+      pasOverzichtToe(j);
+      toast(`${naam} heropend`);
+    } catch (e) { toast(e.message); }
+  }
+
   function sluitKanaal() {
     S.current = null; S.msgs = [];
     el.optiesKnop.hidden = true;
+    el.geslotenBalk.hidden = true;
     if (el.optiesDialoog.open) el.optiesDialoog.close();
     document.body.dataset.pane = 'lijst';
     el.naam.textContent = 'Welkom'; el.topic.textContent = '';
@@ -383,7 +428,11 @@
       }
       vorige = m;
     }
-    if (!S.msgs.length) delen.push(`<div class="leeg"><p>Nog geen berichten in ${esc(kanaalNaam(S.current))}. Schrijf het eerste!</p></div>`);
+    if (!S.msgs.length) {
+      delen.push(S.current && S.current.archived
+        ? `<div class="leeg"><p>Geen berichten in ${esc(kanaalNaam(S.current))}.</p></div>`
+        : `<div class="leeg"><p>Nog geen berichten in ${esc(kanaalNaam(S.current))}. Schrijf het eerste!</p></div>`);
+    }
     el.berichten.innerHTML = delen.join('');
     if (naarOnder) el.berichten.scrollTop = el.berichten.scrollHeight;
   }
@@ -502,7 +551,8 @@
         // De server markeert treffers met de stuurtekens U+0001 en U+0002 (komen nooit in tekst voor).
         const snip = esc(m.snippet).replace(/\u0001/g, '<mark>').replace(/\u0002/g, '</mark>');
         const d = new Date(m.created).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
-        return `<button type="button" class="zoek-hit" data-kanaal="${m.channel_id}"><div class="waar"><b>${esc(m.author)}</b> in ${esc(kanaalNaam(k))} · ${d} ${tijd(m.created)}</div><div>${snip}</div></button>`;
+        const dicht = k && k.archived ? ' <span class="tag">gesloten</span>' : '';
+        return `<button type="button" class="zoek-hit" data-kanaal="${m.channel_id}"><div class="waar"><b>${esc(m.author)}</b> in ${esc(kanaalNaam(k))}${dicht} · ${d} ${tijd(m.created)}</div><div>${snip}</div></button>`;
       }).join('');
     } catch (e) { el.zoekResultaten.innerHTML = `<p class="zoek-leeg">${esc(e.message)}</p>`; }
   }
@@ -601,29 +651,34 @@
   function renderOpties() {
     const k = S.current, j = optiesInfo;
     if (!k || !j) return;
+    const dicht = !!j.archived; // v0.4.1: gesloten kanaal = alleen lezen, leden ongewijzigd
     el.optiesProject.hidden = !j.is_project;
-    el.optiesTopic.disabled = j.is_project; // onderwerp van een projectkanaal komt uit de Portal
+    el.optiesGesloten.hidden = !dicht;
+    el.optiesTopic.disabled = j.is_project || dicht; // onderwerp van een projectkanaal komt uit de Portal
     el.optiesAantal.textContent = `(${j.members.length})`;
     const superadmin = S.me && S.me.role === 'superadmin';
     el.optiesLeden.innerHTML = j.members.map((m) => {
       const ik = m.id === S.me.id;
       const label = m.via === 'portal' ? '<span class="lid-via">via Portal</span>'
         : m.via === 'handmatig' ? '<span class="lid-via">toegevoegd</span>' : '';
-      const magWeg = !ik && superadmin && m.via === 'handmatig';
+      const magWeg = !ik && superadmin && m.via === 'handmatig' && !dicht;
       const weg = magWeg ? `<button type="button" class="knop mini" data-lid-weg="${m.id}" title="Verwijderen uit kanaal">✕</button>` : '';
       return `<li><span class="stip${isOnline(gebruiker(m.id) || {}) ? ' online' : ''}"></span><span class="naam">${esc(m.name)}${ik ? ' <span class="stil">(jij)</span>' : ''}</span>${label}${weg}</li>`;
     }).join('') || '<li class="stil">Nog geen leden.</li>';
     // Collega's die nog geen lid zijn
     const lidIds = new Set(j.members.map((m) => m.id));
     const kandidaten = S.users.filter((u) => u.active && !lidIds.has(u.id));
-    el.optiesCollega.innerHTML = kandidaten.length
-      ? '<option value="">Collega toevoegen…</option>' + kandidaten.map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('')
-      : '<option value="">Iedereen is al lid</option>';
-    $('#opties-toevoegen').disabled = !kandidaten.length;
+    el.optiesCollega.innerHTML = dicht ? '<option value="">Kanaal is gesloten</option>'
+      : kandidaten.length
+        ? '<option value="">Collega toevoegen…</option>' + kandidaten.map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('')
+        : '<option value="">Iedereen is al lid</option>';
+    el.optiesCollega.disabled = dicht;
+    $('#opties-toevoegen').disabled = dicht || !kandidaten.length;
     // Verlaten kan alleen als je 'handmatig' lid bent (anders kom je terug of hoor je er gewoon bij)
     const mijnLid = j.members.find((m) => m.id === S.me.id);
-    $('#opties-verlaten').hidden = !(mijnLid && mijnLid.via === 'handmatig');
+    $('#opties-verlaten').hidden = dicht || !(mijnLid && mijnLid.via === 'handmatig');
     $('#opties-archiveren').hidden = !j.kan_sluiten;
+    $('#opties-heropenen').hidden = !j.kan_heropenen;
     $('#opties-verwijderen').hidden = !j.kan_wissen;
   }
 
@@ -681,14 +736,18 @@
   $('#opties-archiveren').addEventListener('click', async () => {
     if (!S.current) return;
     const naam = kanaalNaam(S.current);
-    if (!confirm(`${naam} sluiten? Het kanaal verdwijnt uit de zijbalk maar blijft doorzoekbaar.`)) return;
+    if (!confirm(`${naam} sluiten? Het kanaal verhuist naar "Gesloten kanalen" onderin de zijbalk: iedereen kan het nog lezen en doorzoeken, maar er kan niets meer in geplaatst worden. Heropenen kan altijd.`)) return;
     try {
       const j = await api('kanaal_sluiten', { channel_id: S.current.id });
       el.optiesDialoog.close();
-      pasOverzichtToe(j);
+      pasOverzichtToe(j); // kanaal blijft open staan, nu alleen-lezen
       toast(`${naam} gesloten`);
     } catch (e) { optiesFout(e.message); }
   });
+
+  // Heropenen (v0.4.1): vanuit de opties én vanuit de balk boven het gesprek.
+  $('#opties-heropenen').addEventListener('click', heropenKanaal);
+  el.knopHeropenen.addEventListener('click', heropenKanaal);
 
   $('#opties-verwijderen').addEventListener('click', async () => {
     if (!S.current) return;
@@ -731,11 +790,13 @@
   const m = location.hash.match(/#k=(\d+)/);
   if (m && S.channels.some((c) => c.id === Number(m[1]))) {
     kiesKanaal(Number(m[1]));
-  } else if (!isMobiel() && S.channels.length) {
-    // Standaard #algemeen, anders het eerste losse kanaal, anders het eerste wat er is.
-    const start = S.channels.find((c) => c.type === 'public' && c.name === 'algemeen')
-      || S.channels.find((c) => c.type === 'public' && !c.project_token)
-      || S.channels[0];
+  } else if (!isMobiel() && S.channels.some((c) => !c.archived)) {
+    // Standaard #algemeen, anders het eerste losse kanaal, anders het eerste
+    // wat er is — maar nooit een gesloten kanaal.
+    const open = S.channels.filter((c) => !c.archived);
+    const start = open.find((c) => c.type === 'public' && c.name === 'algemeen')
+      || open.find((c) => c.type === 'public' && !c.project_token)
+      || open[0];
     kiesKanaal(start.id);
   }
   planPoll();

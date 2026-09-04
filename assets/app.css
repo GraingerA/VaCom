@@ -364,3 +364,32 @@ select option { background: #1a2029; color: var(--tekst); }
 .opties-knoppen { justify-content: flex-start; flex-wrap: wrap; margin-top: 16px; }
 .knop.gevaar { color: var(--rood); border-color: rgba(224, 85, 95, 0.4); }
 .knop.gevaar:hover { background: rgba(224, 85, 95, 0.12); }
+
+/* ---------- Gesloten kanalen (v0.4.1) ---------- */
+
+/* Inklapbaar kopje onderin de zijbalk, in de stijl van de andere kopjes. */
+.gesloten-details summary {
+  display: flex; align-items: center; gap: 6px; list-style: none; cursor: pointer;
+  padding: 6px 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--stil);
+  -webkit-tap-highlight-color: transparent;
+}
+.gesloten-details summary::-webkit-details-marker { display: none; }
+.gesloten-details summary::before { content: "▸"; font-size: 11px; transition: transform 0.15s; }
+.gesloten-details[open] summary::before { transform: rotate(90deg); }
+.gesloten-details summary .stil { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.zijbalk-lijsten li button.gesloten { opacity: 0.6; }
+.zijbalk-lijsten li button.gesloten.actief { opacity: 1; }
+
+/* Alleen-lezen-balk boven het gesprek van een gesloten kanaal. */
+.gesloten-balk {
+  display: flex; align-items: center; gap: 10px; flex: none;
+  margin: 10px 16px 0; padding: 8px 12px;
+  font-size: 13px; color: var(--stil);
+  background: var(--vlak); border: 1px solid var(--lijn); border-radius: var(--r-knop);
+}
+.gesloten-balk .slotje { font-size: 14px; flex: none; }
+.gesloten-balk .knop { margin-left: auto; flex: none; }
+@media (max-width: 800px) {
+  .gesloten-balk { margin: 8px 12px 0; flex-wrap: wrap; }
+  .gesloten-balk .knop { margin-left: 24px; }
+}
