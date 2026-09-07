@@ -64,6 +64,12 @@ sessievelden `logged_in_as`/`role`/`is_external`, API-actie `login` (POST `name`
 `password`), bestanden `users.json`/`projects.json`/`trash.json`, en de link
 `project_ipp.php?p=`.
 
+Waar de Portal op leunt in VaCom (v0.5.1 / Portal v4.13): de projectvelden
+`vacom_chat` + `vacom_chat_by` in `projects.json` (Portal zet ze, de sync maakt
+het kanaal en maakt de starter 'handmatig' lid), en de URL's
+`index.php?embed=1&project=TOKEN` (alleen de gesprekskaart, `body.embed`, in de
+popup op de projectkaart) en `index.php?project=TOKEN` (volledige app, kanaal open).
+
 ## Opbouw
 
 | Bestand | Wat |

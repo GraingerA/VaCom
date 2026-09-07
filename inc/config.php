@@ -8,7 +8,7 @@
 
 declare(strict_types=1);
 
-define('VACOM_VERSION', '0.5.0');
+define('VACOM_VERSION', '0.5.1');
 define('VACOM_ROOT', dirname(__DIR__));
 
 // PHP's ingebouwde dev-server (php -S) meldt zich als 'cli-server'. Daarop

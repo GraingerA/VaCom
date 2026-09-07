@@ -171,6 +171,14 @@ SQL);
         $pdo->exec("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT ''");
         $pdo->exec('PRAGMA user_version = 6');
     }
+
+    if ($versie < 7) {
+        // v0.5.1: een gesprek (DM) uit je lijst halen, zoals in Slack. Het
+        // gesprek blijft bestaan en doorzoekbaar; het komt vanzelf terug bij
+        // een nieuw bericht of als je het opnieuw opent via +.
+        $pdo->exec('ALTER TABLE channel_members ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0');
+        $pdo->exec('PRAGMA user_version = 7');
+    }
 }
 
 /* ---------- Kleine helpers rond de database ---------- */

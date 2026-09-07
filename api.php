@@ -200,7 +200,12 @@ case 'stuur': {
     // Eigen bericht telt meteen als gelezen.
     $db->prepare('UPDATE channel_members SET last_read_id = MAX(last_read_id, ?) WHERE channel_id = ? AND user_id = ?')
        ->execute([$id, (int)$k['id'], $mijnId]);
+    // v0.5.1: een verborgen gesprek komt bij een nieuw bericht weer terug in
+    // de lijst van de ander (state omhoog zodat zijn zijbalk ververst).
+    $terug = $db->prepare('UPDATE channel_members SET hidden = 0 WHERE channel_id = ? AND hidden = 1');
+    $terug->execute([(int)$k['id']]);
     $db->commit();
+    if ($terug->rowCount() > 0) vacom_bump_state();
     $lijst = berichten_uit($db, 'm.id = ?', [$id], 1, true);
     vacom_json(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id()]);
 }
@@ -317,6 +322,109 @@ case 'avatar_verwijderen': {
     vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
 }
 
+/* ---- Portal-koppeling (v0.5.1): alleen-lezen, via GET vanaf de Portal-pagina's ---- */
+
+case 'portal_ongelezen': {
+    // Per projectkanaal: ben ik lid en hoeveel ongelezen? Voor het Petear-
+    // icoontje (kleur + badge) op de projectkaarten van de Portal-homepage.
+    $st = $db->prepare('SELECT c.project_token,
+        (SELECT COUNT(*) FROM channel_members m WHERE m.channel_id = c.id AND m.user_id = ?) AS lid,
+        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.deleted = 0 AND x.user_id != ?
+            AND x.id > COALESCE((SELECT last_read_id FROM channel_members m WHERE m.channel_id = c.id AND m.user_id = ?), 0)) AS ongelezen
+        FROM channels c WHERE c.project_token IS NOT NULL AND c.archived = 0');
+    $st->execute([$mijnId, $mijnId, $mijnId]);
+    $uit = [];
+    foreach ($st->fetchAll() as $r) {
+        $lid = (int)$r['lid'] === 1;
+        $uit[$r['project_token']] = ['lid' => $lid, 'ongelezen' => $lid ? (int)$r['ongelezen'] : 0];
+    }
+    vacom_json(['ok' => true, 'projecten' => (object)$uit]);
+}
+
+case 'portal_project': {
+    // De kanaalkaart op de Portal-projectpagina: leden en de laatste berichten.
+    // Geen lid? Dan alleen dát (privacy: je leest alleen mee waar je bij hoort).
+    $token = preg_replace('/[^a-f0-9]/', '', param_str($invoer, 'project'));
+    $st = $db->prepare('SELECT * FROM channels WHERE project_token = ? AND archived = 0');
+    $st->execute([$token]);
+    $k = $st->fetch();
+    if (!$k) vacom_json(['ok' => true, 'bestaat' => false]);
+    $kid = (int)$k['id'];
+    $lidSt = $db->prepare('SELECT last_read_id FROM channel_members WHERE channel_id = ? AND user_id = ?');
+    $lidSt->execute([$kid, $mijnId]);
+    $lidRij = $lidSt->fetch();
+    $ledenSt = $db->prepare('SELECT u.name FROM channel_members m JOIN users u ON u.id = m.user_id WHERE m.channel_id = ? AND u.active = 1 ORDER BY u.name COLLATE NOCASE');
+    $ledenSt->execute([$kid]);
+    $uit = ['ok' => true, 'bestaat' => true, 'lid' => (bool)$lidRij, 'naam' => $k['name'],
+            'leden' => array_column($ledenSt->fetchAll(), 'name'), 'ongelezen' => 0, 'berichten' => []];
+    if ($lidRij) {
+        $uit['berichten'] = array_map(fn($m) => ['author' => $m['author'], 'body' => mb_substr($m['body'], 0, 200), 'created' => $m['created']],
+            berichten_uit($db, 'm.channel_id = ? AND m.parent_id IS NULL AND m.deleted = 0', [$kid], 5, false));
+        $o = $db->prepare('SELECT COUNT(*) FROM messages WHERE channel_id = ? AND deleted = 0 AND user_id != ? AND id > ?');
+        $o->execute([$kid, $mijnId, (int)$lidRij['last_read_id']]);
+        $uit['ongelezen'] = (int)$o->fetchColumn();
+    }
+    vacom_json($uit);
+}
+
+case 'kanaal_deelnemen': {
+    // v0.5.1: jezelf bij een projectkanaal voegen — bv. als niet-gekoppelde
+    // collega vanuit de Portal. Iedereen mag collega's toevoegen, dus jezelf
+    // ook; je wordt 'handmatig' lid (de Portal-sync laat dat met rust).
+    $token = preg_replace('/[^a-f0-9]/', '', param_str($invoer, 'project_token'));
+    $st = $db->prepare('SELECT * FROM channels WHERE project_token = ? AND archived = 0');
+    $st->execute([$token]);
+    $k = $st->fetch();
+    if (!$k) vacom_fout('Dit projectkanaal bestaat niet (meer).', 404);
+    $db->prepare("INSERT OR IGNORE INTO channel_members(channel_id, user_id, last_read_id, joined, via) VALUES (?, ?, ?, ?, 'handmatig')")
+       ->execute([(int)$k['id'], $mijnId, vacom_max_message_id(), vacom_now()]);
+    vacom_bump_state();
+    vacom_json(['ok' => true, 'channel_id' => (int)$k['id']] + vacom_overzicht($db, $ik));
+}
+
+/* ---- Kanaalbeheer voor de superadmin (v0.5.1) ---- */
+
+case 'beheer_kanalen': {
+    // Alle kanalen, ook waar de superadmin geen lid van is, met aantallen —
+    // om op te ruimen. Gesprekken (DM's) blijven privé en staan er niet bij.
+    if (!vacom_is_superadmin()) vacom_fout('Alleen voor de superadmin.', 403);
+    $rijen = $db->query("SELECT c.id, c.name, c.project_token, c.archived,
+        (SELECT COUNT(*) FROM channel_members m WHERE m.channel_id = c.id) AS leden,
+        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.deleted = 0) AS berichten
+        FROM channels c WHERE c.type = 'public' ORDER BY c.archived, c.name COLLATE NOCASE")->fetchAll();
+    $lijst = array_map(fn($r) => [
+        'id' => (int)$r['id'], 'name' => $r['name'],
+        'is_project' => $r['project_token'] !== null && $r['project_token'] !== '',
+        'archived' => (int)$r['archived'] === 1, 'leden' => (int)$r['leden'], 'berichten' => (int)$r['berichten'],
+    ], $rijen);
+    vacom_json(['ok' => true, 'kanalen' => $lijst]);
+}
+
+case 'beheer_kanaal_wissen': {
+    // Definitief weg — ook zonder lid te zijn, ook projectkanalen. Berichten,
+    // reacties en de zoekindex (FTS-trigger) gaan mee. Van een projectkanaal
+    // onthouden we wannéér het gewist is, zodat de Portal-vlag het niet
+    // meteen opnieuw aanmaakt (zie vacom_portal_sync); opnieuw starten
+    // vanuit de Portal kan wel, dat zet een nieuwere vlag-tijd.
+    if (!vacom_is_superadmin()) vacom_fout('Alleen de superadmin kan een kanaal verwijderen.', 403);
+    $st = $db->prepare("SELECT * FROM channels WHERE id = ? AND type = 'public'");
+    $st->execute([param_int($invoer, 'channel_id')]);
+    $k = $st->fetch();
+    if (!$k) vacom_fout('Kanaal niet gevonden.', 404);
+    $kid = (int)$k['id'];
+    $db->beginTransaction();
+    $db->prepare('DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE channel_id = ?)')->execute([$kid]);
+    $db->prepare('DELETE FROM messages WHERE channel_id = ?')->execute([$kid]);
+    $db->prepare('DELETE FROM channel_members WHERE channel_id = ?')->execute([$kid]);
+    $db->prepare('DELETE FROM channels WHERE id = ?')->execute([$kid]);
+    if (is_projectkanaal($k)) {
+        $db->prepare('INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?)')->execute(['pk_gewist:' . $k['project_token'], (string)time()]);
+    }
+    vacom_bump_state();
+    $db->commit();
+    vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
+}
+
 /* ---- Projectkanalen starten (v0.5) ---- */
 
 case 'projecten_beschikbaar':
@@ -377,6 +485,10 @@ case 'lid_verwijderen': {
     $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
     if ($k['type'] !== 'public') vacom_fout('Een gesprek verlaat je niet.');
     $wie = param_int($invoer, 'user_id') ?: $mijnId;
+    // v0.5.1: een projectkanaal verlaat je niet — je hoort erbij zolang je aan
+    // het project gekoppeld bent (en de Portal-kaart bleef anders "actief"
+    // terwijl jij het gesprek niet meer zag).
+    if ($wie === $mijnId && is_projectkanaal($k)) vacom_fout('Een projectkanaal verlaat je niet: je hoort erbij zolang je aan het project gekoppeld bent.');
     if ($wie !== $mijnId && !vacom_is_superadmin()) vacom_fout('Alleen de superadmin kan iemand anders verwijderen.', 403);
     $st = $db->prepare('SELECT via FROM channel_members WHERE channel_id = ? AND user_id = ?');
     $st->execute([(int)$k['id'], $wie]);
@@ -461,8 +573,21 @@ case 'dm': {
         if ($anderId !== $mijnId) $ins->execute([$id, $anderId, vacom_now()]);
         vacom_bump_state();
         $db->commit();
+    } else {
+        // v0.5.1: opnieuw openen haalt een verborgen gesprek weer tevoorschijn.
+        $db->prepare('UPDATE channel_members SET hidden = 0 WHERE channel_id = ? AND user_id = ?')->execute([$id, $mijnId]);
     }
     vacom_json(['ok' => true, 'channel_id' => $id] + vacom_overzicht($db, $ik));
+}
+
+case 'gesprek_verbergen': {
+    // v0.5.1: een (leeg of oud) gesprek uit je lijst halen, zoals in Slack.
+    // Alleen voor jou; de ander ziet niets. Komt terug bij een nieuw bericht.
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId, true);
+    if ($k['type'] !== 'dm') vacom_fout('Alleen een gesprek kun je verbergen; een kanaal verlaat of sluit je.');
+    $db->prepare('UPDATE channel_members SET hidden = 1 WHERE channel_id = ? AND user_id = ?')->execute([(int)$k['id'], $mijnId]);
+    vacom_bump_state(); // ook je andere apparaten verversen hun lijst
+    vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
 }
 
 case 'zoek': {

@@ -74,6 +74,16 @@
     }
     return '#' + k.name;
   }
+  // v0.5.1: bij een projectkanaal staan onder de kanaalnaam de leden, niet
+  // "Project · manager" — zo zie je meteen wie er meeleest.
+  async function laadProjectLeden(k) {
+    if (!k || !k.project_token) return;
+    try {
+      const j = await api('kanaal_leden', { channel_id: k.id });
+      if (S.current === k) el.topic.textContent = j.members.map((m) => m.name).join(', ');
+    } catch (e) { /* dan blijft het onderwerp staan */ }
+  }
+
   // Onder de kanaalnaam: het onderwerp, of bij een gesprek de status van de ander (v0.5).
   function kanaalTopic(k) {
     if (!k) return '';
@@ -211,10 +221,44 @@
   }
 
   /* ---------- Emoji-picker ---------- */
-  // Eén klein paneel voor twee doelen: een reactie op een bericht kiezen, of
-  // een emoji in het schrijfveld invoegen. Native emoji, geen plaatjes.
+  // Eén paneel voor twee doelen: een reactie op een bericht kiezen, of een
+  // emoji in het schrijfveld invoegen. Native emoji, geen plaatjes.
+  // v0.5.1: met zoekveld, categorieën en "Recent" (uit assets/emoji.js; de
+  // korte EMOJI-lijst hierboven is de reserve als dat bestand ontbreekt).
 
   let pickerDoel = null; // {soort:'reactie', berichtId} of {soort:'invoer'}
+  const EMOJI_CATS = Array.isArray(window.VACOM_EMOJI) && window.VACOM_EMOJI.length
+    ? window.VACOM_EMOJI
+    : [{ naam: 'Emoji', lijst: EMOJI.map((e) => [e, '']) }];
+
+  function recentEmoji() {
+    try { const r = JSON.parse(localStorage.getItem('vacom_emoji_recent') || '[]'); return Array.isArray(r) ? r : []; } catch (e) { return []; }
+  }
+  function onthoudEmoji(e) {
+    const r = [e].concat(recentEmoji().filter((x) => x !== e)).slice(0, 16);
+    try { localStorage.setItem('vacom_emoji_recent', JSON.stringify(r)); } catch (x) { /* prima */ }
+  }
+
+  function pickerKnop(e, woorden) {
+    return `<button type="button" data-emoji="${e}" title="${esc(woorden || '')}">${e}</button>`;
+  }
+
+  // Het raster vullen: alles per categorie, of alleen de treffers bij een zoekterm.
+  function vulPicker(zoek) {
+    const raster = $('#emoji-raster');
+    const q = (zoek || '').trim().toLowerCase();
+    if (q) {
+      const treffers = [];
+      for (const cat of EMOJI_CATS) for (const [e, w] of cat.lijst) if ((w || '').includes(q) || e === q) treffers.push(pickerKnop(e, w));
+      raster.innerHTML = treffers.length ? `<div class="emoji-groep">${treffers.join('')}</div>` : '<p class="emoji-leeg">Niets gevonden.</p>';
+      return;
+    }
+    const delen = [];
+    const recent = recentEmoji();
+    if (recent.length) delen.push(`<h4>Recent</h4><div class="emoji-groep">${recent.map((e) => pickerKnop(e, '')).join('')}</div>`);
+    for (const cat of EMOJI_CATS) delen.push(`<h4>${esc(cat.naam)}</h4><div class="emoji-groep">${cat.lijst.map(([e, w]) => pickerKnop(e, w)).join('')}</div>`);
+    raster.innerHTML = delen.join('');
+  }
 
   function pickerEl() {
     let p = $('#emoji-picker');
@@ -223,12 +267,19 @@
     p.id = 'emoji-picker';
     p.className = 'glas';
     p.hidden = true;
-    p.innerHTML = EMOJI.map((e) => `<button type="button" data-emoji="${e}">${e}</button>`).join('');
+    p.innerHTML = '<input type="search" id="emoji-zoek" placeholder="Zoek een emoji… (bijv. duim, feest, taart)" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>'
+      + '<div id="emoji-raster"></div>';
     document.body.appendChild(p);
+    $('#emoji-zoek').addEventListener('input', (ev) => vulPicker(ev.target.value));
+    $('#emoji-zoek').addEventListener('keydown', (ev) => {
+      // Enter = de eerste treffer kiezen, zonder muis.
+      if (ev.key === 'Enter') { const b = $('#emoji-raster [data-emoji]'); if (b) b.click(); ev.preventDefault(); }
+    });
     p.addEventListener('click', (ev) => {
       const b = ev.target.closest('[data-emoji]');
       if (!b || !pickerDoel) return;
       const emoji = b.dataset.emoji;
+      onthoudEmoji(emoji);
       if (pickerDoel.soort === 'reactie') {
         toggleReactie(pickerDoel.berichtId, emoji);
       } else {
@@ -247,6 +298,9 @@
   function openPicker(doel, bijElement) {
     const p = pickerEl();
     pickerDoel = doel;
+    $('#emoji-zoek').value = '';
+    vulPicker('');
+    $('#emoji-raster').scrollTop = 0;
     p.hidden = false;
     if (isMobiel()) {
       p.classList.add('onderin');
@@ -257,6 +311,7 @@
       const b = p.getBoundingClientRect();
       p.style.left = Math.max(8, Math.min(r.left, window.innerWidth - b.width - 8)) + 'px';
       p.style.top = (r.top - b.height - 8 > 8 ? r.top - b.height - 8 : r.bottom + 8) + 'px';
+      $('#emoji-zoek').focus();
     }
   }
 
@@ -290,7 +345,7 @@
       const k = S.channels.find((c) => c.id === S.current.id);
       // Kanaal net gesloten of heropend? Dan blijft het open staan, maar
       // wisselt het van modus (schrijfveld ↔ alleen-lezen-balk).
-      if (k) { k.unread = 0; S.current = k; toonKanaalModus(k); el.topic.textContent = kanaalTopic(k); } else { sluitKanaal(); }
+      if (k) { k.unread = 0; S.current = k; toonKanaalModus(k); el.topic.textContent = kanaalTopic(k); laadProjectLeden(k); } else { sluitKanaal(); }
     }
     bouwMentionRegex();
     renderZijbalk();
@@ -392,7 +447,16 @@
     }
     el.leeg.hidden = true;
     toonKanaalModus(k);
-    el.optiesKnop.hidden = k.type !== 'public'; // v0.4: opties alleen bij kanalen, niet bij gesprekken
+    el.optiesKnop.hidden = false; // v0.5.1: ook bij gesprekken (uit je lijst halen)
+    laadProjectLeden(k); // v0.5.1: bij een projectkanaal staan de leden onder de naam
+    // v0.5.1: ingesloten in de Portal — de kanaalkop is dan de kop van de popup:
+    // naam, daaronder de leden, rechts "Open in Petear" en ✕. Geen ⋯.
+    if (window.VACOM.embed) {
+      el.optiesKnop.hidden = true;
+      $('#chat-petear').href = 'index.php?project=' + encodeURIComponent(k.project_token || '') + '#k=' + k.id;
+      $('#chat-petear').hidden = false;
+      $('#chat-sluit').hidden = false;
+    }
     el.invoer.placeholder = k.type === 'dm'
       ? (k.other_id === S.me.id ? 'Notitie voor jezelf' : `Bericht aan ${kanaalNaam(k)}`)
       : `Bericht in ${kanaalNaam(k)}`;
@@ -760,9 +824,13 @@
 
   async function openOpties() {
     const k = S.current;
-    if (!k || k.type !== 'public') return;
+    if (!k) return;
     optiesFout('');
     el.optiesTitel.textContent = kanaalNaam(k);
+    // v0.5.1: bij een gesprek (DM) is er maar één optie — uit je lijst halen.
+    // De CSS-klasse 'dm' verbergt de rest (onderwerp, leden, kanaalknoppen).
+    el.optiesDialoog.classList.toggle('dm', k.type === 'dm');
+    if (k.type === 'dm') { el.optiesDialoog.showModal(); return; }
     el.optiesTopic.value = k.topic || '';
     el.optiesLeden.innerHTML = '<li class="stil">Laden…</li>';
     el.optiesDialoog.showModal();
@@ -802,13 +870,26 @@
     $('#opties-toevoegen').disabled = dicht || !kandidaten.length;
     // Verlaten kan alleen als je 'handmatig' lid bent (anders kom je terug of hoor je er gewoon bij)
     const mijnLid = j.members.find((m) => m.id === S.me.id);
-    $('#opties-verlaten').hidden = dicht || !(mijnLid && mijnLid.via === 'handmatig');
+    // v0.5.1: een projectkanaal verlaat je niet (je hoort erbij zolang je gekoppeld bent).
+    $('#opties-verlaten').hidden = dicht || j.is_project || !(mijnLid && mijnLid.via === 'handmatig');
     $('#opties-archiveren').hidden = !j.kan_sluiten;
     $('#opties-heropenen').hidden = !j.kan_heropenen;
     $('#opties-verwijderen').hidden = !j.kan_wissen;
   }
 
   el.optiesKnop.addEventListener('click', openOpties);
+  // v0.5.1: ✕ in de ingesloten kop → de Portal sluit de popup (zelfde origin).
+  $('#chat-sluit').addEventListener('click', () => { try { window.parent.postMessage({ vacom: 'sluit' }, location.origin); } catch (e) { /* los geopend: niets */ } });
+  $('#opties-verbergen').addEventListener('click', async () => {
+    const k = S.current;
+    if (!k || k.type !== 'dm') return;
+    try {
+      const j = await api('gesprek_verbergen', { channel_id: k.id });
+      el.optiesDialoog.close();
+      pasOverzichtToe(j); // gesprek staat niet meer in de lijst → chat sluit vanzelf
+      toast('Gesprek uit je lijst gehaald');
+    } catch (e) { optiesFout(e.message); }
+  });
   $('#opties-sluit').addEventListener('click', () => el.optiesDialoog.close());
   el.optiesDialoog.addEventListener('click', (e) => { if (e.target === el.optiesDialoog) el.optiesDialoog.close(); });
 
@@ -907,7 +988,36 @@
     if (document.activeElement !== st) st.value = S.me.status || '';
     const licht = document.body.classList.contains('light-mode');
     $('#inst-thema').textContent = licht ? '☀ Licht — wissel naar donker' : '☽ Donker — wissel naar licht';
+    // v0.5.1: kanaalbeheer, alleen voor de superadmin.
+    const beheer = $('#inst-beheer');
+    beheer.hidden = S.me.role !== 'superadmin';
+    if (!beheer.hidden && !beheer.dataset.geladen) laadKanaalbeheer();
   }
+
+  async function laadKanaalbeheer() {
+    const ul = $('#beheer-kanalen');
+    $('#inst-beheer').dataset.geladen = '1';
+    try {
+      const j = await api('beheer_kanalen');
+      ul.innerHTML = j.kanalen.map((k) => `<li>
+          <span class="naam">#${esc(k.name)}${k.is_project ? ' <span class="lid-via">project</span>' : ''}${k.archived ? ' <span class="lid-via">gesloten</span>' : ''}<br>
+          <span class="stil beheer-info">${k.leden} ${k.leden === 1 ? 'lid' : 'leden'} · ${k.berichten} ${k.berichten === 1 ? 'bericht' : 'berichten'}</span></span>
+          <button type="button" class="knop mini gevaar" data-kanaal-wis="${k.id}" data-naam="${esc(k.name)}">Verwijderen</button>
+        </li>`).join('') || '<li class="stil">Geen kanalen.</li>';
+    } catch (e) { ul.innerHTML = `<li class="stil">${esc(e.message)}</li>`; }
+  }
+  $('#beheer-kanalen').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-kanaal-wis]');
+    if (!b) return;
+    if (!confirm(`Kanaal #${b.dataset.naam} definitief verwijderen, inclusief alle berichten? Het is daarna ook niet meer te doorzoeken. Dit kan niet ongedaan worden gemaakt.`)) return;
+    try {
+      const j = await api('beheer_kanaal_wissen', { channel_id: Number(b.dataset.kanaalWis) });
+      pasOverzichtToe(j);
+      delete $('#inst-beheer').dataset.geladen;
+      laadKanaalbeheer();
+      toast('Kanaal verwijderd');
+    } catch (err) { instellingenFout(err.message); }
+  });
 
   function openInstellingen() { instellingenFout(''); renderInstellingen(); instDialoog.showModal(); }
   $('#knop-instellingen').addEventListener('click', openInstellingen);
@@ -1013,7 +1123,21 @@
 
   pasOverzichtToe(window.VACOM.overzicht);
   const m = location.hash.match(/#k=(\d+)/);
-  if (m && S.channels.some((c) => c.id === Number(m[1]))) {
+  // v0.5.1: ?project=TOKEN (vanuit de Portal) opent dat projectkanaal direct.
+  const projectKanaal = window.VACOM.project ? S.channels.find((c) => c.project_token === window.VACOM.project) : null;
+  if (projectKanaal) {
+    kiesKanaal(projectKanaal.id);
+  } else if (window.VACOM.embed) {
+    // Ingesloten in de Portal maar het kanaal staat niet in mijn lijst: geen
+    // lid (niet gekoppeld, of ooit verlaten). Deelnemen kan met één klik.
+    document.body.dataset.pane = 'chat';
+    el.naam.textContent = 'Projectkanaal';
+    el.leeg.innerHTML = '<p class="stil">Je bent (nog) geen lid van dit projectkanaal.</p><button type="button" class="knop primair" id="knop-deelnemen">Deelnemen</button>';
+    $('#knop-deelnemen').addEventListener('click', async () => {
+      try { await api('kanaal_deelnemen', { project_token: window.VACOM.project }); location.reload(); }
+      catch (e) { toast(e.message); }
+    });
+  } else if (m && S.channels.some((c) => c.id === Number(m[1]))) {
     kiesKanaal(Number(m[1]));
   } else if (!isMobiel() && S.channels.some((c) => !c.archived)) {
     // Standaard #algemeen, anders het eerste losse kanaal, anders het eerste

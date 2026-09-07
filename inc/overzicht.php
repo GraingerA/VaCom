@@ -20,7 +20,7 @@ SELECT c.id, c.type, c.name, c.topic, c.dm_key, c.project_token, c.archived, c.c
        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.id > m.last_read_id AND x.user_id != m.user_id AND x.deleted = 0) AS unread,
        (SELECT MAX(id) FROM messages x WHERE x.channel_id = c.id) AS last_id
 FROM channels c JOIN channel_members m ON m.channel_id = c.id
-WHERE m.user_id = ?
+WHERE m.user_id = ? AND NOT (c.type = 'dm' AND m.hidden = 1) -- v0.5.1: verborgen gesprekken niet in de lijst
 ORDER BY c.type = 'dm', c.name COLLATE NOCASE
 SQL);
     $st->execute([$mijnId]);

@@ -14,10 +14,17 @@ $ik = vacom_require_login();
 // Het overzicht bouwen we met dezelfde code als de API, zodat het nooit uiteenloopt.
 $db = vacom_db();
 require_once __DIR__ . '/inc/overzicht.php';
+// v0.5.1: ingesloten in de Portal (popup op de projectkaart, Portal v4.13):
+// ?embed=1&project=TOKEN toont alleen de gesprekskaart van dat projectkanaal.
+// Zonder embed opent ?project=TOKEN gewoon dat kanaal in de volledige app.
+$embed   = !empty($_GET['embed']);
+$project = preg_replace('/[^a-f0-9]/', '', (string)($_GET['project'] ?? ''));
 $start = [
     'csrf'      => vacom_csrf(),
     'overzicht' => vacom_overzicht($db, $ik),
     'is_dev'    => VACOM_IS_DEV,
+    'embed'     => $embed,
+    'project'   => $project,
 ];
 ?>
 <!doctype html>
@@ -39,7 +46,7 @@ $start = [
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
 </head>
-<body data-pane="lijst">
+<body data-pane="lijst"<?= $embed ? ' class="embed"' : '' ?>>
 <script>/* v0.5: thema direct zetten (vóór render, geen flits). Zelfde voorkeur als de Portal. */try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
 <div class="aurora" aria-hidden="true"></div>
 
@@ -106,6 +113,9 @@ $start = [
       </div>
       <a class="knop mini chat-portal" id="chat-portal" hidden target="_blank" rel="noopener">Open in Portal ↗</a>
       <button class="knop icoon" id="knop-kanaal-opties" hidden title="Kanaal-opties" aria-label="Kanaal-opties">⋯</button>
+      <!-- v0.5.1: alleen ingesloten in de Portal — deze kop is dan dé kop van de popup -->
+      <a class="knop mini primair" id="chat-petear" hidden target="_blank" rel="noopener" title="Het gesprek in de volledige Petear-app openen (nieuw venster)">Open in Petear ↗</a>
+      <button class="knop icoon" id="chat-sluit" hidden title="Sluiten" aria-label="Sluiten">✕</button>
     </header>
 
     <!-- Alleen-lezen-balk voor een gesloten kanaal (v0.4.1) -->
@@ -148,10 +158,11 @@ $start = [
   <form id="form-kanaal">
     <h2>Nieuw kanaal</h2>
     <label>Naam
-      <div class="hash-veld"><span>#</span><input type="text" id="kanaal-naam" required maxlength="40" autocapitalize="none" placeholder="bijv. projecten"></div>
+      <!-- autocomplete/data-1p-ignore/data-lpignore: anders denkt 1Password/LastPass dat dit een inlogformulier is -->
+      <div class="hash-veld"><span>#</span><input type="text" id="kanaal-naam" required maxlength="40" autocapitalize="none" placeholder="bijv. projecten" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore></div>
     </label>
     <label>Onderwerp (optioneel)
-      <input type="text" id="kanaal-topic" maxlength="200" placeholder="Waar gaat dit kanaal over?">
+      <input type="text" id="kanaal-topic" maxlength="200" placeholder="Waar gaat dit kanaal over?" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>
     </label>
     <p class="melding fout" id="kanaal-fout" hidden></p>
     <div class="dialoog-knoppen">
@@ -186,7 +197,7 @@ $start = [
     <div class="inst-sectie">
       <div class="inst-kop">Status</div>
       <div class="status-rij">
-        <input type="text" id="inst-status" maxlength="60" autocomplete="off" placeholder="Bijv. Op kantoor · Vrij tot 14:00 · In overleg">
+        <input type="text" id="inst-status" maxlength="60" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore placeholder="Bijv. Op kantoor · Vrij tot 14:00 · In overleg">
         <button type="button" class="knop" id="inst-status-opslaan">Opslaan</button>
       </div>
       <p class="inst-hint">Collega's zien je status achter je naam in de zijbalk en bovenin jullie gesprek. Leeg laten = geen status.</p>
@@ -195,6 +206,13 @@ $start = [
     <div class="inst-sectie">
       <div class="inst-kop">Weergave</div>
       <div class="instellingen-rij"><span>Thema</span><button type="button" class="knop mini" id="inst-thema"></button></div>
+    </div>
+
+    <!-- v0.5.1: kanaalbeheer voor de superadmin — alle kanalen, ook zonder lid te zijn -->
+    <div class="inst-sectie" id="inst-beheer" hidden>
+      <div class="inst-kop">Kanaalbeheer <span class="stil">· superadmin</span></div>
+      <p class="inst-hint" style="margin:0 0 8px">Alle kanalen, ook waar je geen lid van bent. Verwijderen is definitief: berichten en zoekresultaten gaan mee.</p>
+      <ul class="leden" id="beheer-kanalen"></ul>
     </div>
 
     <div class="inst-sectie">
@@ -214,7 +232,7 @@ $start = [
     <button type="button" class="knop mini" id="dm-sluit" aria-label="Sluiten">✕</button>
   </div>
   <div class="opties-body">
-    <input type="text" id="dm-filter" placeholder="Zoek een collega…" autocomplete="off">
+    <input type="text" id="dm-filter" placeholder="Zoek een collega…" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>
     <ul class="dm-keuze" id="dm-keuze"></ul>
   </div>
 </dialog>
@@ -243,9 +261,10 @@ $start = [
   </div>
   <div class="opties-body">
     <p class="stil" id="opties-project" hidden>Projectkanaal — leden volgen de koppeling in de Portal (projectmanager en designers).</p>
+    <p class="stil" id="opties-dm">Een gesprek uit je lijst halen verwijdert niets: de berichten blijven bewaard en doorzoekbaar. Het gesprek komt vanzelf terug zodra er een nieuw bericht is, of als je het opnieuw opent via de + bij Berichten.</p>
     <p class="melding info" id="opties-gesloten" hidden>Dit kanaal is gesloten: iedereen kan het lezen en doorzoeken, maar er kan niets meer in geplaatst worden.</p>
     <label>Onderwerp
-      <input type="text" id="opties-topic" maxlength="200" placeholder="Waar gaat dit kanaal over?">
+      <input type="text" id="opties-topic" maxlength="200" placeholder="Waar gaat dit kanaal over?" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>
     </label>
     <h3 class="opties-kop">Leden <span class="stil" id="opties-aantal"></span></h3>
     <ul class="leden" id="opties-leden"></ul>
@@ -255,6 +274,7 @@ $start = [
     </div>
     <p class="melding fout" id="opties-fout" hidden></p>
     <div class="dialoog-knoppen opties-knoppen">
+      <button type="button" class="knop" id="opties-verbergen">Uit mijn lijst halen</button>
       <button type="button" class="knop" id="opties-verlaten" hidden>Kanaal verlaten</button>
       <button type="button" class="knop" id="opties-archiveren" hidden>Kanaal sluiten</button>
       <button type="button" class="knop" id="opties-heropenen" hidden>Kanaal heropenen</button>
@@ -270,6 +290,7 @@ $start = [
 </div>
 
 <script>window.VACOM = <?= json_encode($start, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?>;</script>
+<script src="<?= asset('assets/emoji.js') ?>"></script>
 <script src="<?= asset('assets/app.js') ?>"></script>
 </body>
 </html>

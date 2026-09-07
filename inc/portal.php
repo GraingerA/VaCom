@@ -63,7 +63,13 @@ function vacom_portal_projecten(): array {
         // 'vacom' = de Portal heeft het kanaal voor dit project geactiveerd
         // (v0.5, vlag vacom_chat in projects.json — de Portal-kant volgt later).
         $actief[$token] = ['name' => trim((string)$p['name']), 'manager' => $manager, 'gekoppeld' => $gekoppeld,
-                           'vacom' => !empty($p['vacom_chat'])];
+                           'vacom' => !empty($p['vacom_chat']),
+                           // v0.5.1: wie het kanaal vanuit de Portal startte (Portal v4.13) —
+                           // die wordt lid, ook als hij niet aan het project gekoppeld is.
+                           'vacom_door' => trim((string)($p['vacom_chat_by'] ?? '')),
+                           // Wanneer de Portal de vlag (voor het laatst) zette; ouder dan
+                           // een wis-actie van de superadmin = niet opnieuw aanmaken.
+                           'vacom_at'   => (int)($p['vacom_chat_at'] ?? 0)];
     }
     $prullenbak = [];
     foreach (vacom_portal_lees('trash.json') ?? [] as $t) {
@@ -127,10 +133,20 @@ function vacom_projectkanaal_activeren(PDO $db, string $token, array $ik): int {
         $namen = array_column($db->query("SELECT name FROM channels WHERE type = 'public'")->fetchAll(), 'name');
         $namenInGebruik = array_fill_keys($namen, true);
         $id = vacom_projectkanaal_maak($db, $token, $p, $namenInGebruik, vacom_now());
+        $db->prepare('DELETE FROM meta WHERE key = ?')->execute(['pk_gewist:' . $token]); // bewust opnieuw gestart
     }
     vacom_portal_sync(true); // leden (gekoppelden) erbij, state-teller omhoog
     vacom_bump_state();
     return $id;
+}
+
+/** Heeft de superadmin dit projectkanaal gewist ná de laatste "start" vanuit de
+ *  Portal? (v0.5.1, zie beheer_kanaal_wissen in api.php) */
+function vacom_projectkanaal_gewist(PDO $db, string $token, int $vacomAt): bool {
+    $st = $db->prepare('SELECT value FROM meta WHERE key = ?');
+    $st->execute(['pk_gewist:' . $token]);
+    $gewist = (int)($st->fetchColumn() ?: 0);
+    return $gewist > 0 && $gewist >= $vacomAt;
 }
 
 /** Projecten waar deze gebruiker aan gekoppeld is en die nog geen kanaal hebben (v0.5). */
@@ -233,11 +249,18 @@ function vacom_portal_sync(bool $forceer = false): void {
                 $veranderd = true;
             }
             $db->prepare('UPDATE channels SET topic = ? WHERE id = ? AND topic != ?')->execute([$topic, $k['id'], $topic]);
-        } elseif ($p['vacom']) {
+        } elseif ($p['vacom'] && !vacom_projectkanaal_gewist($db, $token, $p['vacom_at'])) {
             // v0.5: alleen nog aanmaken als de Portal het kanaal geactiveerd
             // heeft. Zonder vlag gebeurt er niets — een kanaal start je dan
             // vanuit VaCom (+ bij Projecten), zie vacom_projectkanaal_activeren().
-            vacom_projectkanaal_maak($db, $token, $p, $namenInGebruik, $nu);
+            // v0.5.1: en niet als de superadmin het kanaal ná die vlag gewist heeft.
+            $nieuwId = vacom_projectkanaal_maak($db, $token, $p, $namenInGebruik, $nu);
+            // v0.5.1: de starter (vanuit de Portal) wordt 'handmatig' lid, zodat
+            // ook een niet-gekoppelde collega (bv. de superadmin) het gesprek ziet.
+            if ($p['vacom_door'] !== '' && ($starter = vacom_user_by_name($p['vacom_door'])) !== null) {
+                $db->prepare("INSERT OR IGNORE INTO channel_members(channel_id, user_id, last_read_id, joined, via) VALUES (?, ?, ?, ?, 'handmatig')")
+                   ->execute([$nieuwId, (int)$starter['id'], $maxId, $nu]);
+            }
             $veranderd = true;
         }
     }
