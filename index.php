@@ -1,6 +1,6 @@
 <?php
 /**
- * VaCom — de app. Eén pagina; assets/app.js doet de rest via api.php.
+ * Petear — de app. Eén pagina; assets/app.js doet de rest via api.php.
  * Het eerste overzicht (kanalen, collega's) wordt hier al meegegeven, zodat de
  * app direct staat zonder extra rondje naar de server.
  */
@@ -29,8 +29,8 @@ $start = [
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="VaCom">
-<title>VaCom</title>
+<meta name="apple-mobile-web-app-title" content="Petear">
+<title>Petear</title>
 <link rel="icon" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
@@ -40,39 +40,51 @@ $start = [
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
 </head>
 <body data-pane="lijst">
+<script>/* v0.5: thema direct zetten (vóór render, geen flits). Zelfde voorkeur als de Portal. */try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
 <div class="aurora" aria-hidden="true"></div>
 
 <div class="app">
 
+  <!-- Header (v0.5), zoals de Portal-headerbalk: logo links, rechts wie je
+       bent en de knoppen zoeken · thema · instellingen · uitloggen. -->
+  <header class="app-kop glas">
+    <div class="logo">
+      <img class="logo-icoon" src="assets/icon-192.png" alt="">
+      <span class="logo-naam">Petear</span>
+    </div>
+    <button type="button" class="kop-ik" id="kop-ik" title="Instellingen">
+      <span class="avatar klein" id="kop-avatar"></span>
+      <span class="naam" id="kop-naam"><?= h($ik['name']) ?></span>
+    </button>
+    <button class="knop icoon" id="knop-zoeken" title="Zoeken (Ctrl+K)" aria-label="Zoeken">
+      <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button class="knop icoon" id="knop-thema" title="Licht / donker" aria-label="Licht of donker thema">☀</button>
+    <button class="knop icoon" id="knop-instellingen" title="Instellingen" aria-label="Instellingen">⚙</button>
+    <button class="knop icoon" id="knop-uitloggen" title="Uitloggen" aria-label="Uitloggen">⏻</button>
+  </header>
+
   <!-- Zijbalk: kanalen, DM's, collega's -->
   <aside class="zijbalk glas" id="zijbalk">
-    <div class="zijbalk-kop">
-      <div class="logo">
-        <span class="logo-bubbel">V</span>
-        <span class="logo-naam">VaCom</span>
-      </div>
-      <button class="knop icoon" id="knop-zoeken" title="Zoeken" aria-label="Zoeken">
-        <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
-    </div>
-
     <nav class="zijbalk-lijsten">
-      <section>
-        <h2>Kanalen <button class="knop mini" id="knop-kanaal-nieuw" title="Nieuw kanaal">+</button></h2>
+      <!-- v0.5: elke sectie is inklapbaar (details/summary); de stand wordt
+           per browser onthouden. De +-knopjes in de kop toggelen niét. -->
+      <details class="sectie" data-sectie="kanalen" open>
+        <summary><span class="sectie-titel">Kanalen</span> <span class="badge sectie-badge" id="badge-kanalen" hidden></span> <button type="button" class="knop mini" id="knop-kanaal-nieuw" title="Nieuw kanaal">+</button></summary>
         <ul id="lijst-kanalen"></ul>
-      </section>
-      <section>
-        <h2>Berichten</h2>
+      </details>
+      <details class="sectie" data-sectie="berichten" open>
+        <summary><span class="sectie-titel">Berichten</span> <span class="badge sectie-badge" id="badge-berichten" hidden></span> <button type="button" class="knop mini" id="knop-dm-nieuw" title="Nieuw gesprek met een collega">+</button></summary>
         <ul id="lijst-dms"></ul>
-      </section>
-      <section id="sectie-projecten" hidden>
-        <h2>Projecten</h2>
+      </details>
+      <details class="sectie" data-sectie="projecten" id="sectie-projecten" open>
+        <summary><span class="sectie-titel">Projecten</span> <span class="badge sectie-badge" id="badge-projecten" hidden></span> <button type="button" class="knop mini" id="knop-project-nieuw" title="Kanaal starten voor een project waar je aan gekoppeld bent">+</button></summary>
         <ul id="lijst-projecten"></ul>
-      </section>
-      <section>
-        <h2>Collega's</h2>
+      </details>
+      <details class="sectie" data-sectie="collegas" open>
+        <summary><span class="sectie-titel">Collega's</span></summary>
         <ul id="lijst-collegas"></ul>
-      </section>
+      </details>
       <!-- Gesloten kanalen (v0.4.1): ingeklapt onderin, zoals de archief-lijst in Slack -->
       <section id="sectie-gesloten" hidden>
         <details class="gesloten-details">
@@ -81,19 +93,12 @@ $start = [
         </details>
       </section>
     </nav>
-
-    <div class="zijbalk-voet">
-      <span class="ik"><span class="stip online"></span><?= h($ik['name']) ?></span>
-      <span class="voet-knoppen">
-        <a class="knop mini" href="gebruikers.php" title="<?= VACOM_PORTAL ? 'Collega\'s' : (vacom_is_superadmin() ? 'Gebruikers' : 'Mijn wachtwoord') ?>">⚙</a>
-        <button class="knop mini" id="knop-uitloggen" title="Uitloggen">⏻</button>
-      </span>
-    </div>
   </aside>
 
   <!-- Hoofdvlak: het geopende kanaal -->
-  <main class="chat" id="chat">
-    <header class="chat-kop glas">
+  <!-- Eén kaart: kanaalkop, gesprek en schrijfveld horen bij elkaar. -->
+  <main class="chat glas" id="chat">
+    <header class="chat-kop">
       <button class="knop icoon alleen-mobiel" id="knop-terug" aria-label="Terug naar overzicht">‹</button>
       <div class="chat-titel">
         <h1 id="chat-naam">Welkom</h1>
@@ -112,12 +117,12 @@ $start = [
 
     <div class="berichten" id="berichten">
       <div class="leeg" id="leeg">
-        <div class="logo groot"><span class="logo-bubbel">V</span><span class="logo-naam">VaCom</span></div>
+        <div class="logo groot"><img class="logo-icoon" src="assets/icon-192.png" alt=""><span class="logo-naam">Petear</span></div>
         <p>Kies links een kanaal of een collega.</p>
       </div>
     </div>
 
-    <form class="schrijver glas" id="schrijver" hidden>
+    <form class="schrijver" id="schrijver" hidden>
       <button type="button" class="knop icoon" id="knop-emoji" title="Emoji" aria-label="Emoji kiezen">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c.9 1.2 2.1 1.8 3.5 1.8s2.6-.6 3.5-1.8" stroke-linecap="round"/><circle cx="9" cy="9.6" r="1.15" fill="currentColor" stroke="none"/><circle cx="15" cy="9.6" r="1.15" fill="currentColor" stroke="none"/></svg>
       </button>
@@ -156,6 +161,80 @@ $start = [
   </form>
 </dialog>
 
+<!-- Instellingen (v0.5): avatarfoto, je gegevens uit de Portal, thema -->
+<dialog id="dialoog-instellingen" class="dialoog klein">
+  <div class="dialoog-kop">
+    <h2>Instellingen</h2>
+    <button type="button" class="knop mini" id="instellingen-sluit" aria-label="Sluiten">✕</button>
+  </div>
+  <div class="opties-body">
+    <!-- Profiel: foto links, naam/rol/e-mail en de fotoknoppen rechts ernaast -->
+    <div class="profiel">
+      <div class="avatar instellingen-avatar" id="instellingen-avatar"></div>
+      <div class="profiel-info">
+        <div class="profiel-naam" id="inst-naam"></div>
+        <div class="profiel-sub"><span id="inst-rol"></span><span class="profiel-punt">·</span><span id="inst-email"></span></div>
+        <div class="profiel-knoppen">
+          <button type="button" class="knop mini" id="avatar-kiezen">Foto kiezen…</button>
+          <button type="button" class="knop mini" id="avatar-weg" hidden>Foto verwijderen</button>
+          <input type="file" id="avatar-bestand" accept="image/*" hidden>
+        </div>
+      </div>
+    </div>
+    <p class="melding fout" id="instellingen-fout" hidden></p>
+
+    <div class="inst-sectie">
+      <div class="inst-kop">Status</div>
+      <div class="status-rij">
+        <input type="text" id="inst-status" maxlength="60" autocomplete="off" placeholder="Bijv. Op kantoor · Vrij tot 14:00 · In overleg">
+        <button type="button" class="knop" id="inst-status-opslaan">Opslaan</button>
+      </div>
+      <p class="inst-hint">Collega's zien je status achter je naam in de zijbalk en bovenin jullie gesprek. Leeg laten = geen status.</p>
+    </div>
+
+    <div class="inst-sectie">
+      <div class="inst-kop">Weergave</div>
+      <div class="instellingen-rij"><span>Thema</span><button type="button" class="knop mini" id="inst-thema"></button></div>
+    </div>
+
+    <div class="inst-sectie">
+      <p class="inst-hint"><?= VACOM_PORTAL ? 'Naam, rol en e-mail komen uit de Portal; wijzigen doe je daar.' : 'Je wachtwoord wijzig je via Gebruikers.' ?></p>
+      <div class="dialoog-knoppen instellingen-links">
+        <a class="knop" href="gebruikers.php"><?= VACOM_PORTAL ? 'Collega\'s' : (vacom_is_superadmin() ? 'Gebruikers' : 'Mijn wachtwoord') ?></a>
+        <a class="knop" href="changelog.php">Wat is er nieuw</a>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Nieuw gesprek (v0.5): kies een collega — of jezelf, voor notities -->
+<dialog id="dialoog-dm" class="dialoog klein">
+  <div class="dialoog-kop">
+    <h2>Nieuw gesprek</h2>
+    <button type="button" class="knop mini" id="dm-sluit" aria-label="Sluiten">✕</button>
+  </div>
+  <div class="opties-body">
+    <input type="text" id="dm-filter" placeholder="Zoek een collega…" autocomplete="off">
+    <ul class="dm-keuze" id="dm-keuze"></ul>
+  </div>
+</dialog>
+
+<!-- Projectkanaal starten (v0.5): alleen projecten waar je aan gekoppeld bent en die nog geen kanaal hebben -->
+<dialog id="dialoog-project" class="dialoog klein">
+  <form id="form-project">
+    <h2>Projectkanaal starten</h2>
+    <p class="stil" id="project-uitleg">Kies een project waar je aan gekoppeld bent. Iedereen die in de Portal aan het project hangt wordt automatisch lid.</p>
+    <label>Project
+      <select id="project-keuze" required></select>
+    </label>
+    <p class="melding fout" id="project-fout" hidden></p>
+    <div class="dialoog-knoppen">
+      <button type="button" class="knop" id="project-annuleer">Annuleren</button>
+      <button type="submit" class="knop primair" id="project-aanmaken">Kanaal starten</button>
+    </div>
+  </form>
+</dialog>
+
 <!-- Kanaal-opties (v0.4): leden, collega toevoegen, verlaten, sluiten/verwijderen -->
 <dialog id="dialoog-opties" class="dialoog klein">
   <div class="dialoog-kop">
@@ -186,7 +265,7 @@ $start = [
 
 <!-- Installatie-tip voor iPhone -->
 <div class="banner" id="banner-ios" hidden>
-  <p>Zet VaCom op je beginscherm voor meldingen: tik op <strong>Delen</strong> <span class="ios-deel">⎋</span> en dan <strong>Zet op beginscherm</strong>.</p>
+  <p>Zet Petear op je beginscherm voor meldingen: tik op <strong>Delen</strong> <span class="ios-deel">⎋</span> en dan <strong>Zet op beginscherm</strong>.</p>
   <button class="knop mini" id="banner-ios-sluit" aria-label="Sluiten">✕</button>
 </div>
 

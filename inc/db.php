@@ -152,6 +152,25 @@ SQL);
         $pdo->exec("DELETE FROM meta WHERE key = 'portal_stempel'");
         $pdo->exec('PRAGMA user_version = 4');
     }
+
+    if ($versie < 5) {
+        // v0.5: projectkanalen worden niet meer automatisch voor élk project
+        // aangemaakt, maar bewust gestart (in VaCom via het +-knopje bij
+        // Projecten, later ook vanuit de Portal). De automatisch aangemaakte
+        // kanalen waar nooit iets in gezegd is, ruimen we hier op; kanalen mét
+        // berichten blijven gewoon bestaan.
+        $pdo->exec('DELETE FROM channel_members WHERE channel_id IN (SELECT id FROM channels WHERE project_token IS NOT NULL AND id NOT IN (SELECT DISTINCT channel_id FROM messages))');
+        $pdo->exec('DELETE FROM channels WHERE project_token IS NOT NULL AND id NOT IN (SELECT DISTINCT channel_id FROM messages)');
+        $pdo->exec("UPDATE meta SET value = CAST(value AS INTEGER) + 1 WHERE key = 'state'");
+        $pdo->exec('PRAGMA user_version = 5');
+    }
+
+    if ($versie < 6) {
+        // v0.5: eigen status ("Op kantoor", "Vrij tot 14:00"). Vrije tekst,
+        // door de gebruiker zelf gezet; de Portal-sync raakt deze kolom niet.
+        $pdo->exec("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT ''");
+        $pdo->exec('PRAGMA user_version = 6');
+    }
 }
 
 /* ---------- Kleine helpers rond de database ---------- */

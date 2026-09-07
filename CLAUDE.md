@@ -1,4 +1,10 @@
-# VaCom — projectcontext voor Claude
+# Petear (technisch: VaCom) — projectcontext voor Claude
+
+**De app heet sinds 7 sept 2026 Petear** (Fries voor "gesprek"). Alles wat de
+gebruiker ziet (titels, logo, manifest, changelog, mails) zegt Petear; de
+technische naam blijft `vacom` (map `vacom/`, functies `vacom_*`, constanten
+`VACOM_*`, datamap `vacom_data/`, CSRF-header, URL `portal.invite.nl/vacom/`).
+Hieronder staat "VaCom" dus steeds voor de code, niet voor wat de gebruiker leest.
 
 VaCom (van Vastgoed Communicatie) is de interne Slack-variant van Invite:
 kanalen, directe berichten, zoeken door alles. Doorzoekbaarheid is de kernbelofte.

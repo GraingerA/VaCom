@@ -1,6 +1,6 @@
-# VaCom
+# Petear
 
-*VaCom (Vastgoed Communicatie) is het interne kanaal van Invite, à la Slack.*
+*Petear (Fries voor "gesprek"; technische naam VaCom) is het interne kanaal van Invite, à la Slack.*
 
 Werkt in de browser op Mac en PC, en als app op de iPhone (via "Zet op beginscherm").
 Draait als submap van de Invite Project Portal, op dezelfde PHP-hosting — geen

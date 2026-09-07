@@ -271,6 +271,70 @@ case 'kanaal_topic': {
     vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
 }
 
+/* ---- Avatar (v0.5): eigen foto uploaden of verwijderen ---- */
+
+case 'avatar_upload': {
+    // Komt binnen als multipart (FormData), dus $invoer = $_POST en de foto in $_FILES.
+    $f = $_FILES['avatar'] ?? null;
+    if (!$f || empty($f['tmp_name']) || !is_uploaded_file($f['tmp_name'])) vacom_fout('Geen foto ontvangen.');
+    if ((int)$f['error'] !== UPLOAD_ERR_OK) vacom_fout('Upload mislukt (code ' . (int)$f['error'] . ').');
+    if ((int)$f['size'] > 8 * 1024 * 1024) vacom_fout('De foto is te groot (max. 8 MB).');
+    $info = @getimagesize($f['tmp_name']);
+    if (!$info) vacom_fout('Dit bestand is geen afbeelding.');
+    $src = match ($info[2]) {
+        IMAGETYPE_JPEG => @imagecreatefromjpeg($f['tmp_name']),
+        IMAGETYPE_PNG  => @imagecreatefrompng($f['tmp_name']),
+        IMAGETYPE_GIF  => @imagecreatefromgif($f['tmp_name']),
+        IMAGETYPE_WEBP => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($f['tmp_name']) : false,
+        default        => false,
+    };
+    if (!$src) vacom_fout('Alleen JPG, PNG, GIF of WebP.');
+    // iPhone-foto's dragen hun draaiing in de EXIF-data; anders staat de foto op z'n kant.
+    if ($info[2] === IMAGETYPE_JPEG && function_exists('exif_read_data')) {
+        $exif = @exif_read_data($f['tmp_name']);
+        $o = (int)($exif['Orientation'] ?? 1);
+        if ($o === 3)     $src = imagerotate($src, 180, 0);
+        elseif ($o === 6) $src = imagerotate($src, -90, 0);
+        elseif ($o === 8) $src = imagerotate($src, 90, 0);
+    }
+    // Vierkant uit het midden knippen en verkleinen naar 192×192 (ruim genoeg voor retina).
+    $w = imagesx($src); $h = imagesy($src); $z = min($w, $h);
+    $dst = imagecreatetruecolor(192, 192);
+    imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255)); // transparante PNG's krijgen wit
+    imagecopyresampled($dst, $src, 0, 0, (int)(($w - $z) / 2), (int)(($h - $z) / 2), 192, 192, $z, $z);
+    $pad = vacom_avatar_pad($mijnId);
+    if (!is_dir(dirname($pad))) @mkdir(dirname($pad), 0755, true);
+    if (!imagejpeg($dst, $pad, 86)) vacom_fout('Opslaan mislukt — is de datamap beschrijfbaar?');
+    imagedestroy($src); imagedestroy($dst);
+    vacom_bump_state(); // iedereen haalt het overzicht opnieuw → nieuwe foto zichtbaar
+    vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
+}
+
+case 'avatar_verwijderen': {
+    $pad = vacom_avatar_pad($mijnId);
+    if (is_file($pad)) @unlink($pad);
+    vacom_bump_state();
+    vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
+}
+
+/* ---- Projectkanalen starten (v0.5) ---- */
+
+case 'projecten_beschikbaar':
+    if (!VACOM_PORTAL) vacom_json(['ok' => true, 'projects' => []]);
+    vacom_json(['ok' => true, 'projects' => vacom_projecten_beschikbaar($db, $ik)]);
+
+case 'projectkanaal_aanmaken': {
+    if (!VACOM_PORTAL) vacom_fout('Alleen in Portal-modus.');
+    $token = param_str($invoer, 'token');
+    if ($token === '' || !preg_match('/^[a-f0-9]+$/', $token)) vacom_fout('Ongeldig project.');
+    try {
+        $id = vacom_projectkanaal_activeren($db, $token, $ik);
+    } catch (RuntimeException $e) {
+        vacom_fout($e->getMessage());
+    }
+    vacom_json(['ok' => true, 'channel_id' => $id] + vacom_overzicht($db, $ik));
+}
+
 /* ---- Kanaal-opties (v0.4): leden, toevoegen, verlaten, sluiten, verwijderen ---- */
 
 case 'kanaal_leden': {
@@ -368,11 +432,22 @@ case 'kanaal_verwijderen': {
     vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
 }
 
+case 'status_zetten': {
+    // v0.5: eigen status. Korte vrije tekst; leeg = geen status.
+    $status = mb_substr(param_str($invoer, 'status'), 0, 60);
+    $db->prepare('UPDATE users SET status = ? WHERE id = ?')->execute([$status, $mijnId]);
+    $ik['status'] = $status; // $ik was al geladen vóór de update; 'me' in het overzicht moet de nieuwe status tonen
+    vacom_bump_state();
+    vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
+}
+
 case 'dm': {
     // DM openen met een collega: bestaat er al een, dan die; anders aanmaken.
+    // v0.5: een gesprek met jezelf mag ook (notities; dm_key "5:5").
     $ander = vacom_user_by_id(param_int($invoer, 'user_id'));
-    if ($ander === null || (int)$ander['id'] === $mijnId) vacom_fout('Collega niet gevonden.');
-    $sleutel = vacom_dm_key($mijnId, (int)$ander['id']);
+    if ($ander === null) vacom_fout('Collega niet gevonden.');
+    $anderId = (int)$ander['id'];
+    $sleutel = vacom_dm_key($mijnId, $anderId);
     $st = $db->prepare('SELECT id FROM channels WHERE dm_key = ?');
     $st->execute([$sleutel]);
     $id = (int)$st->fetchColumn();
@@ -383,7 +458,7 @@ case 'dm': {
         $id = (int)$db->lastInsertId();
         $ins = $db->prepare('INSERT INTO channel_members(channel_id, user_id, last_read_id, joined) VALUES (?,?,0,?)');
         $ins->execute([$id, $mijnId, vacom_now()]);
-        $ins->execute([$id, (int)$ander['id'], vacom_now()]);
+        if ($anderId !== $mijnId) $ins->execute([$id, $anderId, vacom_now()]);
         vacom_bump_state();
         $db->commit();
     }

@@ -122,7 +122,7 @@ function vacom_bootstrap_if_needed(): void {
 
     $wachtwoord = bin2hex(random_bytes(12));
     if (vacom_create_user('Ad', $wachtwoord, 'superadmin') === null) return;
-    $tekst  = "VaCom — eenmalig startwachtwoord\n\n";
+    $tekst  = "Petear — eenmalig startwachtwoord\n\n";
     $tekst .= "Gebruikersnaam : Ad\n";
     $tekst .= "Wachtwoord     : $wachtwoord\n\n";
     $tekst .= "Log hiermee in en wijzig daarna je wachtwoord via 'Gebruikers'.\n";
@@ -228,12 +228,23 @@ function vacom_require_login(): array {
 }
 
 /** Publieke weergave van een gebruiker (nooit de hash of het e-mailadres). */
+/** Pad van de avatarfoto van een gebruiker (v0.5): in de datamap, dus buiten
+ *  de webroot; avatar.php serveert hem. */
+function vacom_avatar_pad(int $id): string {
+    return VACOM_DATA . '/avatars/' . $id . '.jpg';
+}
+
 function vacom_public_user(array $u): array {
+    $avatarPad = vacom_avatar_pad((int)$u['id']);
     return [
         'id'        => (int)$u['id'],
         'name'      => $u['name'],
         'role'      => $u['role'],
+        'email'     => (string)($u['email'] ?? ''),
+        'status'    => (string)($u['status'] ?? ''),
         'active'    => (int)$u['active'] === 1,
         'last_seen' => $u['last_seen'],
+        // v0.5: mtime van de avatarfoto (0 = geen foto). Dient ook als cache-buster.
+        'avatar'    => is_file($avatarPad) ? (int)filemtime($avatarPad) : 0,
     ];
 }

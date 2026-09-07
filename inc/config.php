@@ -1,14 +1,14 @@
 <?php
 /**
- * VaCom — gedeelde configuratie en kleine helpers.
+ * VaCom â€” gedeelde configuratie en kleine helpers.
  *
- * Eén plek voor versie, paden en de functies die elk bestand nodig heeft.
+ * EÃ©n plek voor versie, paden en de functies die elk bestand nodig heeft.
  * Gebruik: require_once __DIR__ . '/inc/config.php';
  */
 
 declare(strict_types=1);
 
-define('VACOM_VERSION', '0.4.1');
+define('VACOM_VERSION', '0.5.0');
 define('VACOM_ROOT', dirname(__DIR__));
 
 // PHP's ingebouwde dev-server (php -S) meldt zich als 'cli-server'. Daarop
@@ -41,7 +41,7 @@ if (!defined('VACOM_PORTAL_DATA')) {
     $vacom_ipp = VACOM_PORTAL ? dirname(VACOM_PORTAL_ROOT) . '/ipp_data' : '';
     define('VACOM_PORTAL_DATA', VACOM_PORTAL ? (is_dir($vacom_ipp) ? $vacom_ipp : VACOM_PORTAL_ROOT . '/data') : '');
 }
-// Relatieve link naar de Portal (VaCom staat altijd precies één map dieper).
+// Relatieve link naar de Portal (VaCom staat altijd precies Ã©Ã©n map dieper).
 define('VACOM_PORTAL_URL', '../');
 
 // Vaste basis-URL, zonder slash aan het eind. Hardcoded en niet afgeleid uit
@@ -52,7 +52,7 @@ if (!defined('VACOM_BASE_URL')) {
 }
 
 // Datamap. Op de server staat die BUITEN de webroot (../vacom_data naast
-// public_html), zodat de database nooit via de browser te downloaden is —
+// public_html), zodat de database nooit via de browser te downloaden is â€”
 // .htaccess is op deze hosting niet betrouwbaar. Lokaal: gewoon ./data.
 // Eigen pad nodig? Zet define('VACOM_DATA', ...) in inc/config.local.php.
 if (!defined('VACOM_DATA')) {
@@ -89,7 +89,7 @@ function h(?string $s): string {
     return htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-/** Tijdstempel in UTC, ISO 8601 — JavaScript leest dit rechtstreeks met new Date(). */
+/** Tijdstempel in UTC, ISO 8601 â€” JavaScript leest dit rechtstreeks met new Date(). */
 function vacom_now(): string {
     return gmdate('Y-m-d\TH:i:s\Z');
 }

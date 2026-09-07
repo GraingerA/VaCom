@@ -2,22 +2,35 @@
    donker met aurora-achtergrond, goud, Manrope, glazen header en kaarten,
    hoekradius 5px (knoppen) / 7px (kaarten). */
 
+/* v0.5: exact de Portal-tokens (style_ipp.css v4 / Planning 3D): donkere
+   basis, glazen kaarten met color-mix + blur, losse kaarten op de aurora. */
 :root {
-  --bg: #0f1319;
-  --tekst: #e8e6df;
-  --stil: #9aa3ad;
+  --bg: #111318;            /* Portal --bg */
+  --oppervlak: #1c1f27;     /* Portal --surface: basis van glazen kaarten */
+  --kaart: #22262f;         /* Portal --card */
+  --tekst: #e8e2d8;
+  --stil: #8d93a2;
   --goud: #fbbc43;
-  --goud-2: #f2bf5b;
-  --blauw: #8ecae8;
-  --groen: #4da875;
-  --rood: #e0555f;
-  --glas: rgba(20, 24, 31, 0.72);
-  --lijn: rgba(255, 255, 255, 0.08);
+  --goud-2: #fdd06e;
+  --blauw: #84cfed;
+  --groen: #4caf7d;
+  --rood: #e05c5c;
+  --lijn: #2e3340;          /* Portal --border */
+  --lijn-sterk: #4a5068;    /* Portal --border-hov */
   --vlak: rgba(255, 255, 255, 0.04);
   --vlak-2: rgba(255, 255, 255, 0.08);
+  --glas-blur: 24px;
+  --glas-opacity: 0.40;
+  --glas: color-mix(in oklab, var(--oppervlak) calc(var(--glas-opacity) * 100%), transparent);
+  --aurora-1: rgba(76, 175, 125, 0.20);
+  --aurora-2: rgba(123, 204, 236, 0.22);
+  --aurora-3: rgba(251, 188, 67, 0.30);
+  --schaduw-kaart: 0 6px 18px rgba(0, 0, 0, .28);
+  --schaduw-pop: 0 8px 24px rgba(0, 0, 0, .4);
   --r-knop: 5px;
   --r-kaart: 7px;
   --zijbalk: 272px;
+  --lucht: 12px;            /* ruimte tussen de losse kaarten */
   --sa-top: env(safe-area-inset-top, 0px);
   --sa-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -37,19 +50,21 @@ a { color: var(--blauw); }
 h1, h2, h3 { margin: 0; font-weight: 700; }
 code { font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; background: var(--vlak-2); padding: 1px 5px; border-radius: 4px; }
 
+/* Aurora — exact het Portal-recept (drie zachte kleurwolken op de basis). */
 .aurora {
   position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(60% 50% at 8% 0%, rgba(251, 188, 67, 0.16), transparent 60%),
-    radial-gradient(50% 40% at 95% 8%, rgba(142, 202, 232, 0.14), transparent 60%),
-    radial-gradient(60% 50% at 50% 105%, rgba(77, 168, 117, 0.12), transparent 60%),
+    radial-gradient(60% 50% at 12% 20%, var(--aurora-1), transparent 70%),
+    radial-gradient(45% 40% at 88% 30%, var(--aurora-2), transparent 70%),
+    radial-gradient(55% 45% at 50% 92%, var(--aurora-3), transparent 70%),
     var(--bg);
 }
 
+/* Glazen kaart — hetzelfde recept als de Portal-kaarten en -header. */
 .glas {
   background: var(--glas);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glas-blur)) saturate(1.15);
+  backdrop-filter: blur(var(--glas-blur)) saturate(1.15);
   border: 1px solid var(--lijn);
 }
 
@@ -99,18 +114,70 @@ select option { background: #1a2029; color: var(--tekst); }
 .logo-naam { font-size: 20px; }
 .logo.groot .logo-bubbel { width: 52px; height: 52px; font-size: 32px; border-radius: 14px 14px 14px 4px; }
 .logo.groot .logo-naam { font-size: 34px; }
+/* v0.5: het echte app-icoon (PNG uit assets/) i.p.v. de getekende letter. */
+.logo-icoon { width: 30px; height: 30px; border-radius: 8px; display: block; }
+.logo.groot .logo-icoon { width: 60px; height: 60px; border-radius: 14px; }
 
 /* ---------- App-layout ---------- */
 
+/* v0.5: losse kaarten op de aurora, zoals de Portal-homepage — de zijbalk
+   en de drie chat-delen (kop, berichten, schrijfveld) zijn elk een glazen
+   kaart met lucht ertussen; geen omvattende doos. */
 .app {
-  display: grid; grid-template-columns: var(--zijbalk) 1fr;
-  height: 100dvh;
+  display: grid; grid-template-columns: var(--zijbalk) 1fr; grid-template-rows: auto 1fr; gap: var(--lucht);
+  height: 100dvh; padding: calc(var(--lucht) + var(--sa-top)) var(--lucht) calc(var(--lucht) + var(--sa-bottom));
 }
+
+/* Header (v0.5) — over de volle breedte, zoals de Portal-headerbalk. */
+.app-kop {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px 8px 16px; border-radius: var(--r-kaart);
+}
+.app-kop .logo { margin-right: auto; }
+.kop-ik {
+  display: inline-flex; align-items: center; gap: 8px; margin-right: 6px;
+  padding: 3px 10px 3px 3px; font: inherit; font-weight: 600; color: var(--tekst);
+  background: none; border: 1px solid transparent; border-radius: 999px; cursor: pointer;
+}
+.kop-ik:hover { background: var(--vlak-2); border-color: var(--lijn); }
+.avatar { overflow: hidden; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
+.avatar.klein { width: 30px; height: 30px; border-radius: 9px; font-size: 13px; }
+/* Instellingen-dialoog (v0.5) */
+.profiel { display: flex; align-items: center; gap: 16px; }
+.avatar.instellingen-avatar { width: 76px; height: 76px; border-radius: 18px; font-size: 32px; flex: none; }
+.profiel-info { min-width: 0; flex: 1; }
+.profiel-naam { font-weight: 700; font-size: 17px; }
+.profiel-sub { font-size: 13px; color: var(--stil); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.profiel-punt { margin: 0 6px; }
+.profiel-knoppen { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+#instellingen-fout { margin: 14px 0 0; }
+.inst-sectie { border-top: 1px solid var(--lijn); margin-top: 16px; padding-top: 14px; }
+.inst-kop { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--stil); margin-bottom: 8px; }
+.inst-hint { font-size: 13px; color: var(--stil); margin: 8px 0 0; line-height: 1.45; }
+.status-rij { display: flex; gap: 8px; align-items: stretch; }
+.status-rij input { margin: 0; min-width: 0; }
+.status-rij .knop { flex: none; }
+.instellingen-rij { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; }
+.instellingen-links { margin-top: 10px; }
+/* Status van collega's: klein en stil achter de naam */
+.status-tekst { font-size: 12px; font-weight: 400; color: var(--stil); max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; }
+/* Nieuw gesprek: lijst met collega's */
+#dm-filter { margin: 0 0 10px; }
+.dm-keuze { list-style: none; margin: 0; padding: 0; max-height: min(50vh, 380px); overflow-y: auto; }
+.dm-keuze li button {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 8px;
+  font: inherit; color: var(--tekst); text-align: left; background: none; border: 0; border-radius: var(--r-knop); cursor: pointer;
+}
+.dm-keuze li button:hover { background: var(--vlak-2); }
+.dm-keuze .naam { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-keuze .avatar.klein { flex: none; }
+.dm-keuze .leeg-tekst { padding: 10px 8px; color: var(--stil); font-size: 14px; }
 
 .zijbalk {
   display: flex; flex-direction: column; min-height: 0;
-  border-width: 0 1px 0 0;
-  padding-top: var(--sa-top);
+  border-radius: var(--r-kaart);
 }
 .zijbalk-kop {
   display: flex; align-items: center; justify-content: space-between;
@@ -143,7 +210,7 @@ select option { background: #1a2029; color: var(--tekst); }
 
 .zijbalk-voet {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 10px 12px calc(10px + var(--sa-bottom)) 16px; border-top: 1px solid var(--lijn);
+  padding: 10px 12px 10px 16px; border-top: 1px solid var(--lijn);
   font-weight: 600;
 }
 .zijbalk-voet .ik { display: inline-flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -151,16 +218,17 @@ select option { background: #1a2029; color: var(--tekst); }
 
 /* ---------- Chat ---------- */
 
-.chat { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+/* Het gesprek is één kaart: kop, berichten en schrijfveld, gescheiden door dunne lijnen. */
+.chat { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-radius: var(--r-kaart); overflow: hidden; }
 .chat-kop {
   display: flex; align-items: center; gap: 10px;
-  padding: calc(10px + var(--sa-top)) 16px 10px; border-width: 0 0 1px 0;
+  padding: 10px 12px 10px 16px; flex: none; border-bottom: 1px solid var(--lijn);
 }
-.chat-titel { min-width: 0; }
+.chat-titel { flex: 1; min-width: 0; } /* duwt "Open in Portal" en ⋯ naar rechts */
 .chat-kop h1 { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat-topic { margin: 0; font-size: 13px; color: var(--stil); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat-topic:empty { display: none; }
-.chat-portal { margin-left: auto; flex: none; white-space: nowrap; }
+.chat-portal { flex: none; white-space: nowrap; }
 .alleen-mobiel { display: none; }
 
 .berichten { flex: 1; overflow-y: auto; padding: 12px 16px 8px; overscroll-behavior: contain; }
@@ -198,8 +266,8 @@ select option { background: #1a2029; color: var(--tekst); }
 
 .schrijver {
   display: flex; align-items: flex-end; gap: 8px;
-  margin: 8px 12px calc(10px + var(--sa-bottom)); padding: 6px 6px 6px 12px;
-  border-radius: var(--r-kaart);
+  margin: 0; padding: 6px 6px 6px 12px; flex: none;
+  border-top: 1px solid var(--lijn);
 }
 .schrijver textarea {
   flex: 1; margin: 0; padding: 8px 0; max-height: 160px; resize: none;
@@ -213,8 +281,8 @@ select option { background: #1a2029; color: var(--tekst); }
 .dialoog {
   width: min(680px, calc(100vw - 24px)); max-height: min(80vh, 700px);
   padding: 0; margin: auto;
-  color: var(--tekst); background: #161b23; border: 1px solid var(--lijn); border-radius: var(--r-kaart);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  color: var(--tekst); background: var(--kaart); border: 1px solid var(--lijn); border-radius: var(--r-kaart);
+  box-shadow: var(--schaduw-pop);
 }
 .dialoog::backdrop { background: rgba(0, 0, 0, 0.55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
 .dialoog.klein { width: min(440px, calc(100vw - 24px)); }
@@ -222,6 +290,7 @@ select option { background: #1a2029; color: var(--tekst); }
 .dialoog.klein h2 { margin-bottom: 16px; }
 .dialoog-kop { display: flex; gap: 8px; align-items: center; padding: 12px; border-bottom: 1px solid var(--lijn); margin: 0; }
 .dialoog-kop input { margin: 0; }
+.dialoog-kop h2 { flex: 1; margin: 0; font-size: 18px; } /* titel links, ✕ rechts */
 .dialoog-knoppen { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 .hash-veld { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
 .hash-veld span { font-weight: 800; color: var(--stil); }
@@ -286,8 +355,11 @@ select option { background: #1a2029; color: var(--tekst); }
 /* ---------- Telefoon ---------- */
 
 @media (max-width: 800px) {
-  .app { grid-template-columns: 1fr; }
-  .zijbalk { border-width: 0; }
+  .app { grid-template-columns: 1fr; --lucht: 8px; }
+  .app-kop { padding: 6px 8px 6px 10px; gap: 4px; }
+  .app-kop .logo-naam { display: none; }
+  .app-kop .kop-ik .naam { display: none; }
+  .app-kop .kop-ik { padding: 3px; margin-right: 0; }
   body[data-pane="lijst"] .chat { display: none; }
   body[data-pane="chat"] .zijbalk { display: none; }
   .alleen-mobiel { display: inline-flex; font-size: 26px; font-weight: 400; padding-bottom: 3px; }
@@ -296,7 +368,6 @@ select option { background: #1a2029; color: var(--tekst); }
   .bericht { grid-template-columns: 32px 1fr; }
   .avatar { width: 32px; height: 32px; font-size: 14px; }
   .bericht.vervolg .tijd-klein { display: none; }
-  .schrijver { margin: 6px 8px calc(8px + var(--sa-bottom)); }
   .tabel th:nth-child(3), .tabel td:nth-child(3) { display: none; }
   .acties { white-space: normal; }
 }
@@ -374,8 +445,13 @@ select option { background: #1a2029; color: var(--tekst); }
   -webkit-tap-highlight-color: transparent;
 }
 .gesloten-details summary::-webkit-details-marker { display: none; }
-.gesloten-details summary::before { content: "▸"; font-size: 11px; transition: transform 0.15s; }
-.gesloten-details[open] summary::before { transform: rotate(90deg); }
+.gesloten-details summary::before {
+  content: ""; width: 0; height: 0; flex: none; margin: 0 4px 0 2px;
+  border-left: 7px solid transparent; border-right: 7px solid transparent;
+  border-bottom: 11px solid var(--stil);
+  transform: rotate(90deg); transition: transform 0.15s;
+}
+.gesloten-details[open] summary::before { transform: rotate(180deg); }
 .gesloten-details summary .stil { text-transform: none; letter-spacing: 0; font-weight: 600; }
 .zijbalk-lijsten li button.gesloten { opacity: 0.6; }
 .zijbalk-lijsten li button.gesloten.actief { opacity: 1; }
@@ -383,13 +459,91 @@ select option { background: #1a2029; color: var(--tekst); }
 /* Alleen-lezen-balk boven het gesprek van een gesloten kanaal. */
 .gesloten-balk {
   display: flex; align-items: center; gap: 10px; flex: none;
-  margin: 10px 16px 0; padding: 8px 12px;
+  margin: 10px 12px 0; padding: 8px 12px;
   font-size: 13px; color: var(--stil);
   background: var(--vlak); border: 1px solid var(--lijn); border-radius: var(--r-knop);
 }
 .gesloten-balk .slotje { font-size: 14px; flex: none; }
 .gesloten-balk .knop { margin-left: auto; flex: none; }
 @media (max-width: 800px) {
-  .gesloten-balk { margin: 8px 12px 0; flex-wrap: wrap; }
+  .gesloten-balk { flex-wrap: wrap; }
   .gesloten-balk .knop { margin-left: 24px; }
 }
+
+/* ---------- Inklapbare zijbalk-secties (v0.5) ---------- */
+/* De <details>-secties zien eruit als de oude h2-kopjes, met een pijltje. */
+.zijbalk-lijsten details.sectie { margin-bottom: 14px; }
+.zijbalk-lijsten details.sectie summary {
+  display: flex; align-items: center; gap: 6px; list-style: none; cursor: pointer;
+  padding: 6px 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--stil);
+  border-radius: var(--r-knop); user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.zijbalk-lijsten details.sectie summary::-webkit-details-marker { display: none; }
+/* Echte driehoek (zelfde CSS-truc als .person-dot in Planning 3D): wijst
+   opzij als de sectie dicht is, omlaag als hij open is. */
+.zijbalk-lijsten details.sectie summary::before {
+  content: ""; width: 0; height: 0; flex: none; margin: 0 4px 0 2px;
+  border-left: 7px solid transparent; border-right: 7px solid transparent;
+  border-bottom: 11px solid var(--goud);
+  transform: rotate(90deg); transition: transform 0.15s;
+}
+.zijbalk-lijsten details.sectie[open] summary::before { transform: rotate(180deg); }
+/* Ongelezen-teller in de kop — alleen zichtbaar als de sectie is ingeklapt,
+   zodat je niets mist. */
+.zijbalk-lijsten details.sectie summary .sectie-badge { flex: none; }
+.zijbalk-lijsten details.sectie[open] summary .sectie-badge { display: none; }
+.zijbalk-lijsten details.sectie summary:hover { background: var(--vlak); }
+.zijbalk-lijsten details.sectie summary .sectie-titel { flex: 1; }
+.zijbalk-lijsten details.sectie summary .knop { flex: none; }
+
+/* ---------- Licht thema (v0.5) ---------- */
+/* Zelfde crème-tinten als de lichte modus van de Portal. De voorkeur wordt
+   gedeeld met de Portal (localStorage 'ipp_theme'): één keuze, overal. */
+body.light-mode {
+  --bg: #f7f3ec;
+  --oppervlak: #ffffff;
+  --kaart: #faf6ef;
+  --tekst: #2a2520;
+  --stil: #7a7268;
+  --blauw: #3a8fb5;
+  --groen: #35946a;
+  --lijn: #e4ddd0;
+  --lijn-sterk: #c9c0ad;
+  --vlak: rgba(30, 25, 15, 0.03);
+  --vlak-2: rgba(30, 25, 15, 0.07);
+  --glas-opacity: 0.50;
+  --aurora-1: rgba(76, 175, 125, 0.22);
+  --aurora-2: rgba(58, 143, 181, 0.22);
+  --aurora-3: rgba(251, 188, 67, 0.34);
+  --schaduw-kaart: 0 6px 16px rgba(0, 0, 0, .07);
+  --schaduw-pop: 0 8px 24px rgba(0, 0, 0, .12);
+  /* --glas opnieuw uitrekenen: een variabele die naar andere variabelen
+     verwijst, wordt bepaald op het element waar hij staat (:root) — daar
+     gelden nog de donkere waarden. Hier herhalen zorgt voor lichte glaskaarten. */
+  --glas: color-mix(in oklab, var(--oppervlak) calc(var(--glas-opacity) * 100%), transparent);
+}
+body.light-mode .knop:hover { background: rgba(0, 0, 0, 0.12); }
+body.light-mode input, body.light-mode textarea, body.light-mode select { background: #fff; }
+body.light-mode .schrijver textarea { background: none; }
+body.light-mode select option { background: #fff; color: var(--tekst); }
+body.light-mode .zijbalk-lijsten li button.actief { color: var(--tekst); }
+body.light-mode .stip { background: rgba(0, 0, 0, 0.15); }
+body.light-mode .dialoog { background: var(--oppervlak); }
+body.light-mode .dialoog::backdrop { background: rgba(40, 30, 20, 0.35); }
+body.light-mode .banner { background: #fff; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); }
+body.light-mode .toast { background: #fff1f2; color: #b3222c; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); }
+body.light-mode .melding.fout { color: #b3222c; }
+body.light-mode .melding.ok { color: #2f7a4f; }
+body.light-mode .reactie-chip:hover { border-color: rgba(0, 0, 0, 0.25); }
+body.light-mode .mention { background: rgba(47, 134, 179, 0.14); }
+body.light-mode .zoek-hit mark { color: #8a5a00; }
+body.light-mode .avatar, body.light-mode .badge, body.light-mode .knop.primair { color: #14181f; }
+
+/* ---------- Scrollbalken in themakleur (v0.5) ---------- */
+:root { --scroll: rgba(251, 188, 67, 0.45); }
+body.light-mode { --scroll: rgba(251, 188, 67, 0.7); }
+* { scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--scroll); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: var(--goud); background-clip: padding-box; }

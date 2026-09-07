@@ -14,7 +14,7 @@ vacom_require_login();
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1319">
-<title>Wat is er nieuw — VaCom</title>
+<title>Wat is er nieuw — Petear</title>
 <link rel="icon" href="assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,12 +22,28 @@ vacom_require_login();
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
 </head>
 <body class="pagina-body">
+<script>try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
 <div class="aurora" aria-hidden="true"></div>
 <main class="pagina">
   <header class="pagina-kop">
-    <a class="knop" href="index.php">‹ Terug naar VaCom</a>
+    <a class="knop" href="index.php">‹ Terug naar Petear</a>
     <h1>Wat is er nieuw</h1>
   </header>
+
+  <section class="kaart glas">
+    <h2>v0.5.0 <span class="stil">— 4 september 2026</span></h2>
+    <ul>
+      <li><strong>Nieuwe naam: Petear.</strong> De app heet vanaf nu Petear (Fries voor "gesprek"). Het adres blijft hetzelfde: portal.invite.nl/vacom/.</li>
+      <li><strong>Projectkanalen start je nu bewust.</strong> Er komt niet meer automatisch voor elk Portal-project een kanaal. Klik op de + naast "Projecten": je kiest een project waar je aan gekoppeld bent, en het kanaal is er — met meteen iedereen erin die in de Portal aan dat project hangt. Projectkanalen die nog nooit gebruikt waren zijn opgeruimd; kanalen met berichten blijven bestaan.</li>
+      <li><strong>Zijbalk-secties inklappen.</strong> Kanalen, Berichten, Projecten en Collega's klap je in en uit met een klik op de kop; VaCom onthoudt hoe je het had staan. Is een sectie ingeklapt, dan zie je in de kop hoeveel ongelezen berichten erin zitten.</li>
+      <li><strong>Licht en donker.</strong> Nieuw knopje ☀/☽ in de header. De voorkeur is dezelfde als in de Portal: zet je daar licht, dan is VaCom ook licht (en andersom).</li>
+      <li>Scrollbalken in de huisstijlkleur, en het echte app-icoon als logo in de zijbalk en op de inlogpagina.</li>
+      <li><strong>Header met jouw naam en foto.</strong> Bovenin staat nu een headerbalk zoals in de Portal: links het logo, rechts wie je bent en de knoppen zoeken · licht/donker · instellingen · uitloggen. Onder Instellingen (of klik op je naam) upload je een profielfoto — die verschijnt bij al je berichten — en zie je je gegevens uit de Portal.</li>
+      <li><strong>Eigen status.</strong> Onder Instellingen zet je een korte status ("Op kantoor", "Vrij tot 14:00", "In overleg"). Collega's zien die achter je naam in de zijbalk en bovenin jullie gesprek.</li>
+      <li><strong>Nieuw gesprek starten met +.</strong> Naast "Berichten" staat nu een +-knopje: kies een collega en het gesprek staat open. Bovenaan die lijst staat <em>Jijzelf</em> — een gesprek met jezelf, handig voor notities en links die je even wilt bewaren.</li>
+      <li><strong>Vormgeving zoals de Portal.</strong> De header, de zijbalk en het gesprek zijn nu losse glazen kaarten op de aurora-achtergrond — met exact de kleuren en randen van de Portal. Kanaalkop, berichten en schrijfveld zitten samen in één kaart; de kanaal-opties (⋯) staan rechtsboven. De inklap-pijltjes zijn echte driehoekjes geworden.</li>
+    </ul>
+  </section>
 
   <section class="kaart glas">
     <h2>v0.4.1 <span class="stil">— 4 september 2026</span></h2>

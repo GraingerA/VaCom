@@ -68,8 +68,17 @@
 
   function kanaalNaam(k) {
     if (!k) return '';
-    if (k.type === 'dm') { const u = gebruiker(k.other_id); return u ? u.name : 'Onbekend'; }
+    if (k.type === 'dm') {
+      if (S.me && k.other_id === S.me.id) return 'Jijzelf (notities)'; // v0.5: gesprek met jezelf
+      const u = gebruiker(k.other_id); return u ? u.name : 'Onbekend';
+    }
     return '#' + k.name;
+  }
+  // Onder de kanaalnaam: het onderwerp, of bij een gesprek de status van de ander (v0.5).
+  function kanaalTopic(k) {
+    if (!k) return '';
+    if (k.type === 'dm') { const u = gebruiker(k.other_id); return u && u.status ? u.status : ''; }
+    return k.topic || '';
   }
 
   function avatarKleur(id) {
@@ -78,6 +87,17 @@
   }
 
   function initiaal(naam) { return (naam || '?').trim().charAt(0).toUpperCase(); }
+
+  // v0.5: avatar-inhoud — de foto als die er is, anders de gekleurde initiaal.
+  function avatarInhoud(id, naam) {
+    const u = gebruiker(id);
+    if (u && u.avatar) return `<img src="avatar.php?u=${id}&v=${u.avatar}" alt="">`;
+    return esc(initiaal(naam));
+  }
+  function avatarStijl(id) {
+    const u = gebruiker(id);
+    return u && u.avatar ? '' : ` style="background:${avatarKleur(id)}"`;
+  }
 
   function tijd(iso) {
     return new Date(iso).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
@@ -270,10 +290,22 @@
       const k = S.channels.find((c) => c.id === S.current.id);
       // Kanaal net gesloten of heropend? Dan blijft het open staan, maar
       // wisselt het van modus (schrijfveld ↔ alleen-lezen-balk).
-      if (k) { k.unread = 0; S.current = k; toonKanaalModus(k); } else { sluitKanaal(); }
+      if (k) { k.unread = 0; S.current = k; toonKanaalModus(k); el.topic.textContent = kanaalTopic(k); } else { sluitKanaal(); }
     }
     bouwMentionRegex();
     renderZijbalk();
+    renderKopIk();
+    if ($('#dialoog-instellingen').open) renderInstellingen();
+    if ($('#dialoog-dm').open) renderDmKeuze();
+  }
+
+  // v0.5: wie ben ik, in de header (avatar + naam).
+  function renderKopIk() {
+    if (!S.me) return;
+    const av = $('#kop-avatar');
+    av.innerHTML = avatarInhoud(S.me.id, S.me.name);
+    av.style.background = (gebruiker(S.me.id) || {}).avatar ? '' : avatarKleur(S.me.id);
+    $('#kop-naam').textContent = S.me.name;
   }
 
   function renderZijbalk() {
@@ -287,26 +319,61 @@
     // kanalen (v0.4.1) staan in geen van beide, maar onderin bij "Gesloten".
     const open = S.channels.filter((k) => !k.archived);
     const projecten = open.filter((k) => k.type === 'public' && k.project_token);
-    el.sectieProjecten.hidden = projecten.length === 0;
-    el.projecten.innerHTML = projecten.map((k) => item(k, k.name, '<span class="hash">#</span>')).join('');
+    // v0.5: de sectie blijft altijd staan (met het +-knopje), ook zonder kanalen.
+    el.projecten.innerHTML = projecten.map((k) => item(k, k.name, '<span class="hash">#</span>')).join('')
+      || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen projectkanalen — start er een met +</li>';
     el.kanalen.innerHTML = open.filter((k) => k.type === 'public' && !k.project_token)
       .map((k) => item(k, k.name, '<span class="hash">#</span>')).join('');
     const gesloten = S.channels.filter((k) => k.archived);
     el.sectieGesloten.hidden = gesloten.length === 0;
     el.geslotenAantal.textContent = gesloten.length ? `(${gesloten.length})` : '';
     el.gesloten.innerHTML = gesloten.map((k) => item(k, k.name, '<span class="hash">#</span>', 'gesloten')).join('');
+    // v0.5: status van een collega klein achter de naam.
+    const statusHtml = (u) => (u && u.status ? `<span class="status-tekst" title="${esc(u.status)}">${esc(u.status)}</span>` : '');
     el.dms.innerHTML = S.channels.filter((k) => k.type === 'dm')
       .map((k) => {
         const u = gebruiker(k.other_id);
-        return item(k, u ? u.name : 'Onbekend', `<span class="stip${u && isOnline(u) ? ' online' : ''}"></span>`);
-      }).join('') || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen gesprekken</li>';
+        const zelf = k.other_id === S.me.id;
+        const naam = `<span class="naam">${esc(kanaalNaam(k))}</span>${zelf ? '' : statusHtml(u)}`;
+        const klassen = [k.id === actiefId ? 'actief' : '', k.unread ? 'ongelezen' : ''].join(' ').trim();
+        const badge = k.unread ? `<span class="badge">${k.unread}</span>` : '';
+        return `<li><button type="button" data-kanaal="${k.id}" class="${klassen}"><span class="stip${u && isOnline(u) ? ' online' : ''}"></span>${naam}${badge}</button></li>`;
+      }).join('') || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen gesprekken — start er een met +</li>';
     el.collegas.innerHTML = S.users.filter((u) => u.active && u.id !== S.me.id)
-      .map((u) => `<li><button type="button" data-collega="${u.id}"><span class="stip${isOnline(u) ? ' online' : ''}"></span><span class="naam">${esc(u.name)}</span></button></li>`)
+      .map((u) => `<li><button type="button" data-collega="${u.id}"><span class="stip${isOnline(u) ? ' online' : ''}"></span><span class="naam">${esc(u.name)}</span>${statusHtml(u)}</button></li>`)
       .join('') || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen collega\'s</li>';
 
+    // v0.5: ongelezen-tellers per sectie — zichtbaar in de kop zodra een
+    // sectie is ingeklapt (CSS verbergt ze bij een open sectie).
+    const somVan = (lijst) => lijst.reduce((n, k) => n + (k.unread || 0), 0);
+    const zetBadge = (id, n) => { const b = $('#' + id); if (b) { b.textContent = n; b.hidden = !n; } };
+    zetBadge('badge-kanalen', somVan(open.filter((k) => k.type === 'public' && !k.project_token)));
+    zetBadge('badge-berichten', somVan(S.channels.filter((k) => k.type === 'dm')));
+    zetBadge('badge-projecten', somVan(projecten));
+
     const totaal = S.channels.reduce((n, k) => n + (k.unread || 0), 0);
-    document.title = (totaal ? `(${totaal}) ` : '') + 'VaCom';
+    document.title = (totaal ? `(${totaal}) ` : '') + 'Petear';
   }
+
+  /* ---------- Thema (v0.5) ---------- */
+  // Zelfde voorkeur als de Portal: localStorage 'ipp_theme' ('light' of 'dark').
+  // Geen keuze bekend → donker (het VaCom-standaardthema). Wie in de Portal op
+  // licht heeft gezet, ziet VaCom dus ook licht — en andersom.
+  function zetThema(licht) {
+    document.body.classList.toggle('light-mode', licht);
+    const b = $('#knop-thema');
+    if (b) { b.textContent = licht ? '☽' : '☀'; b.title = licht ? 'Naar donker' : 'Naar licht'; }
+  }
+  (() => {
+    let licht = false;
+    try { licht = localStorage.getItem('ipp_theme') === 'light'; } catch (e) { /* privé-modus */ }
+    zetThema(licht);
+    $('#knop-thema').addEventListener('click', () => {
+      const naarLicht = !document.body.classList.contains('light-mode');
+      try { localStorage.setItem('ipp_theme', naarLicht ? 'light' : 'dark'); } catch (e) { /* prima */ }
+      zetThema(naarLicht);
+    });
+  })();
 
   /* ---------- Kanaal openen ---------- */
 
@@ -316,7 +383,7 @@
     S.current = k; S.msgs = []; S.hasMore = false; S.gelezenTot = 0;
     document.body.dataset.pane = 'chat';
     el.naam.textContent = kanaalNaam(k);
-    el.topic.textContent = k.type === 'dm' ? '' : (k.topic || '');
+    el.topic.textContent = kanaalTopic(k);
     if (k.project_token && S.portalUrl) {
       el.chatPortal.href = S.portalUrl + 'project_ipp.php?p=' + encodeURIComponent(k.project_token);
       el.chatPortal.hidden = false;
@@ -326,7 +393,9 @@
     el.leeg.hidden = true;
     toonKanaalModus(k);
     el.optiesKnop.hidden = k.type !== 'public'; // v0.4: opties alleen bij kanalen, niet bij gesprekken
-    el.invoer.placeholder = k.type === 'dm' ? `Bericht aan ${kanaalNaam(k)}` : `Bericht in ${kanaalNaam(k)}`;
+    el.invoer.placeholder = k.type === 'dm'
+      ? (k.other_id === S.me.id ? 'Notitie voor jezelf' : `Bericht aan ${kanaalNaam(k)}`)
+      : `Bericht in ${kanaalNaam(k)}`;
     el.berichten.innerHTML = '';
     history.replaceState(null, '', '#k=' + id);
     renderZijbalk();
@@ -422,7 +491,7 @@
         delen.push(`<div class="bericht vervolg" data-id="${m.id}"><div class="avatar"></div><div class="inhoud"><span class="tijd-klein">${tijd(m.created)}</span><div class="tekst${groot}">${tekst}</div>${chips}</div></div>`);
       } else {
         delen.push(`<div class="bericht eerste" data-id="${m.id}">
-          <div class="avatar" style="background:${avatarKleur(m.user_id)}">${esc(initiaal(m.author))}</div>
+          <div class="avatar"${avatarStijl(m.user_id)}>${avatarInhoud(m.user_id, m.author)}</div>
           <div class="inhoud"><div class="bericht-kop"><span class="auteur">${esc(m.author)}</span><span class="tijd">${tijd(m.created)}</span></div><div class="tekst${groot}">${tekst}</div>${chips}</div>
         </div>`);
       }
@@ -572,6 +641,8 @@
     }
     const collegaKnop = e.target.closest('[data-collega]');
     if (collegaKnop) {
+      const dmD = $('#dialoog-dm');
+      if (dmD.open) dmD.close();
       try {
         const j = await api('dm', { user_id: Number(collegaKnop.dataset.collega) });
         pasOverzichtToe(j);
@@ -605,11 +676,66 @@
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#knop-zoeken').click(); }
   });
 
-  $('#knop-kanaal-nieuw').addEventListener('click', () => {
+  $('#kanaal-annuleer').addEventListener('click', () => el.kanaalDialoog.close());
+
+  /* ---------- Inklapbare secties (v0.5) ---------- */
+  // De stand van elke sectie (open/dicht) wordt per browser onthouden. Een
+  // klik op het +-knopje in de kop mag de sectie niet toggelen.
+  (() => {
+    let stand = {};
+    try { stand = JSON.parse(localStorage.getItem('vacom_secties') || '{}') || {}; } catch (e) { /* privé-modus */ }
+    document.querySelectorAll('details.sectie').forEach((d) => {
+      const naam = d.dataset.sectie;
+      if (naam in stand) d.open = !!stand[naam];
+      d.addEventListener('toggle', () => {
+        stand[naam] = d.open;
+        try { localStorage.setItem('vacom_secties', JSON.stringify(stand)); } catch (e) { /* prima */ }
+      });
+      d.querySelectorAll('summary .knop').forEach((b) => {
+        b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); b.dispatchEvent(new CustomEvent('actie')); });
+      });
+    });
+  })();
+  // De +-knopjes zitten in een <summary>; hun echte werk hangt aan het 'actie'-event.
+  $('#knop-kanaal-nieuw').addEventListener('actie', () => {
     el.kanaalNaam.value = ''; el.kanaalTopic.value = ''; el.kanaalFout.hidden = true;
     el.kanaalDialoog.showModal(); el.kanaalNaam.focus();
   });
-  $('#kanaal-annuleer').addEventListener('click', () => el.kanaalDialoog.close());
+
+  /* ---------- Projectkanaal starten (v0.5) ---------- */
+  const projectDialoog = $('#dialoog-project'), projectKeuze = $('#project-keuze'), projectFout = $('#project-fout');
+
+  $('#knop-project-nieuw').addEventListener('actie', async () => {
+    projectFout.hidden = true;
+    projectKeuze.innerHTML = '<option value="">Laden…</option>';
+    $('#project-aanmaken').disabled = true;
+    projectDialoog.showModal();
+    try {
+      const j = await api('projecten_beschikbaar');
+      if (!j.projects.length) {
+        projectKeuze.innerHTML = '<option value="">Geen projecten zonder kanaal</option>';
+        projectFout.textContent = 'Alle projecten waar je aan gekoppeld bent hebben al een kanaal — of je bent (nog) nergens aan gekoppeld in de Portal.';
+        projectFout.hidden = false;
+        return;
+      }
+      projectKeuze.innerHTML = '<option value="">Kies een project…</option>'
+        + j.projects.map((p) => `<option value="${esc(p.token)}">${esc(p.name)}${p.manager ? ' · ' + esc(p.manager) : ''}</option>`).join('');
+      $('#project-aanmaken').disabled = false;
+    } catch (e) { projectFout.textContent = e.message; projectFout.hidden = false; }
+  });
+  $('#project-annuleer').addEventListener('click', () => projectDialoog.close());
+  $('#form-project').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const token = projectKeuze.value;
+    if (!token) return;
+    try {
+      const j = await api('projectkanaal_aanmaken', { token });
+      projectDialoog.close();
+      pasOverzichtToe(j);
+      kiesKanaal(j.channel_id);
+      toast('Projectkanaal gestart');
+    } catch (err) { projectFout.textContent = err.message; projectFout.hidden = false; }
+  });
   el.kanaalForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -759,6 +885,105 @@
       pasOverzichtToe(j);
       toast(`${naam} verwijderd`);
     } catch (e) { optiesFout(e.message); }
+  });
+
+  /* ---------- Instellingen (v0.5): avatarfoto, gegevens, thema ---------- */
+
+  const instDialoog = $('#dialoog-instellingen');
+  function instellingenFout(t) { const f = $('#instellingen-fout'); f.textContent = t || ''; f.hidden = !t; }
+
+  function renderInstellingen() {
+    if (!S.me) return;
+    const av = $('#instellingen-avatar');
+    const heeftFoto = !!(gebruiker(S.me.id) || {}).avatar;
+    av.innerHTML = avatarInhoud(S.me.id, S.me.name);
+    av.style.background = heeftFoto ? '' : avatarKleur(S.me.id);
+    $('#avatar-weg').hidden = !heeftFoto;
+    $('#inst-naam').textContent = S.me.name;
+    $('#inst-rol').textContent = S.me.role === 'superadmin' ? 'Superadmin' : 'Medewerker';
+    $('#inst-email').textContent = S.me.email || '—';
+    // Status alleen invullen als je er niet net zelf in aan het typen bent.
+    const st = $('#inst-status');
+    if (document.activeElement !== st) st.value = S.me.status || '';
+    const licht = document.body.classList.contains('light-mode');
+    $('#inst-thema').textContent = licht ? '☀ Licht — wissel naar donker' : '☽ Donker — wissel naar licht';
+  }
+
+  function openInstellingen() { instellingenFout(''); renderInstellingen(); instDialoog.showModal(); }
+  $('#knop-instellingen').addEventListener('click', openInstellingen);
+  $('#kop-ik').addEventListener('click', openInstellingen);
+  $('#instellingen-sluit').addEventListener('click', () => instDialoog.close());
+  instDialoog.addEventListener('click', (e) => { if (e.target === instDialoog) instDialoog.close(); });
+  $('#inst-thema').addEventListener('click', () => { $('#knop-thema').click(); renderInstellingen(); });
+
+  // Status (v0.5)
+  async function slaStatusOp() {
+    const st = $('#inst-status');
+    const nieuw = st.value.trim();
+    if (nieuw === (S.me.status || '')) return;
+    try {
+      const j = await api('status_zetten', { status: nieuw });
+      st.blur();
+      pasOverzichtToe(j);
+      toast(nieuw ? 'Status opgeslagen' : 'Status gewist');
+    } catch (err) { instellingenFout(err.message); }
+  }
+  $('#inst-status-opslaan').addEventListener('click', slaStatusOp);
+  $('#inst-status').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); slaStatusOp(); } });
+
+  /* ---------- Nieuw gesprek (v0.5): + bij Berichten ---------- */
+
+  const dmDialoog = $('#dialoog-dm');
+  function renderDmKeuze() {
+    const q = $('#dm-filter').value.trim().toLowerCase();
+    const rij = (u, label, sub) => `<li><button type="button" data-collega="${u.id}">
+        <span class="avatar klein"${avatarStijl(u.id)}>${avatarInhoud(u.id, u.name)}</span>
+        <span class="naam">${esc(label)}</span>${sub ? `<span class="status-tekst">${esc(sub)}</span>` : ''}
+      </button></li>`;
+    const lijst = [];
+    if (!q || 'jijzelf notities'.includes(q)) lijst.push(rij(S.me, 'Jijzelf', 'notities voor jezelf'));
+    S.users.filter((u) => u.active && u.id !== S.me.id && (!q || u.name.toLowerCase().includes(q)))
+      .forEach((u) => lijst.push(rij(u, u.name, u.status || (isOnline(u) ? 'online' : ''))));
+    $('#dm-keuze').innerHTML = lijst.join('') || '<li class="leeg-tekst">Geen collega gevonden.</li>';
+  }
+  $('#knop-dm-nieuw').addEventListener('actie', () => {
+    $('#dm-filter').value = '';
+    renderDmKeuze();
+    dmDialoog.showModal();
+    if (window.matchMedia('(min-width: 801px)').matches) $('#dm-filter').focus();
+  });
+  $('#dm-filter').addEventListener('input', renderDmKeuze);
+  $('#dm-sluit').addEventListener('click', () => dmDialoog.close());
+  dmDialoog.addEventListener('click', (e) => { if (e.target === dmDialoog) dmDialoog.close(); });
+
+  $('#avatar-kiezen').addEventListener('click', () => $('#avatar-bestand').click());
+  $('#avatar-bestand').addEventListener('change', async (e) => {
+    const bestand = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!bestand) return;
+    instellingenFout('');
+    $('#avatar-kiezen').disabled = true;
+    try {
+      // Multipart i.p.v. JSON: de foto gaat als bestand mee, het CSRF-token in de header.
+      const fd = new FormData();
+      fd.append('actie', 'avatar_upload');
+      fd.append('avatar', bestand);
+      const r = await fetch('api.php', { method: 'POST', headers: { 'X-VaCom-Csrf': S.csrf }, body: fd });
+      const j = await r.json().catch(() => ({ ok: false, fout: 'Onleesbaar antwoord van de server.' }));
+      if (!j.ok) throw new Error(j.fout || 'Upload mislukt.');
+      pasOverzichtToe(j);
+      if (S.current) renderBerichten(bijnaOnderaan());
+      toast('Foto opgeslagen');
+    } catch (err) { instellingenFout(err.message); }
+    finally { $('#avatar-kiezen').disabled = false; }
+  });
+  $('#avatar-weg').addEventListener('click', async () => {
+    try {
+      const j = await api('avatar_verwijderen');
+      pasOverzichtToe(j);
+      if (S.current) renderBerichten(bijnaOnderaan());
+      toast('Foto verwijderd');
+    } catch (err) { instellingenFout(err.message); }
   });
 
   $('#knop-uitloggen').addEventListener('click', async () => {

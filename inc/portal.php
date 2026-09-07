@@ -60,7 +60,10 @@ function vacom_portal_projecten(): array {
             $d = trim((string)($o['designer'] ?? ''));
             if ($d !== '') $gekoppeld[vacom_naam_sleutel($d)] = true;
         }
-        $actief[$token] = ['name' => trim((string)$p['name']), 'manager' => $manager, 'gekoppeld' => $gekoppeld];
+        // 'vacom' = de Portal heeft het kanaal voor dit project geactiveerd
+        // (v0.5, vlag vacom_chat in projects.json — de Portal-kant volgt later).
+        $actief[$token] = ['name' => trim((string)$p['name']), 'manager' => $manager, 'gekoppeld' => $gekoppeld,
+                           'vacom' => !empty($p['vacom_chat'])];
     }
     $prullenbak = [];
     foreach (vacom_portal_lees('trash.json') ?? [] as $t) {
@@ -86,6 +89,60 @@ function vacom_slug(string $naam): string {
     $s = trim(preg_replace('/[^a-z0-9]+/', '-', $s) ?? '', '-');
     $s = substr($s, 0, 40);
     return $s !== '' ? trim($s, '-') : 'project';
+}
+
+/** Maakt het kanaal voor een Portal-project aan (v0.5: alleen op verzoek — vanuit
+ *  VaCom of via de Portal-vlag — niet meer automatisch voor elk project). Geeft
+ *  het kanaal-id terug. $namenInGebruik houdt slugs uniek binnen één sync-ronde. */
+function vacom_projectkanaal_maak(PDO $db, string $token, array $p, array &$namenInGebruik, string $nu): int {
+    $slug = vacom_slug($p['name']);
+    $naam = $slug;
+    $n = 2;
+    while (isset($namenInGebruik[$naam])) { $naam = $slug . '-' . $n++; }
+    $namenInGebruik[$naam] = true;
+    $topic = $p['manager'] !== '' ? 'Project · ' . $p['manager'] : 'Project';
+    $db->prepare("INSERT INTO channels(type, name, topic, project_token, created) VALUES ('public', ?, ?, ?, ?)")
+       ->execute([$naam, $topic, $token, $nu]);
+    return (int)$db->lastInsertId();
+}
+
+/**
+ * Projectkanaal starten vanuit VaCom (v0.5). Alleen voor wie in de Portal aan
+ * het project gekoppeld is. Bestaat het kanaal al (bv. gesloten omdat het
+ * project even in de prullenbak stond), dan wordt dat heropend. Daarna draait
+ * de sync zodat alle gekoppelden lid zijn. Geeft het kanaal-id terug.
+ */
+function vacom_projectkanaal_activeren(PDO $db, string $token, array $ik): int {
+    $projecten = vacom_portal_projecten();
+    $p = $projecten['actief'][$token] ?? null;
+    if ($p === null) throw new RuntimeException('Project niet gevonden in de Portal.');
+    if (!isset($p['gekoppeld'][$ik['name_key']])) throw new RuntimeException('Je bent niet aan dit project gekoppeld.');
+    $st = $db->prepare('SELECT id, archived FROM channels WHERE project_token = ?');
+    $st->execute([$token]);
+    $k = $st->fetch();
+    if ($k) {
+        if ((int)$k['archived'] === 1) $db->prepare('UPDATE channels SET archived = 0 WHERE id = ?')->execute([$k['id']]);
+        $id = (int)$k['id'];
+    } else {
+        $namen = array_column($db->query("SELECT name FROM channels WHERE type = 'public'")->fetchAll(), 'name');
+        $namenInGebruik = array_fill_keys($namen, true);
+        $id = vacom_projectkanaal_maak($db, $token, $p, $namenInGebruik, vacom_now());
+    }
+    vacom_portal_sync(true); // leden (gekoppelden) erbij, state-teller omhoog
+    vacom_bump_state();
+    return $id;
+}
+
+/** Projecten waar deze gebruiker aan gekoppeld is en die nog geen kanaal hebben (v0.5). */
+function vacom_projecten_beschikbaar(PDO $db, array $ik): array {
+    $metKanaal = array_fill_keys(array_column($db->query('SELECT project_token FROM channels WHERE project_token IS NOT NULL')->fetchAll(), 'project_token'), true);
+    $uit = [];
+    foreach (vacom_portal_projecten()['actief'] as $token => $p) {
+        if (isset($metKanaal[$token]) || !isset($p['gekoppeld'][$ik['name_key']])) continue;
+        $uit[] = ['token' => $token, 'name' => $p['name'], 'manager' => $p['manager']];
+    }
+    usort($uit, fn($a, $b) => strcasecmp($a['name'], $b['name']));
+    return $uit;
 }
 
 /** Verandert zodra een van de Portal-bestanden verandert. */
@@ -176,14 +233,11 @@ function vacom_portal_sync(bool $forceer = false): void {
                 $veranderd = true;
             }
             $db->prepare('UPDATE channels SET topic = ? WHERE id = ? AND topic != ?')->execute([$topic, $k['id'], $topic]);
-        } else {
-            $slug = vacom_slug($p['name']);
-            $naam = $slug;
-            $n = 2;
-            while (isset($namenInGebruik[$naam])) { $naam = $slug . '-' . $n++; }
-            $namenInGebruik[$naam] = true;
-            $db->prepare("INSERT INTO channels(type, name, topic, project_token, created) VALUES ('public', ?, ?, ?, ?)")
-               ->execute([$naam, $topic, $token, $nu]);
+        } elseif ($p['vacom']) {
+            // v0.5: alleen nog aanmaken als de Portal het kanaal geactiveerd
+            // heeft. Zonder vlag gebeurt er niets — een kanaal start je dan
+            // vanuit VaCom (+ bij Projecten), zie vacom_projectkanaal_activeren().
+            vacom_projectkanaal_maak($db, $token, $p, $namenInGebruik, $nu);
             $veranderd = true;
         }
     }
