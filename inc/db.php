@@ -179,6 +179,17 @@ SQL);
         $pdo->exec('ALTER TABLE channel_members ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0');
         $pdo->exec('PRAGMA user_version = 7');
     }
+
+    if ($versie < 8) {
+        // v0.6: bijlagen (foto's/bestanden) bij een bericht — één per bericht,
+        // als JSON {name, size, mime, type, thumb, w, h}; het bestand zelf staat
+        // in VACOM_DATA/bestanden/<bericht-id>/. En de 'mx'-teller: die gaat
+        // omhoog bij bewerken/verwijderen van een bericht (geen nieuw id, dus
+        // net als reacties een eigen teller voor de poll).
+        $pdo->exec('ALTER TABLE messages ADD COLUMN attachment TEXT');
+        $pdo->exec("INSERT OR IGNORE INTO meta(key, value) VALUES ('mx', '1')");
+        $pdo->exec('PRAGMA user_version = 8');
+    }
 }
 
 /* ---------- Kleine helpers rond de database ---------- */
@@ -192,6 +203,11 @@ function vacom_meta(string $key): string {
 /** Verhoog de state-teller: clients halen daarna hun overzicht opnieuw op. */
 function vacom_bump_state(): void {
     vacom_db()->exec("UPDATE meta SET value = CAST(value AS INTEGER) + 1 WHERE key = 'state'");
+}
+
+/** Teller voor bewerkte/verwijderde berichten (v0.6): clients halen dan de laatste berichten opnieuw. */
+function vacom_bump_mx(): void {
+    vacom_db()->exec("UPDATE meta SET value = CAST(value AS INTEGER) + 1 WHERE key = 'mx'");
 }
 
 function vacom_max_message_id(): int {

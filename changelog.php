@@ -31,9 +31,17 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.6.0 <span class="stil">— 8 september 2026</span></h2>
+    <ul>
+      <li><strong>Foto's en bestanden sturen.</strong> Via de paperclip naast het schrijfveld, door een screenshot of foto in het schrijfveld te plakken, of door bestanden op het gesprek te slepen. Foto's verschijnen als beeld in het gesprek (klik = groot); andere bestanden als een kaartje met naam en grootte, klik om te openen of te downloaden. Staat er tekst in het schrijfveld, dan gaat die als bijschrift mee. Max. 25 MB per bestand. Bestanden zijn alleen te openen door leden van het kanaal en de bestandsnaam is doorzoekbaar.</li>
+      <li><strong>Berichten bewerken en verwijderen.</strong> Wijs een eigen bericht aan en klik op ✎ om het te bewerken (Enter = opslaan, Esc = annuleren) of op 🗑 om het te verwijderen. Bewerkte berichten krijgen "(bewerkt)"; van een verwijderd bericht blijft alleen "bericht verwijderd" staan — tekst, reacties, bijlage en zoekresultaat zijn weg. De superadmin kan elk bericht verwijderen. Collega's zien wijzigingen binnen een paar seconden.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.5.3 <span class="stil">— 8 september 2026</span></h2>
     <ul>
-      <li><strong>GIF-knop.</strong> Naast de emoji-knop staat nu GIF: typ een zoekwoord, kies een gif uit Giphy en hij gaat meteen als bericht het kanaal in. Zonder zoekwoord zie je de populaire gifs van het moment. Het zoeken loopt via onze eigen server, dus Giphy ziet niet wie er zoekt.</li>
+      <li><strong>GIF-knop.</strong> Naast de emoji-knop staat nu GIF: typ een zoekwoord, kies een gif uit Giphy en hij gaat meteen als bericht het kanaal in. Zonder zoekwoord zie je de populaire gifs van het moment. Het zoeken loopt via onze eigen server, dus Giphy ziet niet wie er zoekt. Het paneel staat vast boven de knop en past altijd in het scherm.</li>
     </ul>
   </section>
 

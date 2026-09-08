@@ -103,7 +103,7 @@ function reacties_bij(PDO $db, array $ids): array {
 
 /** Berichten van één kanaal, met auteur en reacties, als lijst voor de client. */
 function berichten_uit(PDO $db, string $where, array $params, int $limiet, bool $oplopend): array {
-    $sql = "SELECT m.id, m.channel_id, m.user_id, m.parent_id, m.body, m.created, m.edited, m.deleted, u.name AS author
+    $sql = "SELECT m.id, m.channel_id, m.user_id, m.parent_id, m.body, m.created, m.edited, m.deleted, m.attachment, u.name AS author
             FROM messages m JOIN users u ON u.id = m.user_id
             WHERE $where ORDER BY m.id " . ($oplopend ? 'ASC' : 'DESC') . " LIMIT $limiet";
     $st = $db->prepare($sql);
@@ -135,7 +135,77 @@ function bericht_uit(array $r): array {
         'created'    => $r['created'],
         'edited'     => $r['edited'],
         'deleted'    => (int)$r['deleted'] === 1,
+        // v0.6: bijlage als array, of null (geen bijlage / bericht verwijderd)
+        'attachment' => ((int)$r['deleted'] === 1 || empty($r['attachment'])) ? null : (json_decode((string)$r['attachment'], true) ?: null),
     ];
+}
+
+/* ---- Bijlagen (v0.6) ---- */
+
+/** Map waarin de bijlage van een bericht staat (buiten de webroot). */
+function bijlage_map(int $berichtId): string {
+    return VACOM_DATA . '/bestanden/' . $berichtId;
+}
+
+/** Bestandsnaam veilig maken: alleen de basisnaam, geen rare tekens, niet te lang. */
+function bijlage_naam(string $naam): string {
+    $naam = basename(str_replace('\\', '/', $naam));
+    $naam = preg_replace('/[\x00-\x1F\x7F\/:*?"<>|]+/', '_', $naam) ?? '';
+    $naam = trim($naam, ' .');
+    if (mb_strlen($naam) > 120) {
+        $ext  = pathinfo($naam, PATHINFO_EXTENSION);
+        $naam = mb_substr(pathinfo($naam, PATHINFO_FILENAME), 0, 100) . ($ext !== '' ? '.' . $ext : '');
+    }
+    return $naam !== '' ? $naam : 'bestand';
+}
+
+/** Hele bijlage-map van een bericht weg (bij verwijderen). */
+function bijlage_wis(int $berichtId): void {
+    $map = bijlage_map($berichtId);
+    if (!is_dir($map)) return;
+    foreach (scandir($map) ?: [] as $f) { if ($f !== '.' && $f !== '..') @unlink($map . '/' . $f); }
+    @rmdir($map);
+}
+
+/** Bijlagen van álle berichten in een kanaal weg (kanaal definitief verwijderen). */
+function bijlagen_wis_kanaal(PDO $db, int $kanaalId): void {
+    $st = $db->prepare('SELECT id FROM messages WHERE channel_id = ? AND attachment IS NOT NULL');
+    $st->execute([$kanaalId]);
+    foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $id) bijlage_wis((int)$id);
+}
+
+/**
+ * Thumbnail (JPEG, max. $max px aan de lange kant) van een foto. Draait iPhone-
+ * foto's recht via de EXIF-oriëntatie. Geeft [breedte, hoogte] terug, of null
+ * als het niet lukt (geen GD, exotisch formaat, te groot voor het geheugen).
+ */
+function maak_thumbnail(string $bron, string $doel, int $max, array $info): ?array {
+    if (!function_exists('imagecreatetruecolor')) return null;
+    [$w, $h, $type] = $info;
+    if ($w * $h > 40_000_000) return null; // > 40 megapixel: niet aan beginnen
+    $src = match ($type) {
+        IMAGETYPE_JPEG => @imagecreatefromjpeg($bron),
+        IMAGETYPE_PNG  => @imagecreatefrompng($bron),
+        IMAGETYPE_GIF  => @imagecreatefromgif($bron),
+        IMAGETYPE_WEBP => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($bron) : false,
+        default        => false,
+    };
+    if (!$src) return null;
+    if ($type === IMAGETYPE_JPEG && function_exists('exif_read_data')) {
+        $o = (int)(@exif_read_data($bron)['Orientation'] ?? 1);
+        if ($o === 3)     $src = imagerotate($src, 180, 0);
+        elseif ($o === 6) $src = imagerotate($src, -90, 0);
+        elseif ($o === 8) $src = imagerotate($src, 90, 0);
+        if ($o === 6 || $o === 8) [$w, $h] = [$h, $w];
+    }
+    $schaal = min(1, $max / max($w, $h));
+    $tw = max(1, (int)round($w * $schaal)); $th = max(1, (int)round($h * $schaal));
+    $dst = imagecreatetruecolor($tw, $th);
+    imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255)); // transparantie → wit
+    imagecopyresampled($dst, $src, 0, 0, 0, 0, $tw, $th, $w, $h);
+    $ok = imagejpeg($dst, $doel, 82);
+    imagedestroy($src); imagedestroy($dst);
+    return $ok ? [$tw, $th] : null;
 }
 
 /* ---------- Acties ---------- */
@@ -164,12 +234,13 @@ case 'poll': {
     $maxId   = vacom_max_message_id();
     $state   = (int)vacom_meta('state');
     $rx      = (int)vacom_meta('rx');
+    $mx      = (int)vacom_meta('mx'); // v0.6: bewerkt/verwijderd
     $sinceId = param_int($invoer, 'since_id');
     $kanaalId = param_int($invoer, 'channel_id');
-    if ($maxId <= $sinceId && $state === param_int($invoer, 'state') && $rx === param_int($invoer, 'rx')) {
-        vacom_json(['ok' => true, 'changed' => false, 'max_id' => $maxId, 'state' => $state, 'rx' => $rx]);
+    if ($maxId <= $sinceId && $state === param_int($invoer, 'state') && $rx === param_int($invoer, 'rx') && $mx === param_int($invoer, 'mx')) {
+        vacom_json(['ok' => true, 'changed' => false, 'max_id' => $maxId, 'state' => $state, 'rx' => $rx, 'mx' => $mx]);
     }
-    $antwoord = ['ok' => true, 'changed' => true, 'max_id' => $maxId, 'state' => $state, 'rx' => $rx];
+    $antwoord = ['ok' => true, 'changed' => true, 'max_id' => $maxId, 'state' => $state, 'rx' => $rx, 'mx' => $mx];
     $isLid = false;
     if ($kanaalId > 0) {
         $st = $db->prepare('SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?');
@@ -189,6 +260,19 @@ case 'poll': {
         $sets = reacties_bij($db, $ids);
         // Ook lege sets meesturen: een wéggehaalde laatste reactie moet ook aankomen.
         $antwoord['reactions'] = ['ids' => $ids, 'sets' => (object)$sets];
+    }
+    // v0.6: bericht bewerkt of verwijderd? Stuur tekst/bijlage-status van de
+    // laatste 100 berichten van het open kanaal mee; de client werkt bij wat hij kent.
+    if ($isLid && $mx !== param_int($invoer, 'mx')) {
+        $st = $db->prepare('SELECT id, body, edited, deleted, attachment FROM messages WHERE channel_id = ? AND parent_id IS NULL ORDER BY id DESC LIMIT 100');
+        $st->execute([$kanaalId]);
+        $antwoord['updates'] = array_map(fn($r) => [
+            'id'         => (int)$r['id'],
+            'body'       => (int)$r['deleted'] ? '' : $r['body'],
+            'edited'     => $r['edited'],
+            'deleted'    => (int)$r['deleted'] === 1,
+            'attachment' => ((int)$r['deleted'] === 1 || empty($r['attachment'])) ? null : (json_decode((string)$r['attachment'], true) ?: null),
+        ], $st->fetchAll());
     }
     // Ongelezen-tellers per kanaal (voor de badges in de zijbalk).
     $st = $db->prepare('SELECT c.id,
@@ -222,6 +306,102 @@ case 'stuur': {
     if ($terug->rowCount() > 0) vacom_bump_state();
     $lijst = berichten_uit($db, 'm.id = ?', [$id], 1, true);
     vacom_json(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id()]);
+}
+
+case 'stuur_bestand': {
+    // v0.6: foto of bestand als bericht (multipart: 'bestand' + optioneel 'body'
+    // als bijschrift). Het bestand gaat naar de datamap (buiten de webroot),
+    // bestand.php serveert het aan kanaalleden. Zonder bijschrift wordt de
+    // bestandsnaam de tekst van het bericht — zo is hij ook doorzoekbaar.
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
+    $f = $_FILES['bestand'] ?? null;
+    if (!$f || !isset($f['error'])) vacom_fout('Geen bestand ontvangen. Te groot voor de server? De limiet is ' . ini_get('upload_max_filesize') . '.');
+    $fout = (int)$f['error'];
+    if ($fout === UPLOAD_ERR_INI_SIZE || $fout === UPLOAD_ERR_FORM_SIZE) vacom_fout('Bestand is te groot voor de server (limiet ' . ini_get('upload_max_filesize') . ').');
+    if ($fout === UPLOAD_ERR_NO_FILE) vacom_fout('Geen bestand gekozen.');
+    if ($fout !== UPLOAD_ERR_OK) vacom_fout('Upload mislukt (code ' . $fout . ').');
+    if (!is_uploaded_file($f['tmp_name'])) vacom_fout('Upload mislukt.');
+    if ((int)$f['size'] <= 0) vacom_fout('Het bestand is leeg.');
+    if ((int)$f['size'] > VACOM_MAX_BIJLAGE) vacom_fout('Bestand is te groot (max. ' . (int)(VACOM_MAX_BIJLAGE / 1048576) . ' MB).');
+    $naam = bijlage_naam((string)$f['name']);
+    if (preg_match('/\.(php\d?|phtml|phar|cgi|pl|sh|bat|cmd|exe|com|scr|msi|jar|vbs|ps1|htaccess)$/i', $naam)) vacom_fout('Dit bestandstype is niet toegestaan.');
+    $mime = 'application/octet-stream';
+    if (function_exists('finfo_open')) {
+        $fi = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = ($fi ? finfo_file($fi, $f['tmp_name']) : false) ?: $mime;
+        if ($fi) finfo_close($fi);
+    }
+    $info = @getimagesize($f['tmp_name']);
+    $isBeeld = $info && in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP], true);
+    if ($isBeeld) $mime = $info['mime'];
+    $bijschrift = trim(str_replace("\r\n", "\n", param_str($invoer, 'body')));
+    if (mb_strlen($bijschrift) > 8000) vacom_fout('Bijschrift is te lang (max. 8000 tekens).');
+    $body = $bijschrift !== '' ? $bijschrift : $naam;
+
+    $db->beginTransaction();
+    $db->prepare('INSERT INTO messages(channel_id, user_id, body, created) VALUES (?,?,?,?)')
+       ->execute([(int)$k['id'], $mijnId, $body, vacom_now()]);
+    $id  = (int)$db->lastInsertId();
+    $map = bijlage_map($id);
+    if (!is_dir($map) && !@mkdir($map, 0755, true)) { $db->rollBack(); vacom_fout('Kan de bestandsmap niet aanmaken — is de datamap beschrijfbaar?', 500); }
+    $doel = $map . '/' . $naam;
+    if (!move_uploaded_file($f['tmp_name'], $doel)) { $db->rollBack(); @rmdir($map); vacom_fout('Opslaan van het bestand mislukt.', 500); }
+    $att = ['name' => $naam, 'size' => (int)$f['size'], 'mime' => $mime, 'type' => $isBeeld ? 'image' : 'file', 'thumb' => false, 'w' => 0, 'h' => 0];
+    if ($isBeeld) {
+        $t = maak_thumbnail($doel, $map . '/thumb.jpg', 1000, $info);
+        if ($t) { $att['thumb'] = true; [$att['w'], $att['h']] = $t; }
+        else { $att['w'] = (int)$info[0]; $att['h'] = (int)$info[1]; }
+    }
+    $db->prepare('UPDATE messages SET attachment = ? WHERE id = ?')->execute([json_encode($att, JSON_UNESCAPED_UNICODE), $id]);
+    $db->prepare('UPDATE channel_members SET last_read_id = MAX(last_read_id, ?) WHERE channel_id = ? AND user_id = ?')
+       ->execute([$id, (int)$k['id'], $mijnId]);
+    $terug = $db->prepare('UPDATE channel_members SET hidden = 0 WHERE channel_id = ? AND hidden = 1');
+    $terug->execute([(int)$k['id']]);
+    $db->commit();
+    if ($terug->rowCount() > 0) vacom_bump_state();
+    $lijst = berichten_uit($db, 'm.id = ?', [$id], 1, true);
+    vacom_json(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id()]);
+}
+
+case 'bewerk': {
+    // v0.6: eigen bericht bewerken. Alleen de tekst; een bijlage blijft staan.
+    $berichtId = param_int($invoer, 'message_id');
+    $st = $db->prepare('SELECT * FROM messages WHERE id = ?');
+    $st->execute([$berichtId]);
+    $m = $st->fetch();
+    if (!$m || (int)$m['deleted'] === 1) vacom_fout('Bericht niet gevonden.', 404);
+    if ((int)$m['user_id'] !== $mijnId) vacom_fout('Je kunt alleen je eigen berichten bewerken.', 403);
+    kanaal_voor_mij($db, (int)$m['channel_id'], $mijnId); // lid, en niet gesloten
+    $body = trim(str_replace("\r\n", "\n", param_str($invoer, 'body')));
+    if ($body === '' && empty($m['attachment'])) vacom_fout('Leeg bericht — verwijder het liever.');
+    if (mb_strlen($body) > 8000) vacom_fout('Bericht is te lang (max. 8000 tekens).');
+    if ($body === '') $body = (json_decode((string)$m['attachment'], true)['name'] ?? ''); // bijlage zonder tekst: naam als tekst
+    if ($body !== $m['body']) {
+        $db->prepare('UPDATE messages SET body = ?, edited = ? WHERE id = ?')->execute([$body, vacom_now(), $berichtId]);
+        vacom_bump_mx();
+    }
+    $lijst = berichten_uit($db, 'm.id = ?', [$berichtId], 1, true);
+    vacom_json(['ok' => true, 'message' => $lijst[0], 'mx' => (int)vacom_meta('mx')]);
+}
+
+case 'verwijder': {
+    // v0.6: bericht verwijderen — eigen bericht, of als superadmin elk bericht.
+    // Soft delete zoals Slack ("bericht verwijderd" blijft als spoor), maar de
+    // tekst, reacties, bijlage en zoekindex gaan wél echt weg.
+    $berichtId = param_int($invoer, 'message_id');
+    $st = $db->prepare('SELECT * FROM messages WHERE id = ?');
+    $st->execute([$berichtId]);
+    $m = $st->fetch();
+    if (!$m || (int)$m['deleted'] === 1) vacom_fout('Bericht niet gevonden.', 404);
+    if ((int)$m['user_id'] !== $mijnId && !vacom_is_superadmin()) vacom_fout('Je kunt alleen je eigen berichten verwijderen.', 403);
+    kanaal_voor_mij($db, (int)$m['channel_id'], $mijnId, vacom_is_superadmin()); // superadmin mag ook in een gesloten kanaal opruimen
+    $db->beginTransaction();
+    $db->prepare("UPDATE messages SET body = '', deleted = 1, attachment = NULL, edited = ? WHERE id = ?")->execute([vacom_now(), $berichtId]);
+    $db->prepare('DELETE FROM reactions WHERE message_id = ?')->execute([$berichtId]);
+    $db->commit();
+    bijlage_wis($berichtId);
+    vacom_bump_mx();
+    vacom_json(['ok' => true, 'mx' => (int)vacom_meta('mx')]);
 }
 
 case 'reageer': {
@@ -406,7 +586,8 @@ case 'portal_project': {
     $uit = ['ok' => true, 'bestaat' => true, 'lid' => (bool)$lidRij, 'naam' => $k['name'],
             'leden' => array_column($ledenSt->fetchAll(), 'name'), 'ongelezen' => 0, 'berichten' => []];
     if ($lidRij) {
-        $uit['berichten'] = array_map(fn($m) => ['author' => $m['author'], 'body' => mb_substr($m['body'], 0, 200), 'created' => $m['created']],
+        // v0.6: ook id + bijlage mee, zodat de kaart een foto/gif klein kan tonen.
+        $uit['berichten'] = array_map(fn($m) => ['id' => $m['id'], 'author' => $m['author'], 'body' => mb_substr($m['body'], 0, 200), 'created' => $m['created'], 'attachment' => $m['attachment']],
             berichten_uit($db, 'm.channel_id = ? AND m.parent_id IS NULL AND m.deleted = 0', [$kid], 5, false));
         $o = $db->prepare('SELECT COUNT(*) FROM messages WHERE channel_id = ? AND deleted = 0 AND user_id != ? AND id > ?');
         $o->execute([$kid, $mijnId, (int)$lidRij['last_read_id']]);
@@ -460,6 +641,7 @@ case 'beheer_kanaal_wissen': {
     $k = $st->fetch();
     if (!$k) vacom_fout('Kanaal niet gevonden.', 404);
     $kid = (int)$k['id'];
+    bijlagen_wis_kanaal($db, $kid); // v0.6
     $db->beginTransaction();
     $db->prepare('DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE channel_id = ?)')->execute([$kid]);
     $db->prepare('DELETE FROM messages WHERE channel_id = ?')->execute([$kid]);
@@ -582,6 +764,7 @@ case 'kanaal_verwijderen': {
     $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId, true);
     if (!vacom_is_superadmin()) vacom_fout('Alleen de superadmin kan een kanaal verwijderen.', 403);
     if ($k['type'] !== 'public' || is_projectkanaal($k)) vacom_fout('Een projectkanaal verwijder je via de Portal.');
+    bijlagen_wis_kanaal($db, (int)$k['id']); // v0.6
     $db->beginTransaction();
     $db->prepare('DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE channel_id = ?)')->execute([(int)$k['id']]);
     $db->prepare('DELETE FROM messages WHERE channel_id = ?')->execute([(int)$k['id']]);

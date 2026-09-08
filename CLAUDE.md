@@ -72,6 +72,7 @@ popup op de projectkaart) en `index.php?project=TOKEN` (volledige app, kanaal op
 | `index.php` | de app (één pagina); geeft het eerste overzicht mee in `window.VACOM` |
 | `api.php` | alle acties als JSON (POST + header `X-VaCom-Csrf`; alleen `poll` via GET) |
 | `login.php`, `gebruikers.php`, `changelog.php` | inloggen, gebruikers, wat is er nieuw |
+| `avatar.php`, `bestand.php` | profielfoto's en bijlagen uit de datamap serveren (alleen ingelogd / kanaallid) |
 | `inc/config.php` | versie, paden, Portal-detectie, helpers (`h()`, `vacom_json()`, `asset()`) |
 | `inc/db.php` | SQLite openen + migraties |
 | `inc/auth.php` | sessies, CSRF, rate-limit, gebruikers, bootstrap (losse modus) |
@@ -82,10 +83,14 @@ popup op de projectkaart) en `index.php?project=TOKEN` (volledige app, kanaal op
 | `tools/` | eenmalige hulpscripts (iconen maken, servercheck) — niet uploaden |
 
 Datamodel: `users`, `channels` (type public/dm; DM = `dm_key` "kleinsteId:grootsteId";
-`project_token` bij projectkanalen), `channel_members` (met `last_read_id`),
-`messages` (id = globale oplopende klok; `parent_id` klaar voor threads),
-`messages_fts`, `reactions`, `meta` (`state`-teller → client haalt overzicht opnieuw;
-`portal_stempel`). Iedereen is automatisch lid van elk openbaar kanaal.
+`project_token` bij projectkanalen), `channel_members` (met `last_read_id`, `via`, `hidden`),
+`messages` (id = globale oplopende klok; `parent_id` klaar voor threads; `attachment`
+JSON v0.6 — het bestand zelf staat in `VACOM_DATA/bestanden/<bericht-id>/`, met
+`thumb.jpg` bij foto's, geserveerd door `bestand.php?m=ID` aan kanaalleden),
+`messages_fts`, `reactions`, `meta` (tellers `state` → overzicht opnieuw, `rx` →
+reacties, `mx` → bewerkte/verwijderde berichten; `portal_stempel`). Iedereen is
+automatisch lid van elk openbaar kanaal. Verwijderen van een bericht is een soft
+delete (`deleted=1`, body leeg → uit de zoekindex, bijlage van schijf).
 
 ## Geheimen
 

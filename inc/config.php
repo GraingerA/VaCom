@@ -8,7 +8,10 @@
 
 declare(strict_types=1);
 
-define('VACOM_VERSION', '0.5.3');
+define('VACOM_VERSION', '0.6.0');
+// Maximale grootte van een bijlage bij een bericht (v0.6). De server heeft
+// daarnaast z'n eigen limiet (upload_max_filesize); die melden we apart.
+define('VACOM_MAX_BIJLAGE', 25 * 1024 * 1024);
 define('VACOM_ROOT', dirname(__DIR__));
 
 // PHP's ingebouwde dev-server (php -S) meldt zich als 'cli-server'. Daarop

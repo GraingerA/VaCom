@@ -456,20 +456,61 @@ body.embed #chat-open-vacom { flex: none; }
 }
 #gif-picker[hidden] { display: none; }
 #gif-zoek { margin: 0; padding: 7px 10px; font-size: 14px; }
-#gif-raster { max-height: 320px; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; align-content: start; }
+/* Vaste hoogte (past altijd in het scherm), zodat het paneel niet verspringt als de gifs binnenkomen. */
+#gif-raster { height: min(320px, calc(100dvh - 180px)); overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; align-content: start; }
 #gif-raster button { padding: 0; border: 0; background: var(--vlak); border-radius: 6px; overflow: hidden; cursor: pointer; line-height: 0; height: 96px; }
 #gif-raster button img { width: 100%; height: 100%; object-fit: cover; display: block; }
 #gif-raster button:hover { outline: 2px solid var(--goud); }
 .gif-melding { grid-column: 1 / -1; margin: 12px 4px; color: var(--stil); font-size: 13px; }
 .gif-voet { margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--stil); text-align: right; }
 #gif-picker.onderin { left: 8px; right: 8px; top: auto; width: auto; bottom: calc(64px + var(--sa-bottom)); }
-#gif-picker.onderin #gif-raster { max-height: 40vh; }
+#gif-picker.onderin #gif-raster { height: 40vh; }
 
 .bericht-beeld {
   display: block; max-width: min(340px, 100%); max-height: 260px;
   border-radius: var(--r-kaart); border: 1px solid var(--lijn); margin-top: 2px;
 }
 .tekst.alleen-emoji { font-size: 34px; line-height: 1.25; }
+
+/* ---------- Bewerken / verwijderen / bijlagen (v0.6) ---------- */
+.bericht { position: relative; }
+.bericht-acties {
+  position: absolute; top: 2px; right: 8px; display: flex; gap: 1px; padding: 2px;
+  background: var(--kaart); border: 1px solid var(--lijn); border-radius: 8px;
+  opacity: 0; transition: opacity .12s;
+}
+.bericht:hover .bericht-acties, .bericht:focus-within .bericht-acties { opacity: 1; }
+@media (hover: none) { .bericht-acties { opacity: .55; } }
+.bericht-acties button {
+  width: 28px; height: 26px; border: 0; background: none; border-radius: 6px;
+  font-size: 14px; line-height: 1; cursor: pointer; color: var(--tekst);
+}
+.bericht-acties button:hover { background: var(--vlak-2); }
+.bericht.vervolg .bericht-acties { top: -6px; }
+.bewerkt { font-size: 11px; color: var(--stil); font-style: italic; }
+.bewerkt-regel { line-height: 1; margin-top: 2px; }
+.bewerk-veld textarea { width: 100%; margin: 0; padding: 8px 10px; resize: vertical; min-height: 44px; max-height: 240px; line-height: 1.4; }
+.bewerk-knoppen { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.bewerk-tip { font-size: 12px; margin-left: 4px; }
+@media (hover: none) { .bewerk-tip { display: none; } }
+/* Bijlagen staan op een eigen regel ónder het bijschrift (block, niet inline —
+   anders zakt de tekst naar de onderkant van de foto). */
+.bijlage-beeld { display: block; width: fit-content; max-width: 100%; }
+.bijlage-beeld .bericht-beeld { width: auto; height: auto; }
+.bijlage {
+  display: flex; width: fit-content; align-items: center; gap: 10px; max-width: 100%;
+  margin-top: 4px; padding: 8px 12px;
+  background: var(--vlak); border: 1px solid var(--lijn); border-radius: var(--r-kaart);
+  color: var(--tekst); text-decoration: none; word-break: normal;
+}
+.bijlage:hover { border-color: var(--goud); }
+.bijlage-icoon { font-size: 24px; line-height: 1; flex: none; }
+.bijlage-info { display: flex; flex-direction: column; min-width: 0; }
+.bijlage-naam { font-weight: 600; overflow-wrap: anywhere; }
+.bijlage-meta { font-size: 11px; color: var(--stil); }
+/* Slepen: gouden rand om de gesprekskaart */
+.chat.sleep { outline: 2px dashed var(--goud); outline-offset: -4px; }
+.chat.sleep .berichten { background: rgba(251, 188, 67, 0.06); }
 
 /* ---------- Kanaal-opties (v0.4) ---------- */
 

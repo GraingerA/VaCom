@@ -18,7 +18,7 @@
     csrf: window.VACOM.csrf,
     me: null, channels: [], users: [], state: 0, maxId: 0, portalUrl: '',
     current: null, msgs: [], hasMore: false,
-    pollTimer: null, pollFouten: 0, versturen: false, gelezenTot: 0, rx: 0,
+    pollTimer: null, pollFouten: 0, versturen: false, gelezenTot: 0, rx: 0, mx: 0, bewerkId: 0,
   };
 
   const el = {
@@ -548,15 +548,17 @@
       }
       const vervolg = vorige && vorige.user_id === m.user_id && dagSleutel(vorige.created) === dagSleutel(m.created)
         && new Date(m.created) - new Date(vorige.created) < 5 * 60 * 1000;
-      const tekst = m.deleted ? '<em class="stil">bericht verwijderd</em>' : opmaak(m.body);
-      const groot = !m.deleted && isAlleenEmoji(m.body) ? ' alleen-emoji' : '';
+      const tekst = berichtTekst(m);
+      const groot = !m.deleted && !m.attachment && isAlleenEmoji(m.body) ? ' alleen-emoji' : '';
       const chips = reactieChips(m);
+      const acties = berichtActies(m);
+      const bewerkt = m.edited && !m.deleted ? `<span class="bewerkt" title="Bewerkt ${tijd(m.edited)}">(bewerkt)</span>` : '';
       if (vervolg) {
-        delen.push(`<div class="bericht vervolg" data-id="${m.id}"><div class="avatar"></div><div class="inhoud"><span class="tijd-klein">${tijd(m.created)}</span><div class="tekst${groot}">${tekst}</div>${chips}</div></div>`);
+        delen.push(`<div class="bericht vervolg" data-id="${m.id}"><div class="avatar"></div><div class="inhoud"><span class="tijd-klein">${tijd(m.created)}</span><div class="tekst${groot}">${tekst}</div>${bewerkt ? `<div class="bewerkt-regel">${bewerkt}</div>` : ''}${chips}</div>${acties}</div>`);
       } else {
         delen.push(`<div class="bericht eerste" data-id="${m.id}">
           <div class="avatar"${avatarStijl(m.user_id)}>${avatarInhoud(m.user_id, m.author)}</div>
-          <div class="inhoud"><div class="bericht-kop"><span class="auteur">${esc(m.author)}</span><span class="tijd">${tijd(m.created)}</span></div><div class="tekst${groot}">${tekst}</div>${chips}</div>
+          <div class="inhoud"><div class="bericht-kop"><span class="auteur">${esc(m.author)}</span><span class="tijd">${tijd(m.created)}</span>${bewerkt}</div><div class="tekst${groot}">${tekst}</div>${chips}</div>${acties}
         </div>`);
       }
       vorige = m;
@@ -568,6 +570,116 @@
     }
     el.berichten.innerHTML = delen.join('');
     if (naarOnder) el.berichten.scrollTop = el.berichten.scrollHeight;
+  }
+
+  /* ---------- Berichttekst, bijlagen, bewerken/verwijderen (v0.6) ---------- */
+
+  // Tekst van een bericht: verwijderd, in bewerking, of gewoon — plus de bijlage.
+  function berichtTekst(m) {
+    if (m.deleted) return '<em class="stil">bericht verwijderd</em>';
+    if (S.bewerkId === m.id) {
+      return `<div class="bewerk-veld"><textarea rows="2" data-bewerk-tekst="${m.id}" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>${esc(m.body)}</textarea>
+        <div class="bewerk-knoppen"><button type="button" class="knop mini primair" data-bewerk-opslaan="${m.id}">Opslaan</button><button type="button" class="knop mini" data-bewerk-annuleer="${m.id}">Annuleren</button><span class="stil bewerk-tip">Enter = opslaan · Esc = annuleren</span></div></div>`;
+    }
+    const a = m.attachment;
+    // Een bijlage zonder bijschrift heeft de bestandsnaam als tekst (voor het
+    // zoeken); die tonen we dan niet nog een keer als tekst.
+    const tekst = a && m.body === a.name ? '' : opmaak(m.body);
+    return tekst + bijlageHtml(m);
+  }
+
+  function bijlageHtml(m) {
+    const a = m.attachment;
+    if (!a) return '';
+    const url = `bestand.php?m=${m.id}`;
+    if (a.type === 'image') {
+      const maat = a.w && a.h ? ` width="${a.w}" height="${a.h}"` : '';
+      return `<a class="bijlage-beeld" href="${url}" target="_blank" rel="noopener" title="${esc(a.name)} — openen"><img class="bericht-beeld" src="${url}${a.thumb ? '&thumb=1' : ''}" alt="${esc(a.name)}" loading="lazy"${maat}></a>`;
+    }
+    return `<a class="bijlage" href="${url}" target="_blank" rel="noopener" title="Openen of downloaden"><span class="bijlage-icoon">${bijlageIcoon(a)}</span><span class="bijlage-info"><span class="bijlage-naam">${esc(a.name)}</span><span class="bijlage-meta">${grootte(a.size)}</span></span></a>`;
+  }
+
+  function bijlageIcoon(a) {
+    const ext = (a.name.split('.').pop() || '').toLowerCase();
+    if (a.mime === 'application/pdf' || ext === 'pdf') return '📕';
+    if (['doc', 'docx', 'odt', 'rtf', 'txt', 'md'].includes(ext)) return '📝';
+    if (['xls', 'xlsx', 'csv', 'ods'].includes(ext)) return '📊';
+    if (['ppt', 'pptx', 'key'].includes(ext)) return '📽️';
+    if (['zip', 'rar', '7z', 'gz'].includes(ext)) return '🗜️';
+    if (['mp4', 'mov', 'avi', 'webm', 'm4v'].includes(ext)) return '🎬';
+    if (['mp3', 'wav', 'm4a', 'aac'].includes(ext)) return '🎵';
+    if (['heic', 'heif', 'tif', 'tiff', 'psd', 'ai', 'svg', 'bmp', 'raw'].includes(ext)) return '🖼️';
+    if (['dwg', 'dxf', 'skp', 'rvt', 'ifc', '3dm', 'max', 'blend', 'obj', 'fbx'].includes(ext)) return '📐';
+    return '📄';
+  }
+
+  function grootte(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return Math.round(b / 1024) + ' kB';
+    return (b / 1048576).toFixed(b < 10485760 ? 1 : 0).replace('.', ',') + ' MB';
+  }
+
+  // Knopjes rechtsboven op een bericht: bewerken (eigen) en verwijderen (eigen, of superadmin).
+  function berichtActies(m) {
+    if (m.deleted || !S.me || (S.current && S.current.archived) || S.bewerkId === m.id) return '';
+    const eigen = m.user_id === S.me.id;
+    const superadmin = S.me.role === 'superadmin';
+    if (!eigen && !superadmin) return '';
+    return `<div class="bericht-acties">${eigen ? `<button type="button" data-bewerk="${m.id}" title="Bewerken" aria-label="Bewerken">✎</button>` : ''}<button type="button" data-wis="${m.id}" title="Verwijderen" aria-label="Verwijderen">🗑</button></div>`;
+  }
+
+  function startBewerken(id) {
+    S.bewerkId = id;
+    renderBerichten(false);
+    const t = $(`[data-bewerk-tekst="${id}"]`);
+    if (t) { t.style.height = Math.min(t.scrollHeight + 2, 240) + 'px'; t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
+  }
+
+  function stopBewerken() {
+    S.bewerkId = 0;
+    renderBerichten(false);
+  }
+
+  async function slaBewerkingOp(id) {
+    const t = $(`[data-bewerk-tekst="${id}"]`);
+    const m = S.msgs.find((x) => x.id === id);
+    if (!t || !m) return;
+    const body = t.value.trim();
+    if (body === m.body) { stopBewerken(); return; }
+    try {
+      const j = await api('bewerk', { message_id: id, body });
+      Object.assign(m, j.message);
+      S.mx = Math.max(S.mx, j.mx || 0);
+      stopBewerken();
+    } catch (e) { toast(e.message); }
+  }
+
+  async function verwijderBericht(id) {
+    const m = S.msgs.find((x) => x.id === id);
+    if (!m) return;
+    if (!confirm(m.attachment ? 'Dit bericht én het bestand verwijderen?' : 'Dit bericht verwijderen?')) return;
+    try {
+      const j = await api('verwijder', { message_id: id });
+      m.deleted = true; m.body = ''; m.attachment = null; m.reactions = [];
+      S.mx = Math.max(S.mx, j.mx || 0);
+      renderBerichten(false);
+    } catch (e) { toast(e.message); }
+  }
+
+  // Wijzigingen van anderen (poll 'updates'): tekst/bijlage/verwijderd bijwerken.
+  function verwerkUpdates(lijst) {
+    let anders = false;
+    for (const u of lijst) {
+      const m = S.msgs.find((x) => x.id === u.id);
+      if (!m) continue;
+      if (m.body !== u.body || m.edited !== u.edited || m.deleted !== u.deleted || JSON.stringify(m.attachment) !== JSON.stringify(u.attachment)) {
+        if (S.bewerkId === m.id && u.deleted) S.bewerkId = 0; // net verwijderd door de superadmin
+        Object.assign(m, u);
+        if (u.deleted) m.reactions = [];
+        anders = true;
+      }
+    }
+    if (anders) renderBerichten(bijnaOnderaan());
   }
 
   function voegToe(lijst) {
@@ -626,7 +738,7 @@
   async function poll() {
     if (document.hidden) return;
     try {
-      const q = new URLSearchParams({ actie: 'poll', since_id: S.maxId, state: S.state, rx: S.rx, channel_id: S.current ? S.current.id : 0 });
+      const q = new URLSearchParams({ actie: 'poll', since_id: S.maxId, state: S.state, rx: S.rx, mx: S.mx, channel_id: S.current ? S.current.id : 0 });
       const r = await fetch('api.php?' + q, { cache: 'no-store', headers: { Accept: 'application/json' } });
       if (r.status === 401) { location.href = 'login.php'; return; }
       const j = await r.json();
@@ -652,7 +764,9 @@
           }
           if (anders) renderBerichten(bijnaOnderaan());
         }
+        if (j.updates && S.current) verwerkUpdates(j.updates); // v0.6: bewerkt/verwijderd
         S.rx = Math.max(S.rx, j.rx || 0);
+        S.mx = Math.max(S.mx, j.mx || 0);
         S.maxId = Math.max(S.maxId, j.max_id);
       } else if (S.users.some((u) => u.id !== S.me.id)) {
         // Niets nieuws — wel af en toe de online-stipjes verversen.
@@ -697,6 +811,15 @@
     if (chip) { toggleReactie(Number(chip.dataset.bericht), chip.dataset.toggleReactie); return; }
     const plus = e.target.closest('[data-reageer]');
     if (plus) { openPicker({ soort: 'reactie', berichtId: Number(plus.dataset.reageer) }, plus); return; }
+    // v0.6: bewerken / verwijderen
+    const bewerk = e.target.closest('[data-bewerk]');
+    if (bewerk) { startBewerken(Number(bewerk.dataset.bewerk)); return; }
+    const wis = e.target.closest('[data-wis]');
+    if (wis) { verwijderBericht(Number(wis.dataset.wis)); return; }
+    const opslaan = e.target.closest('[data-bewerk-opslaan]');
+    if (opslaan) { slaBewerkingOp(Number(opslaan.dataset.bewerkOpslaan)); return; }
+    const annuleer = e.target.closest('[data-bewerk-annuleer]');
+    if (annuleer) { stopBewerken(); return; }
     const kanaalKnop = e.target.closest('[data-kanaal]');
     if (kanaalKnop) {
       if (el.zoekDialoog.open) el.zoekDialoog.close();
@@ -787,13 +910,17 @@
     p.hidden = false;
     if (isMobiel()) {
       p.classList.add('onderin');
-      p.style.left = p.style.top = p.style.right = '';
+      p.style.left = p.style.top = p.style.right = p.style.bottom = '';
     } else {
+      // Vast aan de ónderkant (vlak boven de knop), niet aan de bovenkant: het
+      // paneel is bij openen nog leeg ("Laden…") en groeit zodra de gifs binnen
+      // zijn — met een vaste top groeide het over het schrijfveld en het scherm uit.
       p.classList.remove('onderin');
       const r = gifKnop.getBoundingClientRect();
       const b = p.getBoundingClientRect();
       p.style.left = Math.max(8, Math.min(r.left, window.innerWidth - b.width - 8)) + 'px';
-      p.style.top = (r.top - b.height - 8 > 8 ? r.top - b.height - 8 : r.bottom + 8) + 'px';
+      p.style.top = 'auto';
+      p.style.bottom = (window.innerHeight - r.top + 8) + 'px';
       $('#gif-zoek').focus();
     }
     zoekGifs('');
@@ -819,6 +946,62 @@
   el.invoer.addEventListener('input', autoGroei);
   el.invoer.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !isTouch) { e.preventDefault(); stuur(); }
+  });
+
+  // Toetsen in het bewerk-veld (v0.6): Enter = opslaan, Esc = annuleren.
+  document.addEventListener('keydown', (e) => {
+    const t = e.target.closest && e.target.closest('[data-bewerk-tekst]');
+    if (!t) return;
+    if (e.key === 'Enter' && !e.shiftKey && !isTouch) { e.preventDefault(); slaBewerkingOp(Number(t.dataset.bewerkTekst)); }
+    else if (e.key === 'Escape') { e.preventDefault(); stopBewerken(); }
+  });
+
+  /* ---------- Bestanden en foto's sturen (v0.6) ---------- */
+  // Drie wegen naar hetzelfde: de paperclip-knop, plakken in het schrijfveld
+  // (screenshot!) en slepen op het gesprek. Elk bestand wordt een eigen bericht;
+  // wat er in het schrijfveld staat gaat als bijschrift mee met het eerste.
+  async function uploadBestanden(bestanden) {
+    const lijst = [...(bestanden || [])].filter((f) => f && f.size !== undefined);
+    if (!lijst.length || !S.current) return;
+    if (S.current.archived) { toast('Dit kanaal is gesloten — alleen lezen.'); return; }
+    const k = S.current;
+    let bijschrift = el.invoer.value.trim();
+    if (bijschrift) { el.invoer.value = ''; autoGroei(); }
+    for (const f of lijst) {
+      if (f.size > 25 * 1024 * 1024) { toast(`${f.name}: te groot (max. 25 MB).`); continue; }
+      const fd = new FormData();
+      fd.append('actie', 'stuur_bestand');
+      fd.append('channel_id', k.id);
+      fd.append('body', bijschrift);
+      fd.append('bestand', f, f.name || 'bestand');
+      bijschrift = '';
+      toast(`Uploaden: ${f.name || 'bestand'}…`);
+      try {
+        const r = await fetch('api.php', { method: 'POST', headers: { 'X-VaCom-Csrf': S.csrf }, body: fd });
+        const j = await r.json().catch(() => ({ ok: false, fout: r.status === 413 ? 'Bestand is te groot voor de server.' : 'Onleesbaar antwoord van de server.' }));
+        if (!j.ok) throw new Error(j.fout || 'Upload mislukt.');
+        if (S.current === k) { voegToe([j.message]); markeerGelezen(); }
+        S.maxId = Math.max(S.maxId, j.max_id || 0);
+      } catch (e) { toast(e.message); }
+    }
+    const t = $('.toast'); if (t && /^Uploaden:/.test(t.textContent)) t.remove();
+  }
+
+  $('#knop-bestand').addEventListener('click', () => $('#bestand-invoer').click());
+  $('#bestand-invoer').addEventListener('change', (e) => { uploadBestanden(e.target.files); e.target.value = ''; });
+  el.invoer.addEventListener('paste', (e) => {
+    const files = [...((e.clipboardData && e.clipboardData.files) || [])];
+    if (files.length) { e.preventDefault(); uploadBestanden(files); }
+  });
+  // Slepen op de gesprekskaart
+  const sleepDoel = $('#chat');
+  let sleepTeller = 0;
+  sleepDoel.addEventListener('dragenter', (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { sleepTeller++; sleepDoel.classList.add('sleep'); } });
+  sleepDoel.addEventListener('dragover', (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
+  sleepDoel.addEventListener('dragleave', () => { if (--sleepTeller <= 0) { sleepTeller = 0; sleepDoel.classList.remove('sleep'); } });
+  sleepDoel.addEventListener('drop', (e) => {
+    sleepTeller = 0; sleepDoel.classList.remove('sleep');
+    if (e.dataTransfer && e.dataTransfer.files.length) { e.preventDefault(); uploadBestanden(e.dataTransfer.files); }
   });
 
   $('#knop-zoeken').addEventListener('click', () => {

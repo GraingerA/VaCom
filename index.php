@@ -139,6 +139,11 @@ $start = [
       </button>
       <!-- v0.5.3: GIF zoeken via Giphy; de knop verschijnt alleen als er een sleutel is (zie vacom_giphy_key) -->
       <button type="button" class="knop icoon" id="knop-gif" title="GIF zoeken" aria-label="GIF zoeken" hidden><span class="gif-label">GIF</span></button>
+      <!-- v0.6: foto of bestand meesturen (ook plakken in het veld of slepen op het gesprek) -->
+      <button type="button" class="knop icoon" id="knop-bestand" title="Foto of bestand sturen" aria-label="Foto of bestand sturen">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.5 12.6 21a5.5 5.5 0 0 1-7.8-7.8l9-9a3.5 3.5 0 0 1 5 5l-9 9a1.5 1.5 0 0 1-2.1-2.1l8.3-8.3"/></svg>
+      </button>
+      <input type="file" id="bestand-invoer" multiple hidden>
       <textarea id="invoer" rows="1" placeholder="Schrijf een bericht…" autocomplete="off" enterkeyhint="send"></textarea>
       <button type="submit" class="knop primair" id="knop-stuur" aria-label="Versturen">
         <svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 11.5 21 3l-8.5 18-2.5-7.5z" fill="currentColor"/></svg>
