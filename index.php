@@ -1,6 +1,6 @@
 <?php
 /**
- * Petear — de app. Eén pagina; assets/app.js doet de rest via api.php.
+ * VaCom — de app. Eén pagina; assets/app.js doet de rest via api.php.
  * Het eerste overzicht (kanalen, collega's) wordt hier al meegegeven, zodat de
  * app direct staat zonder extra rondje naar de server.
  */
@@ -36,8 +36,8 @@ $start = [
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Petear">
-<title>Petear</title>
+<meta name="apple-mobile-web-app-title" content="VaCom">
+<title>VaCom</title>
 <link rel="icon" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
@@ -57,7 +57,7 @@ $start = [
   <header class="app-kop glas">
     <div class="logo">
       <img class="logo-icoon" src="assets/icon-192.png" alt="">
-      <span class="logo-naam">Petear</span>
+      <span class="logo-naam">VaCom</span>
     </div>
     <button type="button" class="kop-ik" id="kop-ik" title="Instellingen">
       <span class="avatar klein" id="kop-avatar"></span>
@@ -114,7 +114,7 @@ $start = [
       <a class="knop mini chat-portal" id="chat-portal" hidden target="_blank" rel="noopener">Open in Portal ↗</a>
       <button class="knop icoon" id="knop-kanaal-opties" hidden title="Kanaal-opties" aria-label="Kanaal-opties">⋯</button>
       <!-- v0.5.1: alleen ingesloten in de Portal — deze kop is dan dé kop van de popup -->
-      <a class="knop mini primair" id="chat-petear" hidden target="_blank" rel="noopener" title="Het gesprek in de volledige Petear-app openen (nieuw venster)">Open in Petear ↗</a>
+      <a class="knop mini primair" id="chat-open-vacom" hidden target="_blank" rel="noopener" title="Het gesprek in de volledige VaCom-app openen (nieuw venster)">Open in VaCom ↗</a>
       <button class="knop icoon" id="chat-sluit" hidden title="Sluiten" aria-label="Sluiten">✕</button>
     </header>
 
@@ -127,7 +127,7 @@ $start = [
 
     <div class="berichten" id="berichten">
       <div class="leeg" id="leeg">
-        <div class="logo groot"><img class="logo-icoon" src="assets/icon-192.png" alt=""><span class="logo-naam">Petear</span></div>
+        <div class="logo groot"><img class="logo-icoon" src="assets/icon-192.png" alt=""><span class="logo-naam">VaCom</span></div>
         <p>Kies links een kanaal of een collega.</p>
       </div>
     </div>
@@ -285,7 +285,7 @@ $start = [
 
 <!-- Installatie-tip voor iPhone -->
 <div class="banner" id="banner-ios" hidden>
-  <p>Zet Petear op je beginscherm voor meldingen: tik op <strong>Delen</strong> <span class="ios-deel">⎋</span> en dan <strong>Zet op beginscherm</strong>.</p>
+  <p>Zet VaCom op je beginscherm voor meldingen: tik op <strong>Delen</strong> <span class="ios-deel">⎋</span> en dan <strong>Zet op beginscherm</strong>.</p>
   <button class="knop mini" id="banner-ios-sluit" aria-label="Sluiten">✕</button>
 </div>
 

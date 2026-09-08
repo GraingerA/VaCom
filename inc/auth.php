@@ -122,7 +122,7 @@ function vacom_bootstrap_if_needed(): void {
 
     $wachtwoord = bin2hex(random_bytes(12));
     if (vacom_create_user('Ad', $wachtwoord, 'superadmin') === null) return;
-    $tekst  = "Petear — eenmalig startwachtwoord\n\n";
+    $tekst  = "VaCom — eenmalig startwachtwoord\n\n";
     $tekst .= "Gebruikersnaam : Ad\n";
     $tekst .= "Wachtwoord     : $wachtwoord\n\n";
     $tekst .= "Log hiermee in en wijzig daarna je wachtwoord via 'Gebruikers'.\n";

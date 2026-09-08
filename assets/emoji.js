@@ -1,5 +1,5 @@
 /**
- * Petear — emoji-lijst voor de picker (v0.5.1).
+ * VaCom — emoji-lijst voor de picker (v0.5.1).
  * Per categorie: [emoji, zoekwoorden]. Zoekwoorden in het Nederlands (en een
  * paar Engelse), kleine letters, gescheiden door spaties. Native emoji, geen
  * plaatjes — de lijst is bewust een keuze uit de meest gebruikte, geen

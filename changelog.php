@@ -14,7 +14,7 @@ vacom_require_login();
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1319">
-<title>Wat is er nieuw — Petear</title>
+<title>Wat is er nieuw — VaCom</title>
 <link rel="icon" href="assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,14 +26,21 @@ vacom_require_login();
 <div class="aurora" aria-hidden="true"></div>
 <main class="pagina">
   <header class="pagina-kop">
-    <a class="knop" href="index.php">‹ Terug naar Petear</a>
+    <a class="knop" href="index.php">‹ Terug naar VaCom</a>
     <h1>Wat is er nieuw</h1>
   </header>
 
   <section class="kaart glas">
+    <h2>v0.5.2 <span class="stil">— 8 september 2026</span></h2>
+    <ul>
+      <li><strong>Heet weer VaCom.</strong> De naam Petear was een kort experiment; overal staat weer VaCom (van Vastgoed Communicatie). Adres en werking veranderen niet.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.5.1 <span class="stil">— 7 september 2026</span></h2>
     <ul>
-      <li><strong>Petear op de projectkaart in de Portal.</strong> Op elke projectkaart staat nu het Petear-icoontje. Klik erop en je start het projectkanaal (je ziet vooraf wie erin komen) of je krijgt het gesprek meteen in een popup, midden in de Portal. Via "Open in Petear" spring je naar de volledige app.</li>
+      <li><strong>VaCom op de projectkaart in de Portal.</strong> Op elke projectkaart staat nu het VaCom-icoontje. Klik erop en je start het projectkanaal (je ziet vooraf wie erin komen) of je krijgt het gesprek meteen in een popup, midden in de Portal. Via "Open in VaCom" spring je naar de volledige app.</li>
       <li><strong>Gesprek uit je lijst halen.</strong> Een leeg of oud gesprek (DM) kun je via ⋯ uit je lijst halen, zoals in Slack. Er wordt niets gewist: het komt terug bij een nieuw bericht of als je het opnieuw opent via +.</li>
       <li><strong>Projectkanalen: leden in beeld, niet meer te verlaten.</strong> Onder de naam van een projectkanaal staan nu de namen van wie erin zit (in plaats van "Project · manager"). Een projectkanaal verlaten kan niet meer — je hoort erbij zolang je aan het project gekoppeld bent. Sta je er toch buiten (bijvoorbeeld als niet-gekoppelde collega vanuit de Portal), dan is er een knop <em>Deelnemen</em>.</li>
       <li><strong>Kanaalbeheer voor de superadmin.</strong> Onder Instellingen staat een lijst van álle kanalen, ook die waar de superadmin geen lid van is, met leden- en berichtaantallen. Verwijderen is definitief: de berichten gaan weg en zijn ook niet meer te doorzoeken. Een zo gewist projectkanaal komt niet vanzelf terug; opnieuw starten vanuit de Portal kan wel.</li>
@@ -45,7 +52,6 @@ vacom_require_login();
   <section class="kaart glas">
     <h2>v0.5.0 <span class="stil">— 4 september 2026</span></h2>
     <ul>
-      <li><strong>Nieuwe naam: Petear.</strong> De app heet vanaf nu Petear (Fries voor "gesprek"). Het adres blijft hetzelfde: portal.invite.nl/vacom/.</li>
       <li><strong>Projectkanalen start je nu bewust.</strong> Er komt niet meer automatisch voor elk Portal-project een kanaal. Klik op de + naast "Projecten": je kiest een project waar je aan gekoppeld bent, en het kanaal is er — met meteen iedereen erin die in de Portal aan dat project hangt. Projectkanalen die nog nooit gebruikt waren zijn opgeruimd; kanalen met berichten blijven bestaan.</li>
       <li><strong>Zijbalk-secties inklappen.</strong> Kanalen, Berichten, Projecten en Collega's klap je in en uit met een klik op de kop; VaCom onthoudt hoe je het had staan. Is een sectie ingeklapt, dan zie je in de kop hoeveel ongelezen berichten erin zitten.</li>
       <li><strong>Licht en donker.</strong> Nieuw knopje ☀/☽ in de header. De voorkeur is dezelfde als in de Portal: zet je daar licht, dan is VaCom ook licht (en andersom).</li>

@@ -1,6 +1,6 @@
 {
-  "name": "Petear",
-  "short_name": "Petear",
+  "name": "VaCom",
+  "short_name": "VaCom",
   "description": "Het interne kanaal van Invite Vastgoedcommunicatie",
   "start_url": "./index.php",
   "scope": "./",

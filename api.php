@@ -325,7 +325,7 @@ case 'avatar_verwijderen': {
 /* ---- Portal-koppeling (v0.5.1): alleen-lezen, via GET vanaf de Portal-pagina's ---- */
 
 case 'portal_ongelezen': {
-    // Per projectkanaal: ben ik lid en hoeveel ongelezen? Voor het Petear-
+    // Per projectkanaal: ben ik lid en hoeveel ongelezen? Voor het VaCom-
     // icoontje (kleur + badge) op de projectkaarten van de Portal-homepage.
     $st = $db->prepare('SELECT c.project_token,
         (SELECT COUNT(*) FROM channel_members m WHERE m.channel_id = c.id AND m.user_id = ?) AS lid,

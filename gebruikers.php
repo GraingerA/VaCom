@@ -1,6 +1,6 @@
 <?php
 /**
- * Petear — gebruikers.
+ * VaCom — gebruikers.
  * Losse modus — superadmin: collega's toevoegen, wachtwoord resetten,
  * (de)activeren, rol; iedereen: eigen wachtwoord wijzigen.
  * Portal-modus: accounts en wachtwoorden leven in de Portal; deze pagina
@@ -78,7 +78,7 @@ $csrf = vacom_csrf();
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1319">
-<title>Gebruikers — Petear</title>
+<title>Gebruikers — VaCom</title>
 <link rel="icon" href="assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -90,7 +90,7 @@ $csrf = vacom_csrf();
 <div class="aurora" aria-hidden="true"></div>
 <main class="pagina">
   <header class="pagina-kop">
-    <a class="knop" href="index.php">‹ Terug naar Petear</a>
+    <a class="knop" href="index.php">‹ Terug naar VaCom</a>
     <h1><?= VACOM_PORTAL ? 'Collega\'s' : ($admin ? 'Gebruikers' : 'Mijn account') ?></h1>
   </header>
 
@@ -100,11 +100,11 @@ $csrf = vacom_csrf();
   <?php if (VACOM_PORTAL): ?>
   <section class="kaart glas">
     <h2>Accounts komen uit de Portal</h2>
-    <p class="uitleg">Petear gebruikt de inlog van de Invite Project Portal. Een collega toevoegen,
+    <p class="uitleg">VaCom gebruikt de inlog van de Invite Project Portal. Een collega toevoegen,
       een wachtwoord wijzigen of iemand de toegang ontnemen doe je dus <a href="<?= VACOM_PORTAL_URL ?>">in de Portal</a>;
-      Petear neemt dat vanzelf over. Klanten (externe accounts) hebben geen toegang tot Petear.</p>
+      VaCom neemt dat vanzelf over. Klanten (externe accounts) hebben geen toegang tot VaCom.</p>
     <table class="tabel">
-      <thead><tr><th>Naam</th><th>Rol in Petear</th><th>Laatst gezien</th></tr></thead>
+      <thead><tr><th>Naam</th><th>Rol in VaCom</th><th>Laatst gezien</th></tr></thead>
       <tbody>
       <?php foreach ($gebruikers as $u): if (!(int)$u['active']) continue; ?>
         <tr>
@@ -188,7 +188,7 @@ $csrf = vacom_csrf();
   <?php endif; ?>
   <?php endif; ?>
 
-  <p class="login-voet">Petear v<?= VACOM_VERSION ?> · <a href="changelog.php">wat is er nieuw</a></p>
+  <p class="login-voet">VaCom v<?= VACOM_VERSION ?> · <a href="changelog.php">wat is er nieuw</a></p>
 </main>
 </body>
 </html>

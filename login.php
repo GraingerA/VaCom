@@ -1,11 +1,11 @@
 <?php
 /**
- * Petear — inloggen.
+ * VaCom — inloggen.
  *
  * Losse modus: naam + wachtwoord tegen de eigen gebruikerstabel.
  * Portal-modus: hetzelfde formulier, maar de browser stuurt naam + wachtwoord
  * naar de login-actie van de Portal (../api_ipp.php). Die zet de sessie, en
- * Petear leest die daarna. Eén wachtwoord voor beide apps; wie in de Portal al
+ * VaCom leest die daarna. Eén wachtwoord voor beide apps; wie in de Portal al
  * ingelogd is, ziet dit scherm nooit.
  */
 
@@ -21,7 +21,7 @@ vacom_bootstrap_if_needed();
 
 $fout = '';
 if (VACOM_PORTAL && !empty($_SESSION['is_external'])) {
-    $fout = 'Petear is alleen voor medewerkers van Invite.';
+    $fout = 'VaCom is alleen voor medewerkers van Invite.';
 }
 if (!VACOM_PORTAL && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!vacom_csrf_ok($_POST['csrf'] ?? null)) {
@@ -43,7 +43,7 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1319">
-<title>Inloggen — Petear</title>
+<title>Inloggen — VaCom</title>
 <link rel="icon" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
@@ -58,7 +58,7 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
 <main class="login-kaart glas">
   <div class="logo groot">
     <img class="logo-icoon" src="assets/icon-192.png" alt="">
-    <span class="logo-naam">Petear</span>
+    <span class="logo-naam">VaCom</span>
   </div>
   <p class="login-sub">Het interne kanaal van Invite</p>
 
@@ -82,7 +82,7 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
     </label>
     <button type="submit" class="knop primair breed" id="knop-login">Inloggen</button>
   </form>
-  <p class="login-voet">Petear v<?= VACOM_VERSION ?> · Invite</p>
+  <p class="login-voet">VaCom v<?= VACOM_VERSION ?> · Invite</p>
 </main>
 <?php if (VACOM_PORTAL): ?>
 <script>
@@ -101,7 +101,7 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
       const r = await fetch('<?= VACOM_PORTAL_URL ?>api_ipp.php', { method: 'POST', body: fd, credentials: 'same-origin' });
       const j = await r.json().catch(() => ({}));
       if (j.success && !j.is_external) { location.href = 'index.php'; return; }
-      fout.textContent = j.success ? 'Petear is alleen voor medewerkers van Invite.' : (j.error || 'Inloggen is niet gelukt.');
+      fout.textContent = j.success ? 'VaCom is alleen voor medewerkers van Invite.' : (j.error || 'Inloggen is niet gelukt.');
       fout.hidden = false;
     } catch (err) {
       fout.textContent = 'Geen verbinding met de Portal.'; fout.hidden = false;

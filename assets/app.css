@@ -153,7 +153,7 @@ body.embed .chat { display: flex !important; border-radius: 0; border: 0; }
 body.embed .chat-kop { padding: 14px 16px 12px 20px; gap: 12px; }
 body.embed .chat-kop h1 { font-size: 19px; }
 body.embed .chat-topic { white-space: normal; }
-body.embed #chat-petear { flex: none; }
+body.embed #chat-open-vacom { flex: none; }
 
 /* Opties bij een gesprek (v0.5.1): alleen "uit mijn lijst halen". */
 #dialoog-opties #opties-verbergen { display: none; }

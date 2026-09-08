@@ -407,7 +407,7 @@
     zetBadge('badge-projecten', somVan(projecten));
 
     const totaal = S.channels.reduce((n, k) => n + (k.unread || 0), 0);
-    document.title = (totaal ? `(${totaal}) ` : '') + 'Petear';
+    document.title = (totaal ? `(${totaal}) ` : '') + 'VaCom';
   }
 
   /* ---------- Thema (v0.5) ---------- */
@@ -450,11 +450,11 @@
     el.optiesKnop.hidden = false; // v0.5.1: ook bij gesprekken (uit je lijst halen)
     laadProjectLeden(k); // v0.5.1: bij een projectkanaal staan de leden onder de naam
     // v0.5.1: ingesloten in de Portal — de kanaalkop is dan de kop van de popup:
-    // naam, daaronder de leden, rechts "Open in Petear" en ✕. Geen ⋯.
+    // naam, daaronder de leden, rechts "Open in VaCom" en ✕. Geen ⋯.
     if (window.VACOM.embed) {
       el.optiesKnop.hidden = true;
-      $('#chat-petear').href = 'index.php?project=' + encodeURIComponent(k.project_token || '') + '#k=' + k.id;
-      $('#chat-petear').hidden = false;
+      $('#chat-open-vacom').href = 'index.php?project=' + encodeURIComponent(k.project_token || '') + '#k=' + k.id;
+      $('#chat-open-vacom').hidden = false;
       $('#chat-sluit').hidden = false;
     }
     el.invoer.placeholder = k.type === 'dm'
