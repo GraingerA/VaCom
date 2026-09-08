@@ -446,6 +446,25 @@ body.embed #chat-open-vacom { flex: none; }
 }
 #emoji-picker.onderin #emoji-raster { max-height: 40vh; }
 
+/* GIF-paneel (v0.5.3, Giphy) — zelfde opzet als het emoji-paneel. */
+.gif-label { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; }
+#gif-picker {
+  position: fixed; z-index: 60;
+  display: flex; flex-direction: column; gap: 6px;
+  width: 380px; padding: 8px;
+  border-radius: var(--r-kaart); border: 1px solid var(--lijn);
+}
+#gif-picker[hidden] { display: none; }
+#gif-zoek { margin: 0; padding: 7px 10px; font-size: 14px; }
+#gif-raster { max-height: 320px; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; align-content: start; }
+#gif-raster button { padding: 0; border: 0; background: var(--vlak); border-radius: 6px; overflow: hidden; cursor: pointer; line-height: 0; height: 96px; }
+#gif-raster button img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#gif-raster button:hover { outline: 2px solid var(--goud); }
+.gif-melding { grid-column: 1 / -1; margin: 12px 4px; color: var(--stil); font-size: 13px; }
+.gif-voet { margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--stil); text-align: right; }
+#gif-picker.onderin { left: 8px; right: 8px; top: auto; width: auto; bottom: calc(64px + var(--sa-bottom)); }
+#gif-picker.onderin #gif-raster { max-height: 40vh; }
+
 .bericht-beeld {
   display: block; max-width: min(340px, 100%); max-height: 260px;
   border-radius: var(--r-kaart); border: 1px solid var(--lijn); margin-top: 2px;

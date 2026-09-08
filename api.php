@@ -42,6 +42,20 @@ $mijnId = (int)$ik['id'];
 function param_int(array $in, string $k): int { return (int)($in[$k] ?? 0); }
 function param_str(array $in, string $k): string { return trim((string)($in[$k] ?? '')); }
 
+/** Kleine HTTPS-GET (v0.5.3, voor Giphy): cURL als die er is, anders file_get_contents. Korte timeout. */
+function vacom_http_get(string $url): string {
+    if (function_exists('curl_init')) {
+        $c = curl_init($url);
+        curl_setopt_array($c, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_FOLLOWLOCATION => false]);
+        $uit = curl_exec($c);
+        curl_close($c);
+        return is_string($uit) ? $uit : '';
+    }
+    $ctx = stream_context_create(['http' => ['timeout' => 8]]);
+    $uit = @file_get_contents($url, false, $ctx);
+    return is_string($uit) ? $uit : '';
+}
+
 /**
  * Is deze gebruiker lid van dit kanaal? Geeft de kanaalrij terug of stopt met 404.
  * v0.4.1: een gesloten (gearchiveerd) kanaal is zoals in Slack alleen-lezen.
@@ -320,6 +334,40 @@ case 'avatar_verwijderen': {
     if (is_file($pad)) @unlink($pad);
     vacom_bump_state();
     vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
+}
+
+/* ---- GIF zoeken via Giphy (v0.5.3) ---- */
+
+case 'gif_zoeken': {
+    // Via de server, niet rechtstreeks vanuit de browser: zo staat de API-
+    // sleutel nooit in de browsercode en ziet Giphy alleen ons server-IP,
+    // niet dat van collega's. Leeg zoekwoord = de populaire gifs van nu.
+    $sleutel = vacom_giphy_key();
+    if ($sleutel === '') vacom_fout('Geen Giphy-sleutel ingesteld (giphy_key.txt in de datamap).');
+    $q = mb_substr(param_str($invoer, 'q'), 0, 100);
+    $params = ['api_key' => $sleutel, 'limit' => 24, 'rating' => 'pg-13', 'lang' => 'nl'];
+    if ($q !== '') $params['q'] = $q;
+    $url = 'https://api.giphy.com/v1/gifs/' . ($q !== '' ? 'search' : 'trending') . '?' . http_build_query($params);
+    $data = json_decode(vacom_http_get($url) ?: '', true);
+    if (!is_array($data) || !isset($data['data']) || !is_array($data['data'])) vacom_fout('Giphy antwoordt niet — probeer het zo nog eens.', 502);
+    $uit = [];
+    foreach ($data['data'] as $g) {
+        $imgs  = $g['images'] ?? [];
+        $klein = $imgs['fixed_width_small'] ?? $imgs['fixed_width'] ?? null; // voor het raster
+        $groot = $imgs['downsized_medium'] ?? $imgs['fixed_height'] ?? $imgs['original'] ?? null; // in het gesprek
+        if (!$klein || !$groot || empty($groot['url'])) continue;
+        $uit[] = [
+            'id'      => (string)($g['id'] ?? ''),
+            'titel'   => (string)($g['title'] ?? ''),
+            'preview' => (string)($klein['webp'] ?? $klein['url'] ?? ''),
+            'w'       => (int)($klein['width'] ?? 0),
+            'h'       => (int)($klein['height'] ?? 0),
+            // Zonder tracking-parameters: het bericht wordt één kale gif-link,
+            // precies wat de app al als beeld toont (alsAfbeelding in app.js).
+            'url'     => strtok((string)$groot['url'], '?'),
+        ];
+    }
+    vacom_json(['ok' => true, 'gifs' => $uit]);
 }
 
 /* ---- Portal-koppeling (v0.5.1): alleen-lezen, via GET vanaf de Portal-pagina's ---- */

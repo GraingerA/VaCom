@@ -8,7 +8,7 @@
 
 declare(strict_types=1);
 
-define('VACOM_VERSION', '0.5.2');
+define('VACOM_VERSION', '0.5.3');
 define('VACOM_ROOT', dirname(__DIR__));
 
 // PHP's ingebouwde dev-server (php -S) meldt zich als 'cli-server'. Daarop
@@ -102,6 +102,22 @@ function vacom_naam_sleutel(string $naam): string {
 /** Asset-URL met versie als cache-buster: na een upload haalt elke browser de nieuwe versie. */
 function asset(string $pad): string {
     return h($pad) . '?v=' . VACOM_VERSION;
+}
+
+/**
+ * Giphy API-sleutel (v0.5.3) voor de GIF-knop. Staat als platte tekst in
+ * giphy_key.txt in de datamap: buiten de webroot en buiten Git, net als de
+ * database. Geen bestand of leeg = geen GIF-knop, verder werkt alles gewoon.
+ *   server : ../vacom_data/giphy_key.txt
+ *   lokaal : vacom/data/giphy_key.txt
+ */
+function vacom_giphy_key(): string {
+    static $sleutel = null;
+    if ($sleutel === null) {
+        $pad = VACOM_DATA . '/giphy_key.txt';
+        $sleutel = is_file($pad) ? trim((string)file_get_contents($pad)) : '';
+    }
+    return $sleutel;
 }
 
 /** JSON-antwoord sturen en stoppen. */

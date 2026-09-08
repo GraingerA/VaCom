@@ -87,6 +87,14 @@ Datamodel: `users`, `channels` (type public/dm; DM = `dm_key` "kleinsteId:groots
 `messages_fts`, `reactions`, `meta` (`state`-teller → client haalt overzicht opnieuw;
 `portal_stempel`). Iedereen is automatisch lid van elk openbaar kanaal.
 
+## Geheimen
+
+De Giphy API-sleutel (GIF-knop, v0.5.3) staat NIET in de code of in Git, maar
+als platte tekst in `giphy_key.txt` in de datamap (`../vacom_data/` op de
+server, `vacom/data/` lokaal — beide buiten Git). Zie `vacom_giphy_key()` in
+`inc/config.php`. Zonder bestand is de GIF-knop er gewoon niet. Zoeken gaat via
+`api.php?actie=gif_zoeken` (server-side, sleutel blijft op de server).
+
 ## Beveiliging — altijd in acht nemen
 
 - CSRF-token op elke schrijfactie; `hash_equals`; wachtwoorden `password_hash`.

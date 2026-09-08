@@ -31,6 +31,13 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.5.3 <span class="stil">— 8 september 2026</span></h2>
+    <ul>
+      <li><strong>GIF-knop.</strong> Naast de emoji-knop staat nu GIF: typ een zoekwoord, kies een gif uit Giphy en hij gaat meteen als bericht het kanaal in. Zonder zoekwoord zie je de populaire gifs van het moment. Het zoeken loopt via onze eigen server, dus Giphy ziet niet wie er zoekt.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.5.2 <span class="stil">— 8 september 2026</span></h2>
     <ul>
       <li><strong>Heet weer VaCom.</strong> De naam Petear was een kort experiment; overal staat weer VaCom (van Vastgoed Communicatie). Adres en werking veranderen niet.</li>

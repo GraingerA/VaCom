@@ -25,6 +25,7 @@ $start = [
     'is_dev'    => VACOM_IS_DEV,
     'embed'     => $embed,
     'project'   => $project,
+    'giphy'     => vacom_giphy_key() !== '', // v0.5.3: GIF-knop alleen met sleutel
 ];
 ?>
 <!doctype html>
@@ -136,6 +137,8 @@ $start = [
       <button type="button" class="knop icoon" id="knop-emoji" title="Emoji" aria-label="Emoji kiezen">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c.9 1.2 2.1 1.8 3.5 1.8s2.6-.6 3.5-1.8" stroke-linecap="round"/><circle cx="9" cy="9.6" r="1.15" fill="currentColor" stroke="none"/><circle cx="15" cy="9.6" r="1.15" fill="currentColor" stroke="none"/></svg>
       </button>
+      <!-- v0.5.3: GIF zoeken via Giphy; de knop verschijnt alleen als er een sleutel is (zie vacom_giphy_key) -->
+      <button type="button" class="knop icoon" id="knop-gif" title="GIF zoeken" aria-label="GIF zoeken" hidden><span class="gif-label">GIF</span></button>
       <textarea id="invoer" rows="1" placeholder="Schrijf een bericht…" autocomplete="off" enterkeyhint="send"></textarea>
       <button type="submit" class="knop primair" id="knop-stuur" aria-label="Versturen">
         <svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 11.5 21 3l-8.5 18-2.5-7.5z" fill="currentColor"/></svg>

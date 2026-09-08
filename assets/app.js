@@ -726,6 +726,96 @@
   });
 
   el.schrijver.addEventListener('submit', (e) => { e.preventDefault(); stuur(); });
+
+  /* ---------- GIF zoeken via Giphy (v0.5.3) ---------- */
+  // Zelfde soort paneel als de emoji-picker: zoekveld, raster met previews,
+  // klik = de gif gaat meteen als bericht het kanaal in (één kale gif-link,
+  // die de app al als beeld toont). Alleen zichtbaar als de server een
+  // Giphy-sleutel heeft (window.VACOM.giphy).
+  const gifKnop = $('#knop-gif');
+  let gifTimer = null;
+
+  function gifPaneel() {
+    let p = $('#gif-picker');
+    if (p) return p;
+    p = document.createElement('div');
+    p.id = 'gif-picker';
+    p.className = 'glas';
+    p.hidden = true;
+    p.innerHTML = '<input type="search" id="gif-zoek" placeholder="Zoek een gif… (bijv. applaus, koffie, vrijdag)" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>'
+      + '<div id="gif-raster"><p class="gif-melding">Laden…</p></div>'
+      + '<p class="gif-voet">Powered by GIPHY</p>';
+    document.body.appendChild(p);
+    $('#gif-zoek').addEventListener('input', () => { clearTimeout(gifTimer); gifTimer = setTimeout(() => zoekGifs($('#gif-zoek').value), 350); });
+    $('#gif-zoek').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); clearTimeout(gifTimer); zoekGifs($('#gif-zoek').value); } });
+    p.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-gif]');
+      if (!b) return;
+      stuurGif(b.dataset.gif);
+      sluitGifPaneel();
+    });
+    return p;
+  }
+
+  async function zoekGifs(q) {
+    const raster = $('#gif-raster');
+    raster.innerHTML = '<p class="gif-melding">Laden…</p>';
+    try {
+      const j = await api('gif_zoeken', { q: (q || '').trim() });
+      if ($('#gif-zoek').value.trim() !== (q || '').trim()) return; // er is intussen verder getypt
+      raster.innerHTML = j.gifs.length
+        ? j.gifs.map((g) => `<button type="button" data-gif="${esc(g.url)}" title="${esc(g.titel)}"><img src="${esc(g.preview)}" alt="" loading="lazy" width="${g.w}" height="${g.h}"></button>`).join('')
+        : '<p class="gif-melding">Niets gevonden.</p>';
+    } catch (e) { raster.innerHTML = `<p class="gif-melding">${esc(e.message)}</p>`; }
+  }
+
+  async function stuurGif(url) {
+    if (!S.current || S.versturen) return;
+    S.versturen = true;
+    const k = S.current;
+    try {
+      const j = await api('stuur', { channel_id: k.id, body: url });
+      if (S.current === k) { voegToe([j.message]); markeerGelezen(); }
+    } catch (e) { toast(e.message); }
+    finally { S.versturen = false; }
+  }
+
+  function openGifPaneel() {
+    const p = gifPaneel();
+    sluitPicker(); // niet twee panelen tegelijk
+    $('#gif-zoek').value = '';
+    p.hidden = false;
+    if (isMobiel()) {
+      p.classList.add('onderin');
+      p.style.left = p.style.top = p.style.right = '';
+    } else {
+      p.classList.remove('onderin');
+      const r = gifKnop.getBoundingClientRect();
+      const b = p.getBoundingClientRect();
+      p.style.left = Math.max(8, Math.min(r.left, window.innerWidth - b.width - 8)) + 'px';
+      p.style.top = (r.top - b.height - 8 > 8 ? r.top - b.height - 8 : r.bottom + 8) + 'px';
+      $('#gif-zoek').focus();
+    }
+    zoekGifs('');
+  }
+
+  function sluitGifPaneel() {
+    const p = $('#gif-picker');
+    if (p) p.hidden = true;
+  }
+
+  if (window.VACOM.giphy) {
+    gifKnop.hidden = false;
+    gifKnop.addEventListener('click', () => {
+      const p = $('#gif-picker');
+      if (p && !p.hidden) { sluitGifPaneel(); return; }
+      openGifPaneel();
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#gif-picker') && !e.target.closest('#knop-gif')) sluitGifPaneel();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') sluitGifPaneel(); });
+  }
   el.invoer.addEventListener('input', autoGroei);
   el.invoer.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !isTouch) { e.preventDefault(); stuur(); }
