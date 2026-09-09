@@ -412,16 +412,21 @@
 
   /* ---------- Thema (v0.5) ---------- */
   // Zelfde voorkeur als de Portal: localStorage 'ipp_theme' ('light' of 'dark').
-  // Geen keuze bekend → donker (het VaCom-standaardthema). Wie in de Portal op
-  // licht heeft gezet, ziet VaCom dus ook licht — en andersom.
+  // v0.6.1: is er nog geen keuze opgeslagen, dan volgen we in Portal-modus de
+  // standaard van de Portal (licht sinds Portal v4.9.1) — voorheen viel VaCom
+  // dan op donker terug, waardoor collega's die nooit aan het thema-knopje
+  // hadden gezeten de Portal licht zagen en de VaCom-popup erin donker. In
+  // losse modus blijft donker het standaardthema. (index.php zet dezelfde
+  // keuze al vóór het tekenen, zodat de popup niet eerst even donker flitst.)
   function zetThema(licht) {
     document.body.classList.toggle('light-mode', licht);
     const b = $('#knop-thema');
     if (b) { b.textContent = licht ? '☽' : '☀'; b.title = licht ? 'Naar donker' : 'Naar licht'; }
   }
   (() => {
-    let licht = false;
-    try { licht = localStorage.getItem('ipp_theme') === 'light'; } catch (e) { /* privé-modus */ }
+    const standaard = window.VACOM.overzicht && window.VACOM.overzicht.portal ? 'light' : 'dark';
+    let licht = standaard === 'light';
+    try { licht = (localStorage.getItem('ipp_theme') || standaard) === 'light'; } catch (e) { /* privé-modus */ }
     zetThema(licht);
     $('#knop-thema').addEventListener('click', () => {
       const naarLicht = !document.body.classList.contains('light-mode');

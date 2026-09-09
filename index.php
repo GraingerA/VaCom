@@ -48,6 +48,12 @@ $start = [
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
 </head>
 <body data-pane="lijst"<?= $embed ? ' class="embed"' : '' ?>>
+<script>
+// v0.6.1: thema al vóór het tekenen zetten (anti-flits), met dezelfde regel
+// als in app.js: opgeslagen keuze, anders de Portal-standaard (licht) in
+// Portal-modus en donker in losse modus.
+try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'dark' ?>') === 'light') document.body.classList.add('light-mode'); } catch (e) {}
+</script>
 <script>/* v0.5: thema direct zetten (vóór render, geen flits). Zelfde voorkeur als de Portal. */try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
 <div class="aurora" aria-hidden="true"></div>
 

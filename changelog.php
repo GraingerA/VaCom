@@ -31,6 +31,13 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.6.1 <span class="stil">— 9 september 2026</span></h2>
+    <ul>
+      <li><strong>Lichte Portal, lichte VaCom.</strong> Collega's die de Portal in het lichte thema gebruiken maar nooit zelf aan het ☀/☽-knopje hadden gezeten, kregen VaCom (ook in de popup op de projectkaart) toch donker. VaCom volgt nu in álle gevallen dezelfde standaard als de Portal, en zet het thema al vóór het tekenen zodat de popup niet eerst even donker opflitst.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.6.0 <span class="stil">— 8 september 2026</span></h2>
     <ul>
       <li><strong>Foto's en bestanden sturen.</strong> Via de paperclip naast het schrijfveld, door een screenshot of foto in het schrijfveld te plakken, of door bestanden op het gesprek te slepen. Foto's verschijnen als beeld in het gesprek (klik = groot); andere bestanden als een kaartje met naam en grootte, klik om te openen of te downloaden. Staat er tekst in het schrijfveld, dan gaat die als bijschrift mee. Max. 25 MB per bestand. Bestanden zijn alleen te openen door leden van het kanaal en de bestandsnaam is doorzoekbaar.</li>
