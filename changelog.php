@@ -31,6 +31,14 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.7.1 <span class="stil">— 9 september 2026</span></h2>
+    <ul>
+      <li><strong>Een kanaal opent waar je gebleven was.</strong> Zijn er berichten die je nog niet gelezen hebt, dan springt het gesprek naar het eerste daarvan, met een blauwe streep <em>Nieuwe berichten</em> erboven — per persoon verschillend, net als in Slack. Is er niets nieuws, dan sta je onderaan bij het laatste bericht. Foto's en gifs die nog laden duwen je niet meer van je plek.</li>
+      <li>Voor de Portal: de @-indicator in de Portal-header (Portal v4.13.7) leest via VaCom in welke kanalen je genoemd wordt.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.7.0 <span class="stil">— 9 september 2026</span></h2>
     <ul>
       <li><strong>@-vermeldingen die iets doen.</strong> Typ een @ in het schrijfveld en er verschijnt een lijstje collega's; typ door om te filteren, kies met de pijltjes en Enter (of klik). De naam komt als @Naam in je bericht te staan.</li>

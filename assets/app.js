@@ -19,6 +19,9 @@
     me: null, channels: [], users: [], state: 0, maxId: 0, portalUrl: '',
     current: null, msgs: [], hasMore: false,
     pollTimer: null, pollFouten: 0, versturen: false, gelezenTot: 0, rx: 0, mx: 0, bewerkId: 0,
+    // v0.7.1: openen bij het eerste ongelezen bericht — id van dat bericht (0 = niets
+    // ongelezen), wanneer het kanaal geopend werd, en of de gebruiker sindsdien zelf scrolde.
+    nieuwVanaf: 0, plakSinds: 0, gescrold: false,
   };
 
   const el = {
@@ -452,6 +455,7 @@
     const k = S.channels.find((c) => c.id === id);
     if (!k) return;
     S.current = k; S.msgs = []; S.hasMore = false; S.gelezenTot = 0;
+    S.nieuwVanaf = 0; S.gescrold = false;
     document.body.dataset.pane = 'chat';
     el.naam.textContent = kanaalNaam(k);
     el.topic.textContent = kanaalTopic(k);
@@ -483,11 +487,34 @@
       const j = await api('berichten', { channel_id: id });
       if (S.current !== k) return;
       S.msgs = j.messages; S.hasMore = j.has_more;
+      // v0.7.1: waar was je gebleven? Het eerste ongelezen bericht van een ander
+      // wordt het startpunt, met een "Nieuwe berichten"-streep erboven (zoals in
+      // Slack). Niets ongelezen → gewoon onderaan, bij het nieuwste bericht.
+      const gelezenTot = k.last_read_id || 0;
+      const eerste = S.msgs.find((m) => m.id > gelezenTot && m.user_id !== S.me.id);
+      S.nieuwVanaf = eerste ? eerste.id : 0;
+      S.plakSinds = Date.now();
       renderBerichten(true);
       markeerGelezen();
     } catch (e) { toast(e.message); }
     if (!isTouch) el.invoer.focus();
   }
+
+  // Na het tekenen op de juiste plek gaan staan: bij de "Nieuwe berichten"-
+  // streep als het kanaal net geopend is en de gebruiker nog niet zelf
+  // scrolde, anders onderaan. Foto's en gifs laden ná het tekenen en duwen de
+  // inhoud omlaag; daarom doet de load-listener hieronder dit de eerste
+  // seconden nog eens opnieuw.
+  function plakScroll() {
+    const b = el.berichten;
+    const versGeopend = Date.now() - S.plakSinds < 4000 && !S.gescrold;
+    const nv = versGeopend && S.nieuwVanaf ? b.querySelector('#nieuw-vanaf') : null;
+    if (nv) b.scrollTop = nv.getBoundingClientRect().top - b.getBoundingClientRect().top + b.scrollTop - 10;
+    else b.scrollTop = b.scrollHeight;
+  }
+  el.berichten.addEventListener('load', () => { if (Date.now() - S.plakSinds < 4000 && !S.gescrold) plakScroll(); }, true);
+  el.berichten.addEventListener('wheel', () => { S.gescrold = true; }, { passive: true });
+  el.berichten.addEventListener('touchmove', () => { S.gescrold = true; }, { passive: true });
 
   // Open kanaal: schrijfveld. Gesloten kanaal (v0.4.1): alleen-lezen-balk met,
   // voor wie dat mag, een Heropenen-knop. Projectkanalen heropen je via de
@@ -562,6 +589,8 @@
       if (!vorige || dagSleutel(vorige.created) !== dagSleutel(m.created)) {
         delen.push(`<div class="datum-scheiding">${esc(dagLabel(m.created))}</div>`);
       }
+      // v0.7.1: streep boven het eerste bericht dat je nog niet gelezen had.
+      if (S.nieuwVanaf && m.id === S.nieuwVanaf) delen.push('<div class="datum-scheiding nieuw" id="nieuw-vanaf">Nieuwe berichten</div>');
       const vervolg = vorige && vorige.user_id === m.user_id && dagSleutel(vorige.created) === dagSleutel(m.created)
         && new Date(m.created) - new Date(vorige.created) < 5 * 60 * 1000;
       const tekst = berichtTekst(m);
@@ -585,7 +614,7 @@
         : `<div class="leeg"><p>Nog geen berichten in ${esc(kanaalNaam(S.current))}. Schrijf het eerste!</p></div>`);
     }
     el.berichten.innerHTML = delen.join('');
-    if (naarOnder) el.berichten.scrollTop = el.berichten.scrollHeight;
+    if (naarOnder) plakScroll();
   }
 
   /* ---------- Berichttekst, bijlagen, bewerken/verwijderen (v0.6) ---------- */
@@ -715,6 +744,7 @@
     S.gelezenTot = laatste;
     S.current.unread = 0;
     S.current.mentions = 0; // v0.7
+    S.current.last_read_id = Math.max(S.current.last_read_id || 0, laatste); // v0.7.1
     renderZijbalk();
     api('gelezen', { channel_id: S.current.id, last_id: laatste }).catch(() => {});
   }

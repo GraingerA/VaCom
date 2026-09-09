@@ -41,6 +41,7 @@ SQL);
             'unread'        => $gesloten ? 0 : (int)$k['unread'],
             'mentions'      => $gesloten ? 0 : (int)$k['mentions'],
             'last_id'       => (int)($k['last_id'] ?? 0),
+            'last_read_id'  => (int)$k['last_read_id'], // v0.7.1: startpunt "Nieuwe berichten" bij openen
         ];
         if ($k['type'] === 'dm') {
             [$a, $b] = array_map('intval', explode(':', (string)$k['dm_key']));

@@ -577,6 +577,32 @@ case 'portal_ongelezen': {
     vacom_json(['ok' => true, 'projecten' => (object)$uit]);
 }
 
+case 'portal_vermeldingen': {
+    // v0.7.1: voor de @-indicator in de Portal-header — in welke kanalen word
+    // ik genoemd in berichten die ik nog niet gelezen heb? Alleen-lezen, GET.
+    $st = $db->prepare('SELECT c.id, c.type, c.name, c.dm_key, c.project_token,
+        (SELECT COUNT(*) FROM mentions mn JOIN messages x ON x.id = mn.message_id
+           WHERE x.channel_id = c.id AND mn.user_id = ? AND x.id > m.last_read_id AND x.deleted = 0) AS mentions
+        FROM channels c JOIN channel_members m ON m.channel_id = c.id
+        WHERE m.user_id = ? AND c.archived = 0');
+    $st->execute([$mijnId, $mijnId]);
+    $uit = []; $totaal = 0;
+    foreach ($st->fetchAll() as $r) {
+        $n = (int)$r['mentions'];
+        if ($n === 0) continue;
+        $label = '#' . $r['name'];
+        if ($r['type'] === 'dm') {
+            [$a, $b] = array_map('intval', explode(':', (string)$r['dm_key']));
+            $ander = vacom_user_by_id($a === $mijnId ? $b : $a);
+            $label = $ander ? (string)$ander['name'] : 'Gesprek';
+        }
+        $uit[] = ['id' => (int)$r['id'], 'label' => $label, 'project_token' => $r['project_token'] ?: '', 'mentions' => $n];
+        $totaal += $n;
+    }
+    usort($uit, fn($x, $y) => $y['mentions'] <=> $x['mentions']);
+    vacom_json(['ok' => true, 'totaal' => $totaal, 'kanalen' => $uit]);
+}
+
 case 'portal_project': {
     // De kanaalkaart op de Portal-projectpagina: leden en de laatste berichten.
     // Geen lid? Dan alleen dát (privacy: je leest alleen mee waar je bij hoort).

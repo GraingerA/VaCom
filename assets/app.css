@@ -529,6 +529,10 @@ body.embed #chat-open-vacom { flex: none; }
 .knop.gevaar { color: var(--rood); border-color: rgba(224, 85, 95, 0.4); }
 .knop.gevaar:hover { background: rgba(224, 85, 95, 0.12); }
 
+/* "Nieuwe berichten"-streep (v0.7.1): waar je gebleven was bij het openen. */
+.datum-scheiding.nieuw { color: var(--blauw); }
+.datum-scheiding.nieuw::before, .datum-scheiding.nieuw::after { background: var(--blauw); opacity: 0.55; }
+
 /* ---------- @-vermeldingen (v0.7) ---------- */
 
 /* Badge blauw i.p.v. goud als er ongelezen berichten bij zijn waarin je genoemd wordt. */
