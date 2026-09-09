@@ -365,10 +365,12 @@
 
   function renderZijbalk() {
     const actiefId = S.current ? S.current.id : 0;
+    // v0.7: badge blauw als er ongelezen berichten bij zijn waarin je genoemd wordt.
+    const badgeVan = (k) => k.unread
+      ? `<span class="badge${k.mentions ? ' vermelding' : ''}"${k.mentions ? ' title="Je wordt hier genoemd"' : ''}>${k.unread}</span>` : '';
     const item = (k, label, extra = '', extraKlas = '') => {
       const klassen = [extraKlas, k.id === actiefId ? 'actief' : '', k.unread ? 'ongelezen' : ''].join(' ').trim();
-      const badge = k.unread ? `<span class="badge">${k.unread}</span>` : '';
-      return `<li><button type="button" data-kanaal="${k.id}" class="${klassen}">${extra}<span class="naam">${esc(label)}</span>${badge}</button></li>`;
+      return `<li><button type="button" data-kanaal="${k.id}" class="${klassen}">${extra}<span class="naam">${esc(label)}</span>${badgeVan(k)}</button></li>`;
     };
     // Projectkanalen (uit de Portal) apart van de losse kanalen. Gesloten
     // kanalen (v0.4.1) staan in geen van beide, maar onderin bij "Gesloten".
@@ -391,8 +393,7 @@
         const zelf = k.other_id === S.me.id;
         const naam = `<span class="naam">${esc(kanaalNaam(k))}</span>${zelf ? '' : statusHtml(u)}`;
         const klassen = [k.id === actiefId ? 'actief' : '', k.unread ? 'ongelezen' : ''].join(' ').trim();
-        const badge = k.unread ? `<span class="badge">${k.unread}</span>` : '';
-        return `<li><button type="button" data-kanaal="${k.id}" class="${klassen}"><span class="stip${u && isOnline(u) ? ' online' : ''}"></span>${naam}${badge}</button></li>`;
+        return `<li><button type="button" data-kanaal="${k.id}" class="${klassen}"><span class="stip${u && isOnline(u) ? ' online' : ''}"></span>${naam}${badgeVan(k)}</button></li>`;
       }).join('') || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen gesprekken — start er een met +</li>';
     el.collegas.innerHTML = S.users.filter((u) => u.active && u.id !== S.me.id)
       .map((u) => `<li><button type="button" data-collega="${u.id}"><span class="stip${isOnline(u) ? ' online' : ''}"></span><span class="naam">${esc(u.name)}</span>${statusHtml(u)}</button></li>`)
@@ -401,10 +402,20 @@
     // v0.5: ongelezen-tellers per sectie — zichtbaar in de kop zodra een
     // sectie is ingeklapt (CSS verbergt ze bij een open sectie).
     const somVan = (lijst) => lijst.reduce((n, k) => n + (k.unread || 0), 0);
-    const zetBadge = (id, n) => { const b = $('#' + id); if (b) { b.textContent = n; b.hidden = !n; } };
-    zetBadge('badge-kanalen', somVan(open.filter((k) => k.type === 'public' && !k.project_token)));
-    zetBadge('badge-berichten', somVan(S.channels.filter((k) => k.type === 'dm')));
-    zetBadge('badge-projecten', somVan(projecten));
+    const zetBadge = (id, lijst) => {
+      const b = $('#' + id); if (!b) return;
+      const n = somVan(lijst);
+      b.textContent = n; b.hidden = !n;
+      b.classList.toggle('vermelding', lijst.some((k) => k.mentions)); // v0.7
+    };
+    zetBadge('badge-kanalen', open.filter((k) => k.type === 'public' && !k.project_token));
+    zetBadge('badge-berichten', S.channels.filter((k) => k.type === 'dm'));
+    zetBadge('badge-projecten', projecten);
+
+    // v0.7: teller op de @-knop in de header = ongelezen berichten waarin je genoemd wordt.
+    const genoemd = S.channels.reduce((n, k) => n + (k.mentions || 0), 0);
+    const teller = $('#vermelding-teller');
+    if (teller) { teller.textContent = genoemd; teller.hidden = !genoemd; }
 
     const totaal = S.channels.reduce((n, k) => n + (k.unread || 0), 0);
     document.title = (totaal ? `(${totaal}) ` : '') + 'VaCom';
@@ -703,6 +714,7 @@
     if (laatste <= S.gelezenTot) return;
     S.gelezenTot = laatste;
     S.current.unread = 0;
+    S.current.mentions = 0; // v0.7
     renderZijbalk();
     api('gelezen', { channel_id: S.current.id, last_id: laatste }).catch(() => {});
   }
@@ -751,10 +763,23 @@
       if (j.changed) {
         if (j.state !== S.state) pasOverzichtToe(await api('overzicht'));
         if (j.unread) {
+          const genoemdVoor = S.channels.reduce((n, k) => n + (k.mentions || 0), 0);
+          const nieuwGenoemd = [];
           for (const k of S.channels) {
-            if (!S.current || k.id !== S.current.id) k.unread = j.unread[k.id] ?? k.unread;
+            if (!S.current || k.id !== S.current.id) {
+              k.unread = j.unread[k.id] ?? k.unread;
+              if (j.mentions) { // v0.7
+                const was = k.mentions || 0;
+                k.mentions = j.mentions[k.id] ?? was;
+                if (k.mentions > was) nieuwGenoemd.push(k);
+              }
+            }
           }
           renderZijbalk();
+          // v0.7: net ergens anders genoemd? Even zeggen waar.
+          if (nieuwGenoemd.length && S.channels.reduce((n, k) => n + (k.mentions || 0), 0) > genoemdVoor) {
+            toast(`Je wordt genoemd in ${nieuwGenoemd.map(kanaalNaam).join(', ')}`);
+          }
         }
         if (j.messages && j.messages.length) { voegToe(j.messages); markeerGelezen(); }
         // Reactie-wijzigingen in het open kanaal verwerken (v0.3): de server
@@ -828,6 +853,7 @@
     const kanaalKnop = e.target.closest('[data-kanaal]');
     if (kanaalKnop) {
       if (el.zoekDialoog.open) el.zoekDialoog.close();
+      const vd = $('#dialoog-vermeldingen'); if (vd && vd.open) vd.close(); // v0.7
       kiesKanaal(Number(kanaalKnop.dataset.kanaal));
       return;
     }
@@ -948,6 +974,133 @@
     });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') sluitGifPaneel(); });
   }
+  /* ---------- @-vermeldingen: autocomplete in het schrijfveld (v0.7) ---------- */
+  // Typ @ en (een deel van) een naam: er verschijnt een lijstje collega's boven
+  // het schrijfveld. Pijltjes + Enter/Tab kiezen, Esc sluit, klikken kan ook.
+  // De keuze komt als "@Naam " in het veld — precies de vorm die de server
+  // herkent (vacom_vermeldingen_in) en die de client blauw markeert.
+  // LET OP: deze keydown-listener staat vóór die van "Enter = versturen"
+  // hieronder, zodat Enter met een open lijstje kiest i.p.v. verstuurt.
+  let mentionKeuze = null; // { start, lijst, index }
+
+  function mentionPaneel() {
+    let p = $('#mention-picker');
+    if (p) return p;
+    p = document.createElement('div');
+    p.id = 'mention-picker'; p.className = 'glas'; p.hidden = true;
+    document.body.appendChild(p);
+    // mousedown i.p.v. click: zo verliest het schrijfveld de focus niet.
+    p.addEventListener('mousedown', (ev) => {
+      const b = ev.target.closest('[data-mention-id]');
+      if (!b) return;
+      ev.preventDefault();
+      kiesMention(Number(b.dataset.mentionId));
+    });
+    return p;
+  }
+
+  function sluitMention() { const p = $('#mention-picker'); if (p) p.hidden = true; mentionKeuze = null; }
+
+  // Collega's die passen bij wat er na de @ getypt is: begin van de naam, of
+  // begin van een los woord erin ("vr" vindt ook "Jan de Vries"). Max. 8.
+  function mentionKandidaten(q) {
+    const s = q.trim().toLowerCase();
+    return S.users.filter((u) => u.active && (!s
+      || u.name.toLowerCase().startsWith(s)
+      || u.name.toLowerCase().split(/\s+/).some((w) => w.startsWith(s)))).slice(0, 8);
+  }
+
+  function toonMention() {
+    const inv = el.invoer;
+    if (document.activeElement !== inv || (S.current && S.current.archived)) { sluitMention(); return; }
+    const pos = inv.selectionStart ?? inv.value.length;
+    const m = inv.value.slice(0, pos).match(/(^|\s)@([^@\n]{0,40})$/u);
+    if (!m) { sluitMention(); return; }
+    const lijst = mentionKandidaten(m[2]);
+    if (!lijst.length) { sluitMention(); return; }
+    // Gekozen regel vasthouden als die nog in de (kleinere) lijst staat.
+    const vorigeId = mentionKeuze && mentionKeuze.lijst[mentionKeuze.index] ? mentionKeuze.lijst[mentionKeuze.index].id : 0;
+    const index = Math.max(0, lijst.findIndex((u) => u.id === vorigeId));
+    mentionKeuze = { start: pos - m[2].length - 1, lijst, index };
+    renderMention();
+  }
+
+  function renderMention() {
+    const p = mentionPaneel();
+    const k = mentionKeuze;
+    if (!k) { p.hidden = true; return; }
+    p.innerHTML = k.lijst.map((u, i) => `<button type="button" data-mention-id="${u.id}" class="${i === k.index ? 'actief' : ''}">
+        <span class="avatar klein"${avatarStijl(u.id)}>${avatarInhoud(u.id, u.name)}</span>
+        <span class="naam">${esc(u.name)}</span>${u.id === S.me.id ? '<span class="stil">jij</span>' : ''}
+      </button>`).join('');
+    p.hidden = false;
+    if (isMobiel()) {
+      p.classList.add('onderin');
+      p.style.left = p.style.top = p.style.bottom = '';
+    } else {
+      p.classList.remove('onderin');
+      const r = el.schrijver.getBoundingClientRect();
+      p.style.left = Math.max(8, Math.min(r.left + 8, window.innerWidth - 288)) + 'px';
+      p.style.top = 'auto';
+      p.style.bottom = (window.innerHeight - r.top + 6) + 'px';
+    }
+    const a = p.querySelector('.actief');
+    if (a) a.scrollIntoView({ block: 'nearest' });
+  }
+
+  function kiesMention(id) {
+    const k = mentionKeuze, u = gebruiker(id);
+    if (!k || !u) { sluitMention(); return; }
+    const inv = el.invoer;
+    const pos = inv.selectionStart ?? inv.value.length;
+    const invoeg = '@' + u.name + ' ';
+    inv.value = inv.value.slice(0, k.start) + invoeg + inv.value.slice(pos);
+    inv.selectionStart = inv.selectionEnd = k.start + invoeg.length;
+    sluitMention();
+    autoGroei();
+    inv.focus();
+  }
+
+  el.invoer.addEventListener('input', toonMention);
+  el.invoer.addEventListener('click', toonMention); // cursor met de muis verplaatst
+  el.invoer.addEventListener('blur', () => setTimeout(sluitMention, 150));
+  el.invoer.addEventListener('keydown', (e) => {
+    const k = mentionKeuze;
+    if (!k) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      k.index = (k.index + (e.key === 'ArrowDown' ? 1 : k.lijst.length - 1)) % k.lijst.length;
+      renderMention();
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault(); e.stopImmediatePropagation();
+      kiesMention(k.lijst[k.index].id);
+    } else if (e.key === 'Escape') {
+      e.preventDefault(); e.stopImmediatePropagation();
+      sluitMention();
+    }
+  });
+
+  /* ---------- Vermeldingen-overzicht (v0.7): de @-knop in de header ---------- */
+  async function openVermeldingen() {
+    const lijst = $('#vermeldingen-lijst');
+    const dlg = $('#dialoog-vermeldingen');
+    lijst.innerHTML = '<p class="zoek-leeg">Laden…</p>';
+    dlg.showModal();
+    try {
+      const j = await api('vermeldingen');
+      if (!j.results.length) { lijst.innerHTML = `<p class="zoek-leeg">Nog niemand heeft je met @${esc(S.me.name)} genoemd.</p>`; return; }
+      lijst.innerHTML = j.results.map((m) => {
+        const k = S.channels.find((c) => c.id === m.channel_id);
+        const d = new Date(m.created).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
+        const tekst = alsAfbeelding(m.body) ? '🖼️ afbeelding'
+          : (m.attachment && m.body === m.attachment.name) ? '📎 ' + esc(m.body)
+          : opmaak(m.body);
+        return `<button type="button" class="zoek-hit${m.ongelezen ? ' ongelezen' : ''}" data-kanaal="${m.channel_id}"><div class="waar"><b>${esc(m.author)}</b> in ${esc(kanaalNaam(k))}${k && k.archived ? ' <span class="tag">gesloten</span>' : ''} · ${d} ${tijd(m.created)}</div><div class="tekst">${tekst}</div></button>`;
+      }).join('');
+    } catch (e) { lijst.innerHTML = `<p class="zoek-leeg">${esc(e.message)}</p>`; }
+  }
+  $('#knop-vermeldingen').addEventListener('click', openVermeldingen);
+
   el.invoer.addEventListener('input', autoGroei);
   el.invoer.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !isTouch) { e.preventDefault(); stuur(); }

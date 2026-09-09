@@ -190,6 +190,25 @@ SQL);
         $pdo->exec("INSERT OR IGNORE INTO meta(key, value) VALUES ('mx', '1')");
         $pdo->exec('PRAGMA user_version = 8');
     }
+
+    if ($versie < 9) {
+        // v0.7: @-vermeldingen. Per bericht onthouden we wie er met @Naam in
+        // genoemd is, zodat de zijbalk "je bent genoemd" kan tonen en het
+        // Vermeldingen-overzicht snel is (geen tekst doorzoeken bij elke poll).
+        // Bestaande berichten lopen we hier eenmalig na.
+        $pdo->exec(<<<'SQL'
+CREATE TABLE mentions (
+    message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES users(id)    ON DELETE CASCADE,
+    PRIMARY KEY (message_id, user_id)
+);
+CREATE INDEX idx_mentions_user ON mentions(user_id, message_id);
+SQL);
+        foreach ($pdo->query("SELECT id, user_id, body FROM messages WHERE deleted = 0 AND body LIKE '%@%'")->fetchAll() as $m) {
+            vacom_vermeldingen_opslaan($pdo, (int)$m['id'], (string)$m['body'], (int)$m['user_id']);
+        }
+        $pdo->exec('PRAGMA user_version = 9');
+    }
 }
 
 /* ---------- Kleine helpers rond de database ---------- */
@@ -217,4 +236,43 @@ function vacom_max_message_id(): int {
 /** Sleutel voor een DM tussen twee gebruikers, onafhankelijk van wie begon. */
 function vacom_dm_key(int $a, int $b): string {
     return min($a, $b) . ':' . max($a, $b);
+}
+
+/* ---------- @-vermeldingen (v0.7) ---------- */
+
+/**
+ * Welke collega's worden in deze tekst met @Naam genoemd? Geeft user-ids.
+ * Hoofdletterongevoelig, en de naam mag niet midden in een langer woord
+ * doorlopen (@Ad matcht niet in "@Adres"). Langste naam eerst en het gevonden
+ * stuk daarna wegstrepen, zodat "@Jan de Vries" niet óók "Jan" oplevert.
+ * Zelfde regels als het markeren in de client (bouwMentionRegex in app.js).
+ */
+function vacom_vermeldingen_in(PDO $db, string $body): array {
+    if (strpos($body, '@') === false) return [];
+    static $namen = null;
+    if ($namen === null) {
+        $namen = $db->query('SELECT id, name FROM users WHERE active = 1')->fetchAll();
+        usort($namen, fn($a, $b) => mb_strlen((string)$b['name']) <=> mb_strlen((string)$a['name']));
+    }
+    $ids = [];
+    $rest = $body;
+    foreach ($namen as $u) {
+        $naam = trim((string)$u['name']);
+        if ($naam === '') continue;
+        $re = '/@' . preg_quote($naam, '/') . '(?![\p{L}\p{N}])/iu';
+        if (preg_match($re, $rest)) {
+            $ids[] = (int)$u['id'];
+            $rest = (string)preg_replace($re, ' ', $rest);
+        }
+    }
+    return $ids;
+}
+
+/** Vermeldingen van een bericht (opnieuw) vastleggen. Jezelf noemen telt niet. */
+function vacom_vermeldingen_opslaan(PDO $db, int $berichtId, string $body, int $auteurId): void {
+    $db->prepare('DELETE FROM mentions WHERE message_id = ?')->execute([$berichtId]);
+    $ins = $db->prepare('INSERT OR IGNORE INTO mentions(message_id, user_id) VALUES (?, ?)');
+    foreach (vacom_vermeldingen_in($db, $body) as $uid) {
+        if ($uid !== $auteurId) $ins->execute([$berichtId, $uid]);
+    }
 }

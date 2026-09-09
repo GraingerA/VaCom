@@ -73,6 +73,8 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
     <button class="knop icoon" id="knop-zoeken" title="Zoeken (Ctrl+K)" aria-label="Zoeken">
       <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
+    <!-- v0.7: berichten waarin je met @naam genoemd bent; de teller = nog ongelezen -->
+    <button class="knop icoon" id="knop-vermeldingen" title="Vermeldingen — berichten waarin je genoemd wordt" aria-label="Vermeldingen">@<span class="kop-teller" id="vermelding-teller" hidden></span></button>
     <button class="knop icoon" id="knop-thema" title="Licht / donker" aria-label="Licht of donker thema">☀</button>
     <button class="knop icoon" id="knop-instellingen" title="Instellingen" aria-label="Instellingen">⚙</button>
     <button class="knop icoon" id="knop-uitloggen" title="Uitloggen" aria-label="Uitloggen">⏻</button>
@@ -165,6 +167,15 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
     <button class="knop mini" value="sluit" aria-label="Sluiten">✕</button>
   </form>
   <div id="zoek-resultaten" class="zoek-resultaten"></div>
+</dialog>
+
+<!-- Vermeldingen (v0.7): berichten waarin je met @naam genoemd bent -->
+<dialog id="dialoog-vermeldingen" class="dialoog">
+  <form method="dialog" class="dialoog-kop">
+    <h2 class="dialoog-titel">Vermeldingen</h2>
+    <button class="knop mini" value="sluit" aria-label="Sluiten">✕</button>
+  </form>
+  <div id="vermeldingen-lijst" class="zoek-resultaten"></div>
 </dialog>
 
 <!-- Nieuw kanaal -->

@@ -529,6 +529,36 @@ body.embed #chat-open-vacom { flex: none; }
 .knop.gevaar { color: var(--rood); border-color: rgba(224, 85, 95, 0.4); }
 .knop.gevaar:hover { background: rgba(224, 85, 95, 0.12); }
 
+/* ---------- @-vermeldingen (v0.7) ---------- */
+
+/* Badge blauw i.p.v. goud als er ongelezen berichten bij zijn waarin je genoemd wordt. */
+.badge.vermelding { background: var(--blauw); }
+/* @-knop in de header met rood tellertje (ongelezen vermeldingen). */
+#knop-vermeldingen { position: relative; font-weight: 800; font-size: 17px; }
+.kop-teller {
+  position: absolute; top: 3px; right: 3px;
+  min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+  background: var(--rood); color: #fff; font-size: 10px; font-weight: 800; line-height: 16px; text-align: center;
+}
+/* Autocomplete-lijstje boven het schrijfveld. */
+#mention-picker {
+  position: fixed; z-index: 60; width: 280px; max-height: 260px; overflow-y: auto;
+  padding: 6px; border-radius: var(--r-kaart); border: 1px solid var(--lijn);
+}
+#mention-picker[hidden] { display: none; }
+#mention-picker button {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 6px 8px; border: 0; background: none; border-radius: var(--r-knop);
+  color: var(--tekst); font: inherit; text-align: left; cursor: pointer;
+}
+#mention-picker button.actief, #mention-picker button:hover { background: var(--vlak-2); }
+#mention-picker .naam { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mention-picker.onderin { left: 8px; right: 8px; width: auto; top: auto; bottom: calc(64px + var(--sa-bottom)); }
+/* Vermeldingen-dialoog: titel in de kop, ongelezen treffers met een blauw bolletje. */
+.dialoog-kop h2.dialoog-titel { flex: 1; font-size: 16px; }
+.zoek-hit.ongelezen .waar::before { content: "●"; color: var(--blauw); margin-right: 6px; }
+.zoek-hit .tekst { overflow-wrap: anywhere; }
+
 /* ---------- Gesloten kanalen (v0.4.1) ---------- */
 
 /* Inklapbaar kopje onderin de zijbalk, in de stijl van de andere kopjes. */

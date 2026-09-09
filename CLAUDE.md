@@ -87,7 +87,9 @@ Datamodel: `users`, `channels` (type public/dm; DM = `dm_key` "kleinsteId:groots
 `messages` (id = globale oplopende klok; `parent_id` klaar voor threads; `attachment`
 JSON v0.6 — het bestand zelf staat in `VACOM_DATA/bestanden/<bericht-id>/`, met
 `thumb.jpg` bij foto's, geserveerd door `bestand.php?m=ID` aan kanaalleden),
-`messages_fts`, `reactions`, `meta` (tellers `state` → overzicht opnieuw, `rx` →
+`messages_fts`, `reactions`, `mentions` (v0.7: wie in welk bericht met @Naam genoemd
+is; gevuld door `vacom_vermeldingen_opslaan()` bij sturen/bewerken, jezelf telt niet),
+`meta` (tellers `state` → overzicht opnieuw, `rx` →
 reacties, `mx` → bewerkte/verwijderde berichten; `portal_stempel`). Iedereen is
 automatisch lid van elk openbaar kanaal. Verwijderen van een bericht is een soft
 delete (`deleted=1`, body leeg → uit de zoekindex, bijlage van schijf).

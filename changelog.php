@@ -31,6 +31,16 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.7.0 <span class="stil">— 9 september 2026</span></h2>
+    <ul>
+      <li><strong>@-vermeldingen die iets doen.</strong> Typ een @ in het schrijfveld en er verschijnt een lijstje collega's; typ door om te filteren, kies met de pijltjes en Enter (of klik). De naam komt als @Naam in je bericht te staan.</li>
+      <li><strong>Je ziet het als je genoemd wordt.</strong> Het badge bij een kanaal wordt blauw (in plaats van goud) zodra er een ongelezen bericht bij zit waarin jij genoemd wordt, en de nieuwe @-knop in de header telt hoeveel dat er in totaal zijn. Word je ergens anders genoemd terwijl je in VaCom bezig bent, dan zegt een melding onderin waar.</li>
+      <li><strong>Vermeldingen-overzicht.</strong> Klik op de @-knop voor alle berichten waarin je genoemd bent, nieuwste eerst; ongelezen exemplaren hebben een blauw bolletje. Klikken opent het gesprek.</li>
+      <li>Bestaande berichten zijn eenmalig nagelopen, dus eerdere @-vermeldingen staan ook meteen in het overzicht. Jezelf noemen telt niet mee.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.6.1 <span class="stil">— 9 september 2026</span></h2>
     <ul>
       <li><strong>Lichte Portal, lichte VaCom.</strong> Collega's die de Portal in het lichte thema gebruiken maar nooit zelf aan het ☀/☽-knopje hadden gezeten, kregen VaCom (ook in de popup op de projectkaart) toch donker. VaCom volgt nu in álle gevallen dezelfde standaard als de Portal, en zet het thema al vóór het tekenen zodat de popup niet eerst even donker opflitst.</li>

@@ -274,14 +274,18 @@ case 'poll': {
             'attachment' => ((int)$r['deleted'] === 1 || empty($r['attachment'])) ? null : (json_decode((string)$r['attachment'], true) ?: null),
         ], $st->fetchAll());
     }
-    // Ongelezen-tellers per kanaal (voor de badges in de zijbalk).
+    // Ongelezen-tellers per kanaal (voor de badges in de zijbalk), en (v0.7)
+    // hoeveel daarvan berichten zijn waarin ik met @Naam genoemd word.
     $st = $db->prepare('SELECT c.id,
-        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.id > m.last_read_id AND x.user_id != ? AND x.deleted = 0) AS unread
+        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.id > m.last_read_id AND x.user_id != ? AND x.deleted = 0) AS unread,
+        (SELECT COUNT(*) FROM mentions mn JOIN messages x ON x.id = mn.message_id
+           WHERE x.channel_id = c.id AND mn.user_id = ? AND x.id > m.last_read_id AND x.deleted = 0) AS mentions
         FROM channels c JOIN channel_members m ON m.channel_id = c.id WHERE m.user_id = ? AND c.archived = 0');
-    $st->execute([$mijnId, $mijnId]);
-    $unread = [];
-    foreach ($st->fetchAll() as $r) $unread[(string)$r['id']] = (int)$r['unread'];
+    $st->execute([$mijnId, $mijnId, $mijnId]);
+    $unread = []; $mentions = [];
+    foreach ($st->fetchAll() as $r) { $unread[(string)$r['id']] = (int)$r['unread']; $mentions[(string)$r['id']] = (int)$r['mentions']; }
     $antwoord['unread'] = $unread;
+    $antwoord['mentions'] = $mentions;
     vacom_json($antwoord);
 }
 
@@ -295,6 +299,7 @@ case 'stuur': {
     $db->prepare('INSERT INTO messages(channel_id, user_id, body, created) VALUES (?,?,?,?)')
        ->execute([(int)$k['id'], $mijnId, $body, vacom_now()]);
     $id = (int)$db->lastInsertId();
+    vacom_vermeldingen_opslaan($db, $id, $body, $mijnId); // v0.7: wie wordt er @genoemd?
     // Eigen bericht telt meteen als gelezen.
     $db->prepare('UPDATE channel_members SET last_read_id = MAX(last_read_id, ?) WHERE channel_id = ? AND user_id = ?')
        ->execute([$id, (int)$k['id'], $mijnId]);
@@ -353,6 +358,7 @@ case 'stuur_bestand': {
         else { $att['w'] = (int)$info[0]; $att['h'] = (int)$info[1]; }
     }
     $db->prepare('UPDATE messages SET attachment = ? WHERE id = ?')->execute([json_encode($att, JSON_UNESCAPED_UNICODE), $id]);
+    vacom_vermeldingen_opslaan($db, $id, $body, $mijnId); // v0.7: @Naam in het bijschrift
     $db->prepare('UPDATE channel_members SET last_read_id = MAX(last_read_id, ?) WHERE channel_id = ? AND user_id = ?')
        ->execute([$id, (int)$k['id'], $mijnId]);
     $terug = $db->prepare('UPDATE channel_members SET hidden = 0 WHERE channel_id = ? AND hidden = 1');
@@ -378,6 +384,7 @@ case 'bewerk': {
     if ($body === '') $body = (json_decode((string)$m['attachment'], true)['name'] ?? ''); // bijlage zonder tekst: naam als tekst
     if ($body !== $m['body']) {
         $db->prepare('UPDATE messages SET body = ?, edited = ? WHERE id = ?')->execute([$body, vacom_now(), $berichtId]);
+        vacom_vermeldingen_opslaan($db, $berichtId, $body, $mijnId); // v0.7: opnieuw bepalen wie genoemd wordt
         vacom_bump_mx();
     }
     $lijst = berichten_uit($db, 'm.id = ?', [$berichtId], 1, true);
@@ -398,6 +405,7 @@ case 'verwijder': {
     $db->beginTransaction();
     $db->prepare("UPDATE messages SET body = '', deleted = 1, attachment = NULL, edited = ? WHERE id = ?")->execute([vacom_now(), $berichtId]);
     $db->prepare('DELETE FROM reactions WHERE message_id = ?')->execute([$berichtId]);
+    $db->prepare('DELETE FROM mentions WHERE message_id = ?')->execute([$berichtId]); // v0.7
     $db->commit();
     bijlage_wis($berichtId);
     vacom_bump_mx();
@@ -819,6 +827,30 @@ case 'gesprek_verbergen': {
     $db->prepare('UPDATE channel_members SET hidden = 1 WHERE channel_id = ? AND user_id = ?')->execute([(int)$k['id'], $mijnId]);
     vacom_bump_state(); // ook je andere apparaten verversen hun lijst
     vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
+}
+
+case 'vermeldingen': {
+    // v0.7: de laatste berichten waarin ik met @Naam genoemd word, in kanalen
+    // waar ik lid van ben (ook gesloten kanalen). 'ongelezen' = nog niet
+    // gezien (boven mijn leesmarkering in dat kanaal).
+    $st = $db->prepare(<<<'SQL'
+SELECT m.id, m.channel_id, m.user_id, m.parent_id, m.body, m.created, m.edited, m.deleted, m.attachment, u.name AS author,
+       (m.id > cm.last_read_id) AS ongelezen
+FROM mentions mn
+JOIN messages m ON m.id = mn.message_id
+JOIN users u ON u.id = m.user_id
+JOIN channel_members cm ON cm.channel_id = m.channel_id AND cm.user_id = ?
+WHERE mn.user_id = ? AND m.deleted = 0
+ORDER BY m.id DESC LIMIT 50
+SQL);
+    $st->execute([$mijnId, $mijnId]);
+    $uit = [];
+    foreach ($st->fetchAll() as $r) {
+        $b = bericht_uit($r);
+        $b['ongelezen'] = (int)$r['ongelezen'] === 1;
+        $uit[] = $b;
+    }
+    vacom_json(['ok' => true, 'results' => $uit]);
 }
 
 case 'zoek': {
