@@ -5,7 +5,7 @@
  * is er zodat de app installeerbaar is en om een nette offline-pagina te tonen.
  * Pushnotificaties komen hier later bij.
  */
-const VERSIE = 'vacom-0.7.1';
+const VERSIE = 'vacom-0.7.3';
 const OFFLINE = './offline.html';
 
 self.addEventListener('install', (e) => {

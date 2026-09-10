@@ -39,7 +39,7 @@ window.VACOM_EMOJI = [
   { naam: 'Gebaren & mensen', lijst: [
     ['👍', 'duim omhoog top ok goed like'], ['👎', 'duim omlaag nee slecht'], ['👌', 'ok perfect'], ['🤌', 'vingers samen italiaans'], ['🤏', 'klein beetje'],
     ['✌️', 'peace overwinning'], ['🤞', 'duimen vingers gekruist hopen'], ['🫰', 'hart vingers'], ['🤟', 'love you'], ['🤘', 'rock'],
-    ['🤙', 'bel me shaka'], ['👈', 'wijzen links'], ['👉', 'wijzen rechts'], ['👆', 'wijzen omhoog'], ['👇', 'wijzen omlaag'],
+    ['🤙', 'bel me shaka'], ['🖕', 'middelvinger fuck boos'], ['👈', 'wijzen links'], ['👉', 'wijzen rechts'], ['👆', 'wijzen omhoog'], ['👇', 'wijzen omlaag'],
     ['☝️', 'wijsvinger omhoog'], ['👋', 'zwaaien hallo dag hoi'], ['🤚', 'hand op'], ['🖐️', 'hand gespreid'], ['✋', 'hand stop'],
     ['🖖', 'vulcan spock'], ['👏', 'applaus klappen bravo'], ['🙌', 'handen omhoog hoera'], ['🫶', 'hart handen'], ['👐', 'open handen'],
     ['🤲', 'handpalmen'], ['🤝', 'handdruk deal akkoord'], ['🙏', 'bidden dank alsjeblieft please'], ['✍️', 'schrijven'], ['💅', 'nagellak'],

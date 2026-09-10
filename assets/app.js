@@ -158,7 +158,7 @@
     if (img) {
       // Laadt het beeld niet (verwijderd, geblokkeerd)? Toon dan de kale link.
       const url = esc(img);
-      return `<a href="${url}" target="_blank" rel="noopener"><img class="bericht-beeld" src="${url}" alt="" loading="lazy" onerror="this.parentElement.textContent = this.src"></a>`;
+      return `<a class="beeld-link" href="${url}" target="_blank" rel="noopener"><img class="bericht-beeld" src="${url}" alt="" loading="lazy" onerror="this.parentElement.textContent = this.src"></a>`;
     }
     let s = esc(body);
     s = s.replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)"'\]])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
@@ -514,6 +514,51 @@
   }
   el.berichten.addEventListener('load', () => { if (Date.now() - S.plakSinds < 4000 && !S.gescrold) plakScroll(); }, true);
   el.berichten.addEventListener('wheel', () => { S.gescrold = true; }, { passive: true });
+
+  /* ---------- Lichtbak (v0.7.3): foto of gif groot in een popup ---------- */
+  // Een klik op een beeld in het gesprek opende een nieuw tabblad. Nu: een
+  // overlay in de pagina zelf, met de bestandsnaam, "Openen in nieuw tabblad"
+  // en Downloaden. Sluiten met ✕, Esc of een klik naast het beeld. De link
+  // eronder blijft een gewone link (rechtermuisknop, middelklik werken nog).
+  function lichtbak() {
+    let l = $('#lichtbak');
+    if (l) return l;
+    l = document.createElement('div');
+    l.id = 'lichtbak';
+    l.hidden = true;
+    l.innerHTML = `<div class="lichtbak-kop"><span class="lichtbak-naam" id="lichtbak-naam"></span>
+        <a class="knop mini" id="lichtbak-nieuw" target="_blank" rel="noopener">Nieuw tabblad ↗</a>
+        <a class="knop mini" id="lichtbak-download" download>Downloaden</a>
+        <button type="button" class="knop icoon" id="lichtbak-sluit" title="Sluiten" aria-label="Sluiten">✕</button></div>
+      <img id="lichtbak-beeld" alt="">`;
+    document.body.appendChild(l);
+    l.addEventListener('click', (e) => { if (e.target === l || e.target.id === 'lichtbak-sluit') sluitLichtbak(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !l.hidden) sluitLichtbak(); });
+    return l;
+  }
+  function openLichtbak(url, naam) {
+    const l = lichtbak();
+    $('#lichtbak-beeld').src = url;
+    $('#lichtbak-naam').textContent = naam || '';
+    $('#lichtbak-nieuw').href = url;
+    $('#lichtbak-download').href = url;
+    $('#lichtbak-download').setAttribute('download', naam || '');
+    l.hidden = false;
+    document.body.classList.add('lichtbak-open');
+  }
+  function sluitLichtbak() {
+    const l = $('#lichtbak');
+    if (!l) return;
+    l.hidden = true;
+    $('#lichtbak-beeld').removeAttribute('src');
+    document.body.classList.remove('lichtbak-open');
+  }
+  el.berichten.addEventListener('click', (e) => {
+    const a = e.target.closest('a.beeld-link');
+    if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return; // ctrl/cmd-klik: gewoon een nieuw tabblad
+    e.preventDefault();
+    openLichtbak(a.href, a.dataset.naam || a.href.split('/').pop().split('?')[0]);
+  });
   el.berichten.addEventListener('touchmove', () => { S.gescrold = true; }, { passive: true });
 
   // Open kanaal: schrijfveld. Gesloten kanaal (v0.4.1): alleen-lezen-balk met,
@@ -639,7 +684,7 @@
     const url = `bestand.php?m=${m.id}`;
     if (a.type === 'image') {
       const maat = a.w && a.h ? ` width="${a.w}" height="${a.h}"` : '';
-      return `<a class="bijlage-beeld" href="${url}" target="_blank" rel="noopener" title="${esc(a.name)} — openen"><img class="bericht-beeld" src="${url}${a.thumb ? '&thumb=1' : ''}" alt="${esc(a.name)}" loading="lazy"${maat}></a>`;
+      return `<a class="bijlage-beeld beeld-link" href="${url}" target="_blank" rel="noopener" title="${esc(a.name)} — groot bekijken" data-naam="${esc(a.name)}"><img class="bericht-beeld" src="${url}${a.thumb ? '&thumb=1' : ''}" alt="${esc(a.name)}" loading="lazy"${maat}></a>`;
     }
     return `<a class="bijlage" href="${url}" target="_blank" rel="noopener" title="Openen of downloaden"><span class="bijlage-icoon">${bijlageIcoon(a)}</span><span class="bijlage-info"><span class="bijlage-naam">${esc(a.name)}</span><span class="bijlage-meta">${grootte(a.size)}</span></span></a>`;
   }

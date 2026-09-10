@@ -31,6 +31,20 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.7.3 <span class="stil">— 10 september 2026</span></h2>
+    <ul>
+      <li><strong>Foto's groot bekijken in een popup.</strong> Klik op een foto, screenshot of gif in het gesprek en hij opent groot over de pagina heen, met de bestandsnaam en knoppen voor Downloaden en Nieuw tabblad. Sluiten met ✕, Esc of een klik ernaast. Ctrl/Cmd-klik opent nog steeds een nieuw tabblad.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
+    <h2>v0.7.2 <span class="stil">— 10 september 2026</span></h2>
+    <ul>
+      <li><strong>🖕</strong> Op veler verzoek: de middelvinger zit nu in het emoji-paneel (bij Gebaren, zoek op "middelvinger"). Gebruik met beleid.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.7.1 <span class="stil">— 9 september 2026</span></h2>
     <ul>
       <li><strong>Een kanaal opent waar je gebleven was.</strong> Zijn er berichten die je nog niet gelezen hebt, dan springt het gesprek naar het eerste daarvan, met een blauwe streep <em>Nieuwe berichten</em> erboven — per persoon verschillend, net als in Slack. Is er niets nieuws, dan sta je onderaan bij het laatste bericht. Foto's en gifs die nog laden duwen je niet meer van je plek.</li>
