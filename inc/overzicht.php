@@ -51,7 +51,7 @@ SQL);
     }
     $gebruikers = array_map('vacom_public_user', $db->query('SELECT * FROM users ORDER BY name COLLATE NOCASE')->fetchAll());
     return [
-        'me'         => vacom_public_user($ik),
+        'me'         => vacom_public_user($ik) + ['push_alles' => (int)($ik['push_alles'] ?? 0) === 1], // v0.9: push-voorkeur (alleen voor jezelf)
         'channels'   => $kanalen,
         'users'      => $gebruikers,
         'state'      => (int)vacom_meta('state'),

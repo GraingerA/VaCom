@@ -31,6 +31,20 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.9.0 <span class="stil">— 10 september 2026</span></h2>
+    <p class="stil">Een grote: zeven dingen die je van Slack kent.</p>
+    <ul>
+      <li><strong>Threads.</strong> Wijs een bericht aan en klik op 💬: er opent rechts een paneel waarin je onder dát bericht reageert, zonder dat het kanaal volloopt. Onder een bericht met antwoorden staat "3 antwoorden · laatste 14:32" met de gezichten van wie meedoet; klik en je zit in de thread. Op de telefoon schuift de thread over het gesprek heen.</li>
+      <li><strong>Pushmeldingen.</strong> Onder Instellingen → Meldingen zet je ze per apparaat aan. Je krijgt een melding als VaCom niet openstaat: bij gesprekken, @vermeldingen en threads waar je in zit, of (als je dat kiest) bij alle berichten in je kanalen. Klik op de melding en je staat in het kanaal. Op de iPhone werkt het alleen als VaCom op het beginscherm staat. Er is een knop Proefmelding om te testen.</li>
+      <li><strong>Opslaan en vastzetten.</strong> 🔖 bewaart een bericht voor jezelf; je vindt ze terug via het boekenlegger-knopje bovenin. 📌 zet een bericht vast in het kanaal, voor iedereen: bovenin het kanaal verschijnt "📌 2 vastgezette berichten", klik en je ziet ze.</li>
+      <li><strong>Links met voorvertoning.</strong> Plak een link en onder je bericht verschijnt een kaartje met de titel, een korte omschrijving en het plaatje van die pagina.</li>
+      <li><strong>Opmaak in berichten.</strong> <code>**vet**</code>, <code>_cursief_</code>, <code>~~doorgehaald~~</code>, <code>`code`</code>, een regel die begint met <code>&gt;</code> wordt een citaat, met <code>-</code> een lijstje. Ctrl+B en Ctrl+I werken in het schrijfveld.</li>
+      <li><strong>Typt…</strong> Onder het gesprek zie je "Emma typt…" zolang iemand aan het schrijven is.</li>
+      <li><strong>Zoekfilters.</strong> In het zoekvenster staat een knop Filters: van wie, in welk kanaal, en een periode. Ook zonder zoekwoord te gebruiken, bijvoorbeeld "alles van Emma in #algemeen in juli".</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.8.0 <span class="stil">— 10 september 2026</span></h2>
     <ul>
       <li><strong>Polls.</strong> Nieuw knopje (staafdiagram) naast het schrijfveld: stel een vraag met twee tot tien antwoorden, eventueel met meerdere antwoorden tegelijk. Klik op een antwoord om te stemmen (nog eens klikken trekt je stem in); je ziet meteen de balken, de aantallen en wie wat koos (aanwijzen). Met <em>Bekijk stemmen</em> zie je per antwoord wie erop stemde, en in een kanaal ook wie nog niet gestemd heeft. Wie de poll plaatste kan hem sluiten, daarna staat alleen de uitslag. De vraag is doorzoekbaar als gewoon bericht.</li>

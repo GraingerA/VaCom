@@ -97,6 +97,28 @@ reacties, `mx` → bewerkte/verwijderde berichten en poll-stemmen; `portal_stemp
 automatisch lid van elk openbaar kanaal. Verwijderen van een bericht is een soft
 delete (`deleted=1`, body leeg → uit de zoekindex, bijlage van schijf).
 
+## v0.9: threads, push, opslaan/vastzetten, voorvertoning, typt, zoekfilters
+
+- **Threads**: `messages.parent_id` (antwoord op een antwoord hangt aan de starter).
+  Kanaallijsten tonen alleen `parent_id IS NULL`; `api thread` geeft starter +
+  antwoorden; `stuur` met `parent_id`; de poll krijgt `thread_id` mee en stuurt
+  `thread_messages`/reacties/updates voor de open thread. `extra_bij()` levert
+  per bericht `replies`, `last_reply`, `reply_user_ids`, `pinned`, `saved`.
+- **Push**: `inc/push.php` — VAPID-sleutels in `VACOM_DATA/vapid.json` (bij
+  eerste gebruik aangemaakt), RFC 8291-versleuteling, curl_multi. Abonnementen in
+  `push_subs`; voorkeur `users.push_alles`. `push_bij_bericht()` bepaalt wie een
+  melding krijgt (DM / @vermelding / thread-deelnemer / alles) en slaat mensen
+  over die de laatste 75 s actief waren. `sw.js` toont de melding en opent
+  `index.php#k=ID&t=THREAD`. Windows-dev: OPENSSL_CONF wordt gezet in push.php.
+- **Opslaan/vastzetten**: tabellen `saved` (privé) en `pins` (per kanaal).
+- **Voorvertoning**: `messages.preview` (JSON) + cache `link_previews`;
+  `vacom_link_preview()` haalt og:title/description/image op met SSRF-guard
+  (`host_publiek`), 4 s timeout, alleen html.
+- **Typt**: tabel `typing` (channel_id, user_id, at); `api typ` max. elke 2,5 s
+  vanaf de client; de poll stuurt `typing` (namen, laatste 6 s) altijd mee.
+- **Zoekfilters**: `zoek` met `user_id`, `channel_id`, `from`, `to`; zonder `q`
+  een gewone query op `messages`.
+
 ## Geheimen
 
 De Giphy API-sleutel (GIF-knop, v0.5.3) staat NIET in de code of in Git, maar

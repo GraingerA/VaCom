@@ -8,6 +8,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/inc/auth.php';
+require_once __DIR__ . '/inc/push.php'; // v0.9
 
 $ik = vacom_require_login();
 
@@ -26,6 +27,7 @@ $start = [
     'embed'     => $embed,
     'project'   => $project,
     'giphy'     => vacom_giphy_key() !== '', // v0.5.3: GIF-knop alleen met sleutel
+    'vapid'     => vacom_vapid_public(),      // v0.9: publieke sleutel voor pushmeldingen ('' = server kan het niet)
 ];
 ?>
 <!doctype html>
@@ -76,6 +78,10 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
     </button>
     <!-- v0.7: berichten waarin je met @naam genoemd bent; de teller = nog ongelezen -->
     <button class="knop icoon" id="knop-vermeldingen" title="Vermeldingen — berichten waarin je genoemd wordt" aria-label="Vermeldingen">@<span class="kop-teller" id="vermelding-teller" hidden></span></button>
+    <!-- v0.9: opgeslagen berichten (privé, "later") -->
+    <button class="knop icoon" id="knop-opgeslagen" title="Opgeslagen berichten" aria-label="Opgeslagen berichten">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+    </button>
     <button class="knop icoon" id="knop-thema" title="Licht / donker" aria-label="Licht of donker thema">☀</button>
     <button class="knop icoon" id="knop-instellingen" title="Instellingen" aria-label="Instellingen">⚙</button>
     <button class="knop icoon" id="knop-uitloggen" title="Uitloggen" aria-label="Uitloggen">⏻</button>
@@ -128,6 +134,9 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
       <button class="knop icoon" id="chat-sluit" hidden title="Sluiten" aria-label="Sluiten">✕</button>
     </header>
 
+    <!-- v0.9: vastgezette berichten in dit kanaal -->
+    <button type="button" class="pins-balk" id="pins-balk" hidden>📌 <span id="pins-tekst"></span></button>
+
     <!-- Alleen-lezen-balk voor een gesloten kanaal (v0.4.1) -->
     <div class="gesloten-balk" id="gesloten-balk" hidden>
       <span class="slotje" aria-hidden="true">🔒</span>
@@ -146,6 +155,8 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
     <button type="button" class="knop naar-onder" id="knop-onder" hidden title="Naar het laatste bericht" aria-label="Naar het laatste bericht">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
     </button>
+    <!-- v0.9: wie typt er nu -->
+    <div class="typt" id="typt" hidden></div>
     <form class="schrijver" id="schrijver" hidden>
       <button type="button" class="knop icoon" id="knop-emoji" title="Emoji" aria-label="Emoji kiezen">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c.9 1.2 2.1 1.8 3.5 1.8s2.6-.6 3.5-1.8" stroke-linecap="round"/><circle cx="9" cy="9.6" r="1.15" fill="currentColor" stroke="none"/><circle cx="15" cy="9.6" r="1.15" fill="currentColor" stroke="none"/></svg>
@@ -161,21 +172,62 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.5 12.6 21a5.5 5.5 0 0 1-7.8-7.8l9-9a3.5 3.5 0 0 1 5 5l-9 9a1.5 1.5 0 0 1-2.1-2.1l8.3-8.3"/></svg>
       </button>
       <input type="file" id="bestand-invoer" multiple hidden>
-      <textarea id="invoer" rows="1" placeholder="Schrijf een bericht…" autocomplete="off" enterkeyhint="send"></textarea>
+      <textarea id="invoer" rows="1" placeholder="Schrijf een bericht…" autocomplete="off" enterkeyhint="send" title="Opmaak: **vet** _cursief_ ~~doorgehaald~~ `code` · regel met > = citaat, met - = lijst · Ctrl+B / Ctrl+I"></textarea>
       <button type="submit" class="knop primair" id="knop-stuur" aria-label="Versturen">
         <svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 11.5 21 3l-8.5 18-2.5-7.5z" fill="currentColor"/></svg>
       </button>
     </form>
+
+    <!-- v0.9: thread-paneel — rechts naast het gesprek (op de telefoon over het gesprek heen) -->
+    <aside class="thread" id="thread" hidden>
+      <div class="thread-kop">
+        <div class="thread-titel"><strong>Thread</strong><span class="stil" id="thread-waar"></span></div>
+        <button type="button" class="knop icoon" id="thread-sluit" title="Sluiten" aria-label="Thread sluiten">✕</button>
+      </div>
+      <div class="thread-berichten" id="thread-berichten"></div>
+      <form class="schrijver thread-schrijver" id="thread-schrijver">
+        <textarea id="thread-invoer" rows="1" placeholder="Antwoord in thread…" autocomplete="off" enterkeyhint="send"></textarea>
+        <button type="submit" class="knop primair" id="thread-stuur" aria-label="Antwoord versturen">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 11.5 21 3l-8.5 18-2.5-7.5z" fill="currentColor"/></svg>
+        </button>
+      </form>
+    </aside>
   </main>
 </div>
 
-<!-- Zoeken -->
+<!-- Zoeken (v0.9: met filters op persoon, kanaal en periode) -->
 <dialog id="dialoog-zoeken" class="dialoog">
   <form method="dialog" class="dialoog-kop">
     <input type="search" id="zoek-invoer" placeholder="Zoek in alle berichten…" autocomplete="off">
+    <button type="button" class="knop mini" id="zoek-filters-knop" title="Filters" aria-label="Filters">Filters</button>
     <button class="knop mini" value="sluit" aria-label="Sluiten">✕</button>
   </form>
+  <div class="zoek-filters" id="zoek-filters" hidden>
+    <select id="zoek-van" aria-label="Van wie"><option value="">Van iedereen</option></select>
+    <select id="zoek-in" aria-label="In welk kanaal"><option value="">In alle kanalen</option></select>
+    <label>van <input type="date" id="zoek-vanaf"></label>
+    <label>tot <input type="date" id="zoek-tot"></label>
+    <button type="button" class="knop mini" id="zoek-filters-wis">Wis filters</button>
+  </div>
   <div id="zoek-resultaten" class="zoek-resultaten"></div>
+</dialog>
+
+<!-- Opgeslagen berichten (v0.9) -->
+<dialog id="dialoog-opgeslagen" class="dialoog">
+  <form method="dialog" class="dialoog-kop">
+    <h2 class="dialoog-titel">Opgeslagen berichten</h2>
+    <button class="knop mini" value="sluit" aria-label="Sluiten">✕</button>
+  </form>
+  <div id="opgeslagen-lijst" class="zoek-resultaten"></div>
+</dialog>
+
+<!-- Vastgezette berichten in een kanaal (v0.9) -->
+<dialog id="dialoog-pins" class="dialoog">
+  <form method="dialog" class="dialoog-kop">
+    <h2 class="dialoog-titel">📌 Vastgezet</h2>
+    <button class="knop mini" value="sluit" aria-label="Sluiten">✕</button>
+  </form>
+  <div id="pins-lijst" class="zoek-resultaten"></div>
 </dialog>
 
 <!-- Vermeldingen (v0.7): berichten waarin je met @naam genoemd bent -->
@@ -240,6 +292,18 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
     <div class="inst-sectie">
       <div class="inst-kop">Weergave</div>
       <div class="instellingen-rij"><span>Thema</span><button type="button" class="knop mini" id="inst-thema"></button></div>
+    </div>
+
+    <!-- v0.9: pushmeldingen, per apparaat/browser -->
+    <div class="inst-sectie" id="inst-push">
+      <div class="inst-kop">Meldingen</div>
+      <div class="instellingen-rij"><span id="push-status">Op dit apparaat: uit</span><button type="button" class="knop mini" id="push-knop">Aanzetten</button></div>
+      <div class="push-keuze" id="push-keuze" hidden>
+        <label><input type="radio" name="push-wat" value="0"> Alleen gesprekken, @vermeldingen en threads waar ik in zit</label>
+        <label><input type="radio" name="push-wat" value="1"> Alle berichten in mijn kanalen</label>
+        <button type="button" class="knop mini" id="push-test">Proefmelding</button>
+      </div>
+      <p class="inst-hint" id="push-hint">Je krijgt een melding op dit apparaat als VaCom niet openstaat. Op de iPhone werkt dit alleen als VaCom op het beginscherm staat.</p>
     </div>
 
     <!-- v0.5.1: kanaalbeheer voor de superadmin — alle kanalen, ook zonder lid te zijn -->

@@ -22,6 +22,8 @@
     // v0.7.1: openen bij het eerste ongelezen bericht — id van dat bericht (0 = niets
     // ongelezen), wanneer het kanaal geopend werd, en of de gebruiker sindsdien zelf scrolde.
     nieuwVanaf: 0, plakSinds: 0, gescrold: false,
+    // v0.9: open thread {parent, msgs} of null; wanneer we voor het laatst "ik typ" meldden
+    thread: null, typLaatst: 0, pins: [],
   };
 
   const el = {
@@ -66,6 +68,10 @@
   }
 
   function gebruiker(id) { return S.users.find((u) => u.id === id); }
+
+  // v0.9: een bericht kan in het gesprek staan óf in de open thread.
+  function alleBerichten() { return S.thread ? S.msgs.concat([S.thread.parent], S.thread.msgs) : S.msgs; }
+  function vindBericht(id) { return alleBerichten().find((x) => x.id === id); }
 
   function isOnline(u) { return !!u.last_seen && Date.now() - new Date(u.last_seen).getTime() < ONLINE_MS; }
 
@@ -162,7 +168,14 @@
       // Alleen geüploade foto's (bijlagen) openen groot in de lichtbak.
       return `<img class="bericht-beeld" src="${url}" alt="" loading="lazy" onerror="this.replaceWith(this.src)">`;
     }
+    // v0.9: lichte opmaak, zoals in Slack. Volgorde is belangrijk: eerst
+    // escapen, dan codeblokken en code even wegzetten (daarin geen opmaak,
+    // links of @namen), dan de rest, en de code aan het eind terugzetten.
     let s = esc(body);
+    const code = [];
+    const bewaar = (html) => { code.push(html); return ` ${code.length - 1} `; };
+    s = s.replace(/```\n?([\s\S]*?)```/g, (m, c) => bewaar(`<pre class="codeblok">${c.replace(/\n$/, '')}</pre>`));
+    s = s.replace(/`([^`\n]+)`/g, (m, c) => bewaar(`<code>${c}</code>`));
     s = s.replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)"'\]])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
     if (mentionRegex) {
       s = s.replace(mentionRegex, (m, naam) => {
@@ -170,7 +183,32 @@
         return `<span class="mention${ik ? ' ik' : ''}">@${naam}</span>`;
       });
     }
+    // **vet**, _cursief_ of *cursief*, ~~doorgehaald~~ (niet over regels heen, niet midden in een woord)
+    s = s.replace(/\*\*(?=\S)([^\n*]+?)(?<=\S)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/(^|[^\w*])\*(?=\S)([^\n*]+?)(?<=\S)\*(?![\w*])/g, '$1<em>$2</em>');
+    s = s.replace(/(^|[^\w_])_(?=\S)([^\n_]+?)(?<=\S)_(?![\w_])/g, '$1<em>$2</em>');
+    s = s.replace(/~~(?=\S)([^\n~]+?)(?<=\S)~~/g, '<s>$1</s>');
+    // Regels: "> citaat", "- lijstje" / "* lijstje", "1. genummerd"
+    // Citaat en lijstregels worden blokken (eigen regel); een '\n' hoort dan
+    // alleen nog tussen twee gewone regels, anders krijg je lege regels erbij.
+    const regels = s.split('\n').map((regel) => {
+      if (/^&gt;\s?/.test(regel)) return { blok: true, html: `<span class="citaat">${regel.replace(/^&gt;\s?/, '')}</span>` };
+      if (/^[-*•]\s+/.test(regel)) return { blok: true, html: `<span class="lijstje">${regel.replace(/^[-*•]\s+/, '')}</span>` };
+      if (/^\d+[.)]\s+/.test(regel)) return { blok: true, html: `<span class="lijstje nummer" data-n="${regel.match(/^\d+/)[0]}">${regel.replace(/^\d+[.)]\s+/, '')}</span>` };
+      return { blok: false, html: regel };
+    });
+    s = regels.map((r, i) => (i > 0 && !r.blok && !regels[i - 1].blok ? '\n' : '') + r.html).join('');
+    s = s.replace(/ (\d+) /g, (m, i) => code[Number(i)]);
     return s;
+  }
+
+  // v0.9: linkvoorvertoning onder een bericht (titel, omschrijving, plaatje van de pagina).
+  function previewHtml(m) {
+    const p = m.preview;
+    if (!p || !p.title) return '';
+    return `<a class="voorvertoning" href="${esc(p.url)}" target="_blank" rel="noopener">
+      ${p.image ? `<img class="voorvertoning-beeld" src="${esc(p.image)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
+      <span class="voorvertoning-tekst"><span class="voorvertoning-site">${esc(p.site || '')}</span><span class="voorvertoning-titel">${esc(p.title)}</span>${p.description ? `<span class="voorvertoning-omschrijving">${esc(p.description)}</span>` : ''}</span></a>`;
   }
 
   /* ---------- Emoji-reacties (v0.3) ---------- */
@@ -193,7 +231,7 @@
   }
 
   function zetReacties(berichtId, reactions) {
-    const m = S.msgs.find((x) => x.id === berichtId);
+    const m = vindBericht(berichtId);
     if (!m) return;
     m.reactions = reactions;
     const onderaan = bijnaOnderaan();
@@ -201,7 +239,7 @@
   }
 
   async function toggleReactie(berichtId, emoji) {
-    const m = S.msgs.find((x) => x.id === berichtId);
+    const m = vindBericht(berichtId);
     if (!m) return;
     if (S.current && S.current.archived) { toast('Dit kanaal is gesloten — alleen lezen.'); return; }
     const set = (m.reactions || []).find((r) => r.emoji === emoji);
@@ -463,6 +501,7 @@
   async function kiesKanaal(id) {
     const k = S.channels.find((c) => c.id === id);
     if (!k) return;
+    sluitThread(); zetTypt([]); S.pins = []; $('#pins-balk').hidden = true; // v0.9
     S.current = k; S.msgs = []; S.hasMore = false; S.gelezenTot = 0;
     S.nieuwVanaf = 0; S.gescrold = false;
     document.body.dataset.pane = 'chat';
@@ -505,8 +544,10 @@
       S.plakSinds = Date.now();
       renderBerichten(true);
       markeerGelezen();
+      laadPins();            // v0.9
+      springNaarBericht();   // v0.9: vanuit zoeken/opgeslagen/vastgezet naar een bericht of thread
     } catch (e) { toast(e.message); }
-    if (!isTouch) el.invoer.focus();
+    if (!isTouch && !naarThreadId) el.invoer.focus();
   }
 
   // Na het tekenen op de juiste plek gaan staan: bij de "Nieuwe berichten"-
@@ -616,6 +657,7 @@
   }
 
   function sluitKanaal() {
+    sluitThread(); zetTypt([]); $('#pins-balk').hidden = true; // v0.9
     S.current = null; S.msgs = [];
     el.optiesKnop.hidden = true;
     $('#knop-onder').hidden = true; // v0.8
@@ -662,20 +704,8 @@
       // v0.7.1: streep boven het eerste bericht dat je nog niet gelezen had.
       if (S.nieuwVanaf && m.id === S.nieuwVanaf) delen.push('<div class="datum-scheiding nieuw" id="nieuw-vanaf">Nieuwe berichten</div>');
       const vervolg = vorige && vorige.user_id === m.user_id && dagSleutel(vorige.created) === dagSleutel(m.created)
-        && new Date(m.created) - new Date(vorige.created) < 5 * 60 * 1000;
-      const tekst = berichtTekst(m);
-      const groot = !m.deleted && !m.attachment && isAlleenEmoji(m.body) ? ' alleen-emoji' : '';
-      const chips = reactieChips(m);
-      const acties = berichtActies(m);
-      const bewerkt = m.edited && !m.deleted ? `<span class="bewerkt" title="Bewerkt ${tijd(m.edited)}">(bewerkt)</span>` : '';
-      if (vervolg) {
-        delen.push(`<div class="bericht vervolg" data-id="${m.id}"><div class="avatar"></div><div class="inhoud"><span class="tijd-klein">${tijd(m.created)}</span><div class="tekst${groot}">${tekst}</div>${bewerkt ? `<div class="bewerkt-regel">${bewerkt}</div>` : ''}${chips}</div>${acties}</div>`);
-      } else {
-        delen.push(`<div class="bericht eerste" data-id="${m.id}">
-          <div class="avatar"${avatarStijl(m.user_id)}>${avatarInhoud(m.user_id, m.author)}</div>
-          <div class="inhoud"><div class="bericht-kop"><span class="auteur">${esc(m.author)}</span><span class="tijd">${tijd(m.created)}</span>${bewerkt}</div><div class="tekst${groot}">${tekst}</div>${chips}</div>${acties}
-        </div>`);
-      }
+        && new Date(m.created) - new Date(vorige.created) < 5 * 60 * 1000 && !vorige.replies;
+      delen.push(berichtHtml(m, vervolg, false));
       vorige = m;
     }
     if (!S.msgs.length) {
@@ -686,6 +716,177 @@
     el.berichten.innerHTML = delen.join('');
     if (naarOnder) plakScroll();
     setTimeout(toonKnopOnder, 50); // v0.8: pijltje tonen/verbergen na de nieuwe scrollpositie
+    if (S.thread) renderThread(false); // v0.9: reacties/bewerkingen gelden ook daar
+  }
+
+  /* ---------- Threads (v0.9) ---------- */
+  // Een thread = de starter (een gewoon bericht) + antwoorden (parent_id).
+  // Rechts naast het gesprek (op de telefoon over het gesprek heen).
+
+  async function openThread(berichtId) {
+    if (!S.current) return;
+    const k = S.current;
+    try {
+      const j = await api('thread', { message_id: berichtId });
+      if (S.current !== k) return;
+      S.thread = { parent: j.parent, msgs: j.replies };
+      $('#thread').hidden = false;
+      $('#thread-waar').textContent = ' · ' + kanaalNaam(k);
+      $('#thread-schrijver').hidden = !!k.archived;
+      document.body.classList.add('thread-open');
+      renderThread(true);
+      history.replaceState(null, '', '#k=' + k.id + '&t=' + j.parent.id);
+      if (!isTouch) $('#thread-invoer').focus();
+    } catch (e) { toast(e.message); }
+  }
+
+  function sluitThread() {
+    if (!S.thread) return;
+    S.thread = null;
+    $('#thread').hidden = true;
+    document.body.classList.remove('thread-open');
+    $('#thread-berichten').innerHTML = '';
+    if (S.current) history.replaceState(null, '', '#k=' + S.current.id);
+  }
+
+  function renderThread(naarOnder) {
+    const t = S.thread;
+    if (!t) return;
+    const lijst = $('#thread-berichten');
+    const delen = [berichtHtml(t.parent, false, true), `<div class="datum-scheiding thread-scheiding">${t.msgs.length} ${t.msgs.length === 1 ? 'antwoord' : 'antwoorden'}</div>`];
+    let vorige = null;
+    for (const m of t.msgs) {
+      const vervolg = vorige && vorige.user_id === m.user_id && new Date(m.created) - new Date(vorige.created) < 5 * 60 * 1000;
+      delen.push(berichtHtml(m, vervolg, true));
+      vorige = m;
+    }
+    lijst.innerHTML = delen.join('');
+    if (naarOnder) lijst.scrollTop = lijst.scrollHeight;
+  }
+
+  function voegThreadToe(lijst) {
+    if (!S.thread) return;
+    const bekend = new Set(S.thread.msgs.map((m) => m.id));
+    const nieuw = lijst.filter((m) => m.parent_id === S.thread.parent.id && !bekend.has(m.id));
+    if (!nieuw.length) return;
+    S.thread.msgs = S.thread.msgs.concat(nieuw).sort((a, b) => a.id - b.id);
+    S.thread.parent.replies = S.thread.msgs.length;
+    const ouder = S.msgs.find((x) => x.id === S.thread.parent.id);
+    if (ouder) { ouder.replies = S.thread.msgs.length; ouder.last_reply = nieuw[nieuw.length - 1].created; ouder.reply_user_ids = [...new Set((ouder.reply_user_ids || []).concat(nieuw.map((m) => m.user_id)))]; }
+    renderBerichten(false); // tekent ook de thread
+    renderThread(true);
+  }
+
+  async function stuurThread() {
+    const inv = $('#thread-invoer');
+    const body = inv.value.trim();
+    if (!body || !S.thread || !S.current || S.versturen) return;
+    S.versturen = true;
+    const k = S.current, parentId = S.thread.parent.id;
+    inv.value = ''; inv.style.height = 'auto';
+    try {
+      const j = await api('stuur', { channel_id: k.id, body, parent_id: parentId });
+      S.mx = Math.max(S.mx, j.mx || 0);
+      if (S.current === k && S.thread && S.thread.parent.id === parentId) voegThreadToe([j.message]);
+      S.maxId = Math.max(S.maxId, j.max_id || 0);
+    } catch (e) { inv.value = body; toast(e.message); }
+    finally { S.versturen = false; if (!isTouch) inv.focus(); }
+  }
+
+  /* ---------- Vastgezet (v0.9) ---------- */
+  async function laadPins() {
+    const k = S.current;
+    const balk = $('#pins-balk');
+    if (!k) { balk.hidden = true; return; }
+    try {
+      const j = await api('kanaal_pins', { channel_id: k.id });
+      if (S.current !== k) return;
+      S.pins = j.messages;
+      balk.hidden = !S.pins.length;
+      $('#pins-tekst').textContent = S.pins.length === 1 ? '1 vastgezet bericht' : `${S.pins.length} vastgezette berichten`;
+    } catch (e) { balk.hidden = true; }
+  }
+
+  async function togglePin(id) {
+    try {
+      const j = await api('pin_toggle', { message_id: id });
+      const m = vindBericht(id);
+      if (m) m.pinned = j.pinned;
+      S.mx = Math.max(S.mx, j.mx || 0);
+      renderBerichten(false);
+      laadPins();
+      toast(j.pinned ? 'Vastgezet in dit kanaal' : 'Losgemaakt');
+    } catch (e) { toast(e.message); }
+  }
+
+  async function toggleOpslaan(id) {
+    try {
+      const j = await api('opslaan_toggle', { message_id: id });
+      const m = vindBericht(id);
+      if (m) m.saved = j.saved;
+      renderBerichten(false);
+      toast(j.saved ? 'Opgeslagen — vind het terug via 🔖 bovenin' : 'Uit opgeslagen gehaald');
+    } catch (e) { toast(e.message); }
+  }
+
+  // Lijstje berichten in een dialoog (opgeslagen, vastgezet): klik = naar het kanaal (en de thread).
+  function berichtLijstHtml(lijst, leegTekst) {
+    if (!lijst.length) return `<p class="zoek-leeg">${leegTekst}</p>`;
+    return lijst.map((m) => {
+      const k = S.channels.find((c) => c.id === m.channel_id);
+      const d = new Date(m.created).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
+      const tekst = alsAfbeelding(m.body) ? '🖼️ afbeelding'
+        : (m.attachment && m.body === m.attachment.name) ? '📎 ' + esc(m.body)
+        : m.stemming ? '📊 ' + esc(m.body)
+        : opmaak(m.body);
+      return `<button type="button" class="zoek-hit" data-kanaal="${m.channel_id}" data-naar="${m.id}"${m.parent_id ? ` data-thread-na="${m.parent_id}"` : ''}><div class="waar"><b>${esc(m.author)}</b> in ${esc(kanaalNaam(k))}${m.parent_id ? ' <span class="tag">thread</span>' : ''} · ${d} ${tijd(m.created)}</div><div class="tekst">${tekst}</div></button>`;
+    }).join('');
+  }
+
+  async function openOpgeslagen() {
+    const lijst = $('#opgeslagen-lijst'), dlg = $('#dialoog-opgeslagen');
+    lijst.innerHTML = '<p class="zoek-leeg">Laden…</p>';
+    dlg.showModal();
+    try {
+      const j = await api('opgeslagen');
+      lijst.innerHTML = berichtLijstHtml(j.messages, 'Nog niets opgeslagen. Wijs een bericht aan en klik op 🔖.');
+    } catch (e) { lijst.innerHTML = `<p class="zoek-leeg">${esc(e.message)}</p>`; }
+  }
+
+  function openPins() {
+    const lijst = $('#pins-lijst'), dlg = $('#dialoog-pins');
+    lijst.innerHTML = berichtLijstHtml(S.pins.slice().reverse(), 'Niets vastgezet.');
+    dlg.showModal();
+  }
+
+  // Naar een bericht springen (na het openen van het kanaal): even oplichten.
+  let naarBerichtId = 0, naarThreadId = 0;
+  function springNaarBericht() {
+    if (!naarBerichtId) return;
+    const id = naarBerichtId; naarBerichtId = 0;
+    const t = naarThreadId; naarThreadId = 0;
+    if (t) { openThread(t); return; }
+    const elm = el.berichten.querySelector(`.bericht[data-id="${id}"]`);
+    if (!elm) return;
+    S.gescrold = true;
+    elm.scrollIntoView({ block: 'center' });
+    elm.classList.add('licht-op');
+    setTimeout(() => elm.classList.remove('licht-op'), 2500);
+  }
+
+  /* ---------- Typt… (v0.9) ---------- */
+  function meldTypen() {
+    if (!S.current || S.current.archived) return;
+    const nu = Date.now();
+    if (nu - S.typLaatst < 2500) return;
+    S.typLaatst = nu;
+    api('typ', { channel_id: S.current.id }).catch(() => {});
+  }
+  function zetTypt(namen) {
+    const t = $('#typt');
+    if (!namen || !namen.length) { t.hidden = true; return; }
+    t.textContent = namen.length === 1 ? `${namen[0]} typt…` : namen.length === 2 ? `${namen[0]} en ${namen[1]} typen…` : `${namen.length} collega's typen…`;
+    t.hidden = false;
   }
 
   /* ---------- Berichttekst, bijlagen, bewerken/verwijderen (v0.6) ---------- */
@@ -702,7 +903,7 @@
     // zoeken); die tonen we dan niet nog een keer als tekst.
     if (m.stemming) return pollHtml(m); // v0.8: de vraag staat in de poll zelf
     const tekst = a && m.body === a.name ? '' : opmaak(m.body);
-    return tekst + bijlageHtml(m);
+    return tekst + bijlageHtml(m) + previewHtml(m);
   }
 
   function bijlageHtml(m) {
@@ -761,7 +962,7 @@
 
   // "Bekijk stemmen": per antwoord wie erop stemde, en (in een kanaal) wie nog niet.
   async function toonPollUitslag(stemmingId) {
-    const m = S.msgs.find((x) => x.stemming && x.stemming.id === stemmingId);
+    const m = alleBerichten().find((x) => x.stemming && x.stemming.id === stemmingId);
     if (!m) return;
     const p = m.stemming;
     const d = $('#dialoog-poll-uitslag');
@@ -799,7 +1000,7 @@
   }
 
   async function stemOp(stemmingId, optieId) {
-    const m = S.msgs.find((x) => x.stemming && x.stemming.id === stemmingId);
+    const m = alleBerichten().find((x) => x.stemming && x.stemming.id === stemmingId);
     if (!m) return;
     const p = m.stemming;
     let keuze;
@@ -814,7 +1015,7 @@
   }
 
   async function sluitPoll(stemmingId) {
-    const m = S.msgs.find((x) => x.stemming && x.stemming.id === stemmingId);
+    const m = alleBerichten().find((x) => x.stemming && x.stemming.id === stemmingId);
     if (!m || !confirm('Poll sluiten? Daarna kan niemand meer stemmen.')) return;
     try {
       const j = await api('stemming_sluit', { stemming_id: stemmingId });
@@ -828,14 +1029,44 @@
   // Zwevende knoppenbalk rechtsboven op een bericht (v0.7.4: zweeft óver het
   // bericht, verschuift niets): reageren met emoji (iedereen), bewerken
   // (eigen bericht) en verwijderen (eigen, of superadmin).
-  function berichtActies(m) {
+  function berichtActies(m, inThread) {
     if (m.deleted || !S.me || (S.current && S.current.archived) || S.bewerkId === m.id) return '';
     const eigen = m.user_id === S.me.id;
     const superadmin = S.me.role === 'superadmin';
     const knoppen = [`<button type="button" data-reageer="${m.id}" title="Reageer met emoji" aria-label="Reageer met emoji">☺<span class="plusje">+</span></button>`];
+    // v0.9: thread (alleen vanuit het gesprek), opslaan (privé), vastzetten (voor iedereen)
+    if (!inThread && !m.parent_id) knoppen.push(`<button type="button" data-thread="${m.id}" title="Reageren in thread" aria-label="Reageren in thread">💬</button>`);
+    knoppen.push(`<button type="button" data-opslaan="${m.id}" class="${m.saved ? 'aan' : ''}" title="${m.saved ? 'Uit opgeslagen halen' : 'Opslaan (later)'}" aria-label="Opslaan">🔖</button>`);
+    if (!m.parent_id) knoppen.push(`<button type="button" data-pin="${m.id}" class="${m.pinned ? 'aan' : ''}" title="${m.pinned ? 'Losmaken' : 'Vastzetten in dit kanaal'}" aria-label="Vastzetten">📌</button>`);
     if (eigen) knoppen.push(`<button type="button" data-bewerk="${m.id}" title="Bewerken" aria-label="Bewerken">✎</button>`);
     if (eigen || superadmin) knoppen.push(`<button type="button" data-wis="${m.id}" title="Verwijderen" aria-label="Verwijderen">🗑</button>`);
     return `<div class="bericht-acties">${knoppen.join('')}</div>`;
+  }
+
+  // v0.9: onder een bericht met antwoorden: "3 antwoorden · laatste 14:32" + kopjes van wie meedoet.
+  function threadSamenvatting(m) {
+    if (!m.replies || m.deleted) return '';
+    const kopjes = (m.reply_user_ids || []).slice(0, 4).map((id) => `<span class="avatar mini"${avatarStijl(id)}>${avatarInhoud(id, (gebruiker(id) || {}).name || '?')}</span>`).join('');
+    const wanneer = m.last_reply ? ` · laatste ${dagSleutel(m.last_reply) === dagSleutel(new Date().toISOString()) ? tijd(m.last_reply) : dagLabel(m.last_reply).toLowerCase()}` : '';
+    return `<button type="button" class="thread-link" data-thread="${m.id}"><span class="thread-kopjes">${kopjes}</span>${m.replies} ${m.replies === 1 ? 'antwoord' : 'antwoorden'}<span class="stil">${wanneer}</span></button>`;
+  }
+
+  // Eén bericht als HTML — gedeeld door het gesprek en het thread-paneel (v0.9).
+  function berichtHtml(m, vervolg, inThread) {
+    const tekst = berichtTekst(m);
+    const groot = !m.deleted && !m.attachment && isAlleenEmoji(m.body) ? ' alleen-emoji' : '';
+    const chips = reactieChips(m);
+    const acties = berichtActies(m, inThread);
+    const bewerkt = m.edited && !m.deleted ? `<span class="bewerkt" title="Bewerkt ${tijd(m.edited)}">(bewerkt)</span>` : '';
+    const thread = inThread ? '' : threadSamenvatting(m);
+    const pin = m.pinned && !inThread ? '<span class="pin-merk" title="Vastgezet">📌</span>' : '';
+    if (vervolg) {
+      return `<div class="bericht vervolg${m.pinned ? ' vastgezet' : ''}" data-id="${m.id}"><div class="avatar"></div><div class="inhoud"><span class="tijd-klein">${tijd(m.created)}</span><div class="tekst${groot}">${tekst}</div>${bewerkt ? `<div class="bewerkt-regel">${bewerkt}</div>` : ''}${chips}${thread}</div>${acties}</div>`;
+    }
+    return `<div class="bericht eerste${m.pinned ? ' vastgezet' : ''}" data-id="${m.id}">
+      <div class="avatar"${avatarStijl(m.user_id)}>${avatarInhoud(m.user_id, m.author)}</div>
+      <div class="inhoud"><div class="bericht-kop"><span class="auteur">${esc(m.author)}</span><span class="tijd">${tijd(m.created)}</span>${bewerkt}${pin}</div><div class="tekst${groot}">${tekst}</div>${chips}${thread}</div>${acties}
+    </div>`;
   }
 
   function startBewerken(id) {
@@ -852,7 +1083,7 @@
 
   async function slaBewerkingOp(id) {
     const t = $(`[data-bewerk-tekst="${id}"]`);
-    const m = S.msgs.find((x) => x.id === id);
+    const m = vindBericht(id);
     if (!t || !m) return;
     const body = t.value.trim();
     if (body === m.body) { stopBewerken(); return; }
@@ -865,7 +1096,7 @@
   }
 
   async function verwijderBericht(id) {
-    const m = S.msgs.find((x) => x.id === id);
+    const m = vindBericht(id);
     if (!m) return;
     if (!confirm(m.attachment ? 'Dit bericht én het bestand verwijderen?' : 'Dit bericht verwijderen?')) return;
     try {
@@ -880,13 +1111,16 @@
   function verwerkUpdates(lijst) {
     let anders = false;
     for (const u of lijst) {
-      const m = S.msgs.find((x) => x.id === u.id);
+      const m = vindBericht(u.id); // v0.9: ook in de open thread
       if (!m) continue;
       if (m.body !== u.body || m.edited !== u.edited || m.deleted !== u.deleted || JSON.stringify(m.attachment) !== JSON.stringify(u.attachment)
-          || JSON.stringify(m.stemming || null) !== JSON.stringify(u.stemming || null)) {
+          || JSON.stringify(m.stemming || null) !== JSON.stringify(u.stemming || null)
+          || (m.replies || 0) !== (u.replies || 0) || !!m.pinned !== !!u.pinned || JSON.stringify(m.preview || null) !== JSON.stringify(u.preview || null)) { // v0.9
         if (S.bewerkId === m.id && u.deleted) S.bewerkId = 0; // net verwijderd door de superadmin
+        const vastWas = !!m.pinned;
         Object.assign(m, u);
         if (u.deleted) m.reactions = [];
+        if (vastWas !== !!u.pinned) laadPins();
         anders = true;
       }
     }
@@ -951,12 +1185,14 @@
   async function poll() {
     if (document.hidden) return;
     try {
-      const q = new URLSearchParams({ actie: 'poll', since_id: S.maxId, state: S.state, rx: S.rx, mx: S.mx, channel_id: S.current ? S.current.id : 0 });
+      const q = new URLSearchParams({ actie: 'poll', since_id: S.maxId, state: S.state, rx: S.rx, mx: S.mx, channel_id: S.current ? S.current.id : 0, thread_id: S.thread ? S.thread.parent.id : 0 });
       const r = await fetch('api.php?' + q, { cache: 'no-store', headers: { Accept: 'application/json' } });
       if (r.status === 401) { location.href = 'login.php'; return; }
       const j = await r.json();
       S.pollFouten = 0;
+      if (S.current) zetTypt(j.typing || []); // v0.9
       if (j.changed) {
+        if (j.thread_messages && j.thread_messages.length) voegThreadToe(j.thread_messages); // v0.9
         if (j.state !== S.state) pasOverzichtToe(await api('overzicht'));
         if (j.unread) {
           const genoemdVoor = S.channels.reduce((n, k) => n + (k.mentions || 0), 0);
@@ -983,7 +1219,7 @@
         if (j.reactions && S.current) {
           let anders = false;
           for (const id of j.reactions.ids) {
-            const m = S.msgs.find((x) => x.id === id);
+            const m = vindBericht(id); // v0.9: ook in de open thread
             if (!m) continue;
             const nieuw = j.reactions.sets[id] || [];
             if (JSON.stringify(nieuw) !== JSON.stringify(m.reactions || [])) { m.reactions = nieuw; anders = true; }
@@ -1012,11 +1248,25 @@
   /* ---------- Zoeken ---------- */
 
   let zoekTimer = null;
+  // v0.9: filters (van wie, in welk kanaal, periode) — ook zonder zoekwoord bruikbaar.
+  function zoekFilters() {
+    return { user_id: Number($('#zoek-van').value) || 0, channel_id: Number($('#zoek-in').value) || 0, from: $('#zoek-vanaf').value || '', to: $('#zoek-tot').value || '' };
+  }
+  function vulZoekFilters() {
+    const van = $('#zoek-van'), inK = $('#zoek-in');
+    const vw = van.value, iw = inK.value;
+    van.innerHTML = '<option value="">Van iedereen</option>' + S.users.filter((u) => u.active).map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
+    inK.innerHTML = '<option value="">In alle kanalen</option>' + S.channels.map((k) => `<option value="${k.id}">${esc(kanaalNaam(k))}${k.archived ? ' (gesloten)' : ''}</option>`).join('');
+    van.value = vw; inK.value = iw;
+  }
   async function zoek() {
     const q = el.zoekInvoer.value.trim();
-    if (!q) { el.zoekResultaten.innerHTML = ''; return; }
+    const f = zoekFilters();
+    const metFilter = Object.values(f).some(Boolean);
+    $('#zoek-filters-knop').classList.toggle('aan', metFilter);
+    if (!q && !metFilter) { el.zoekResultaten.innerHTML = ''; return; }
     try {
-      const j = await api('zoek', { q });
+      const j = await api('zoek', { q, ...f });
       if (el.zoekInvoer.value.trim() !== q) return;
       if (!j.results.length) { el.zoekResultaten.innerHTML = '<p class="zoek-leeg">Niets gevonden.</p>'; return; }
       el.zoekResultaten.innerHTML = j.results.map((m) => {
@@ -1025,7 +1275,8 @@
         const snip = esc(m.snippet).replace(/\u0001/g, '<mark>').replace(/\u0002/g, '</mark>');
         const d = new Date(m.created).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
         const dicht = k && k.archived ? ' <span class="tag">gesloten</span>' : '';
-        return `<button type="button" class="zoek-hit" data-kanaal="${m.channel_id}"><div class="waar"><b>${esc(m.author)}</b> in ${esc(kanaalNaam(k))}${dicht} · ${d} ${tijd(m.created)}</div><div>${snip}</div></button>`;
+        const inThread = m.parent_id ? ' <span class="tag">thread</span>' : ''; // v0.9
+        return `<button type="button" class="zoek-hit" data-kanaal="${m.channel_id}" data-naar="${m.id}"${m.parent_id ? ` data-thread-na="${m.parent_id}"` : ''}><div class="waar"><b>${esc(m.author)}</b> in ${esc(kanaalNaam(k))}${dicht}${inThread} · ${d} ${tijd(m.created)}</div><div>${snip}</div></button>`;
       }).join('');
     } catch (e) { el.zoekResultaten.innerHTML = `<p class="zoek-leeg">${esc(e.message)}</p>`; }
   }
@@ -1053,11 +1304,23 @@
     if (opslaan) { slaBewerkingOp(Number(opslaan.dataset.bewerkOpslaan)); return; }
     const annuleer = e.target.closest('[data-bewerk-annuleer]');
     if (annuleer) { stopBewerken(); return; }
+    // v0.9: thread openen, vastzetten, opslaan
+    const threadKnop = e.target.closest('[data-thread]');
+    if (threadKnop) { openThread(Number(threadKnop.dataset.thread)); return; }
+    const pinKnop = e.target.closest('[data-pin]');
+    if (pinKnop) { togglePin(Number(pinKnop.dataset.pin)); return; }
+    const opslaanKnop = e.target.closest('[data-opslaan]');
+    if (opslaanKnop) { toggleOpslaan(Number(opslaanKnop.dataset.opslaan)); return; }
     const kanaalKnop = e.target.closest('[data-kanaal]');
     if (kanaalKnop) {
       if (el.zoekDialoog.open) el.zoekDialoog.close();
-      const vd = $('#dialoog-vermeldingen'); if (vd && vd.open) vd.close(); // v0.7
-      kiesKanaal(Number(kanaalKnop.dataset.kanaal));
+      for (const id of ['#dialoog-vermeldingen', '#dialoog-opgeslagen', '#dialoog-pins']) { const d = $(id); if (d && d.open) d.close(); }
+      // v0.9: vanuit een lijstje naar een specifiek bericht (of de thread ervan)
+      naarBerichtId = Number(kanaalKnop.dataset.naar || 0);
+      naarThreadId = Number(kanaalKnop.dataset.threadNa || 0);
+      const doelId = Number(kanaalKnop.dataset.kanaal);
+      if (S.current && S.current.id === doelId && naarBerichtId) { springNaarBericht(); return; }
+      kiesKanaal(doelId);
       return;
     }
     const collegaKnop = e.target.closest('[data-collega]');
@@ -1094,6 +1357,109 @@
   });
 
   el.schrijver.addEventListener('submit', (e) => { e.preventDefault(); stuur(); });
+
+  /* ---------- v0.9: thread-paneel, vastgezet, opgeslagen, typt, opmaak-sneltoetsen ---------- */
+  $('#thread-sluit').addEventListener('click', sluitThread);
+  $('#thread-schrijver').addEventListener('submit', (e) => { e.preventDefault(); stuurThread(); });
+  $('#thread-invoer').addEventListener('input', (e) => { const t = e.target; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 160) + 'px'; meldTypen(); });
+  $('#thread-invoer').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !isTouch) { e.preventDefault(); stuurThread(); }
+    else if (e.key === 'Escape') sluitThread();
+  });
+  $('#pins-balk').addEventListener('click', openPins);
+  $('#knop-opgeslagen').addEventListener('click', openOpgeslagen);
+  el.invoer.addEventListener('input', meldTypen);
+  // Ctrl/Cmd+B = **vet**, Ctrl/Cmd+I = _cursief_, Ctrl/Cmd+Shift+X = ~~doorgehaald~~ (om de selectie heen)
+  function omhul(t, teken) {
+    const a = t.selectionStart ?? t.value.length, b = t.selectionEnd ?? a;
+    const midden = t.value.slice(a, b) || 'tekst';
+    t.value = t.value.slice(0, a) + teken + midden + teken + t.value.slice(b);
+    t.selectionStart = a + teken.length; t.selectionEnd = a + teken.length + midden.length;
+    t.dispatchEvent(new Event('input'));
+  }
+  document.addEventListener('keydown', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLTextAreaElement) || !(e.ctrlKey || e.metaKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === 'b') { e.preventDefault(); omhul(t, '**'); }
+    else if (k === 'i') { e.preventDefault(); omhul(t, '_'); }
+    else if (k === 'x' && e.shiftKey) { e.preventDefault(); omhul(t, '~~'); }
+  });
+  // Zoekfilters
+  $('#zoek-filters-knop').addEventListener('click', () => { const f = $('#zoek-filters'); f.hidden = !f.hidden; if (!f.hidden) vulZoekFilters(); });
+  for (const id of ['#zoek-van', '#zoek-in', '#zoek-vanaf', '#zoek-tot']) $(id).addEventListener('change', zoek);
+  $('#zoek-filters-wis').addEventListener('click', () => { for (const id of ['#zoek-van', '#zoek-in', '#zoek-vanaf', '#zoek-tot']) $(id).value = ''; zoek(); });
+
+  /* ---------- Pushmeldingen (v0.9) ---------- */
+  // Per apparaat/browser: de browser maakt een abonnement bij zijn push-dienst
+  // (Apple/Google/Mozilla) met onze publieke VAPID-sleutel; dat abonnement
+  // bewaren we op de server. De service worker (sw.js) toont de melding.
+  const pushKan = !!(window.VACOM.vapid && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window);
+  function vapidBytes() {
+    const b = window.VACOM.vapid.replace(/-/g, '+').replace(/_/g, '/');
+    const s = atob(b + '='.repeat((4 - b.length % 4) % 4));
+    return Uint8Array.from(s, (c) => c.charCodeAt(0));
+  }
+  async function pushAbonnement() {
+    if (!pushKan) return null;
+    const reg = await navigator.serviceWorker.ready;
+    return reg.pushManager.getSubscription();
+  }
+  async function renderPush() {
+    const sectie = $('#inst-push'), status = $('#push-status'), knop = $('#push-knop'), keuze = $('#push-keuze'), hint = $('#push-hint');
+    if (!pushKan) {
+      sectie.hidden = false;
+      const ios = /iPhone|iPad/.test(navigator.userAgent) && !window.matchMedia('(display-mode: standalone)').matches;
+      status.textContent = 'Niet beschikbaar in deze browser';
+      hint.textContent = ios ? 'Zet VaCom eerst op je beginscherm (Delen → Zet op beginscherm) en open het van daaruit; dan kun je meldingen aanzetten.'
+        : (window.VACOM.vapid ? 'Deze browser ondersteunt geen pushmeldingen.' : 'De server kan (nog) geen pushmeldingen sturen.');
+      knop.hidden = true; keuze.hidden = true;
+      return;
+    }
+    const sub = await pushAbonnement();
+    const aan = !!sub && Notification.permission === 'granted';
+    status.textContent = aan ? 'Op dit apparaat: aan' : (Notification.permission === 'denied' ? 'Geblokkeerd in de browser' : 'Op dit apparaat: uit');
+    knop.hidden = Notification.permission === 'denied';
+    knop.textContent = aan ? 'Uitzetten' : 'Aanzetten';
+    keuze.hidden = !aan;
+    if (aan) {
+      const alles = S.me && S.me.push_alles;
+      $$('input[name="push-wat"]').forEach((r) => { r.checked = r.value === (alles ? '1' : '0'); });
+    }
+    if (Notification.permission === 'denied') hint.textContent = 'Meldingen zijn in de browserinstellingen voor deze site geblokkeerd; zet ze daar weer aan.';
+  }
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  $('#push-knop').addEventListener('click', async () => {
+    try {
+      const sub = await pushAbonnement();
+      if (sub) {
+        await api('push_afmelden', { endpoint: sub.endpoint });
+        await sub.unsubscribe();
+        toast('Meldingen uitgezet op dit apparaat');
+      } else {
+        const toestemming = await Notification.requestPermission();
+        if (toestemming !== 'granted') { toast('Geen toestemming voor meldingen.'); await renderPush(); return; }
+        const reg = await navigator.serviceWorker.ready;
+        const nieuw = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidBytes() });
+        await api('push_abonneer', { subscription: nieuw.toJSON() });
+        toast('Meldingen aan op dit apparaat');
+      }
+    } catch (e) { instellingenFout(e.message); }
+    renderPush();
+  });
+  $$('input[name="push-wat"]').forEach((r) => r.addEventListener('change', async () => {
+    try { const j = await api('push_instelling', { alles: r.value === '1' ? 1 : 0 }); if (S.me) S.me.push_alles = j.push_alles; toast('Voorkeur opgeslagen'); }
+    catch (e) { instellingenFout(e.message); }
+  }));
+  $('#push-test').addEventListener('click', async () => {
+    try { const j = await api('push_test'); toast(j.verstuurd ? 'Proefmelding verstuurd — hij komt zo binnen' : 'Geen apparaat aangemeld'); }
+    catch (e) { instellingenFout(e.message); }
+  });
+  // Bij het starten: bestaand abonnement stilletjes opnieuw registreren (na een
+  // herinstallatie of als de server het kwijt is). Kost één klein verzoek.
+  if (pushKan && Notification.permission === 'granted') {
+    pushAbonnement().then((sub) => { if (sub) api('push_abonneer', { subscription: sub.toJSON() }).catch(() => {}); }).catch(() => {});
+  }
 
   /* ---------- GIF zoeken via Giphy (v0.5.3) ---------- */
   // Zelfde soort paneel als de emoji-picker: zoekveld, raster met previews,
@@ -1727,7 +2093,7 @@
     } catch (err) { instellingenFout(err.message); }
   });
 
-  function openInstellingen() { instellingenFout(''); renderInstellingen(); instDialoog.showModal(); }
+  function openInstellingen() { instellingenFout(''); renderInstellingen(); renderPush(); instDialoog.showModal(); }
   $('#knop-instellingen').addEventListener('click', openInstellingen);
   $('#kop-ik').addEventListener('click', openInstellingen);
   $('#instellingen-sluit').addEventListener('click', () => instDialoog.close());
@@ -1926,6 +2292,8 @@
 
   pasOverzichtToe(window.VACOM.overzicht);
   const m = location.hash.match(/#k=(\d+)/);
+  const mt = location.hash.match(/[#&]t=(\d+)/); // v0.9: #k=ID&t=THREAD (uit een pushmelding)
+  if (m && mt) naarThreadId = Number(mt[1]);
   // v0.5.1: ?project=TOKEN (vanuit de Portal) opent dat projectkanaal direct.
   const projectKanaal = window.VACOM.project ? S.channels.find((c) => c.project_token === window.VACOM.project) : null;
   if (projectKanaal) {

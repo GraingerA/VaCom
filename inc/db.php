@@ -236,6 +236,56 @@ CREATE TABLE stemming_stemmen (
 SQL);
         $pdo->exec('PRAGMA user_version = 10');
     }
+
+    if ($versie < 11) {
+        // v0.9: threads, pushmeldingen, opslaan/vastzetten, linkvoorvertoning,
+        // typt-indicator.
+        //   messages.preview  : JSON van de linkvoorvertoning (og:title/... ), null = geen
+        //   link_previews     : cache per URL, zodat dezelfde link niet steeds opgehaald wordt
+        //   push_subs         : Web Push-abonnementen (per apparaat/browser)
+        //   users.push_alles  : 1 = melding bij álle berichten, 0 = alleen DM's/@vermeldingen/threads
+        //   pins              : vastgezette berichten per kanaal (voor iedereen)
+        //   saved             : opgeslagen berichten per persoon (privé)
+        //   typing            : wie typt waar (wordt binnen seconden weer overschreven/opgeruimd)
+        $pdo->exec('ALTER TABLE messages ADD COLUMN preview TEXT');
+        $pdo->exec("ALTER TABLE users ADD COLUMN push_alles INTEGER NOT NULL DEFAULT 0");
+        $pdo->exec(<<<'SQL'
+CREATE INDEX IF NOT EXISTS idx_messages_parent ON messages(parent_id);
+CREATE TABLE link_previews (
+    url     TEXT PRIMARY KEY,
+    data    TEXT,                       -- JSON, of leeg als er niets te tonen was
+    fetched INTEGER NOT NULL
+);
+CREATE TABLE push_subs (
+    id       INTEGER PRIMARY KEY,
+    user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint TEXT    NOT NULL UNIQUE,
+    p256dh   TEXT    NOT NULL,
+    auth     TEXT    NOT NULL,
+    created  TEXT    NOT NULL
+);
+CREATE TABLE pins (
+    message_id INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+    channel_id INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL,
+    created    TEXT    NOT NULL
+);
+CREATE INDEX idx_pins_channel ON pins(channel_id);
+CREATE TABLE saved (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    created    TEXT    NOT NULL,
+    PRIMARY KEY (user_id, message_id)
+);
+CREATE TABLE typing (
+    channel_id INTEGER NOT NULL,
+    user_id    INTEGER NOT NULL,
+    at         INTEGER NOT NULL,
+    PRIMARY KEY (channel_id, user_id)
+);
+SQL);
+        $pdo->exec('PRAGMA user_version = 11');
+    }
 }
 
 /* ---------- Kleine helpers rond de database ---------- */

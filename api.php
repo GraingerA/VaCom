@@ -11,6 +11,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/inc/overzicht.php';
+require_once __DIR__ . '/inc/push.php'; // v0.9: pushmeldingen
 
 ini_set('display_errors', '0');   // waarschuwingen mogen nooit in JSON lekken
 error_reporting(E_ALL);
@@ -103,7 +104,7 @@ function reacties_bij(PDO $db, array $ids): array {
 
 /** Berichten van één kanaal, met auteur en reacties, als lijst voor de client. */
 function berichten_uit(PDO $db, string $where, array $params, int $limiet, bool $oplopend): array {
-    $sql = "SELECT m.id, m.channel_id, m.user_id, m.parent_id, m.body, m.created, m.edited, m.deleted, m.attachment, u.name AS author
+    $sql = "SELECT m.id, m.channel_id, m.user_id, m.parent_id, m.body, m.created, m.edited, m.deleted, m.attachment, m.preview, u.name AS author
             FROM messages m JOIN users u ON u.id = m.user_id
             WHERE $where ORDER BY m.id " . ($oplopend ? 'ASC' : 'DESC') . " LIMIT $limiet";
     $st = $db->prepare($sql);
@@ -111,13 +112,171 @@ function berichten_uit(PDO $db, string $where, array $params, int $limiet, bool 
     $rijen = $st->fetchAll();
     if (!$oplopend) $rijen = array_reverse($rijen);
     $lijst = array_map('bericht_uit', $rijen);
-    $reacties = reacties_bij($db, array_column($lijst, 'id'));
-    foreach ($lijst as &$m) $m['reactions'] = $reacties[$m['id']] ?? [];
-    unset($m);
-    $stemmingen = stemmingen_bij($db, array_column($lijst, 'id'), (int)$GLOBALS['mijnId']); // v0.8
-    foreach ($lijst as &$m) $m['stemming'] = $stemmingen[$m['id']] ?? null;
-    unset($m);
+    verrijk_berichten($db, $lijst, (int)$GLOBALS['mijnId']);
     return $lijst;
+}
+
+/** Reacties, polls, thread-info, vastgezet/opgeslagen erbij (gedeeld door alle lijsten). */
+function verrijk_berichten(PDO $db, array &$lijst, int $mijnId): void {
+    if (!$lijst) return;
+    $ids = array_column($lijst, 'id');
+    $reacties   = reacties_bij($db, $ids);
+    $stemmingen = stemmingen_bij($db, $ids, $mijnId);
+    $extra      = extra_bij($db, $ids, $mijnId);
+    foreach ($lijst as &$m) {
+        $m['reactions'] = $reacties[$m['id']] ?? [];
+        $m['stemming']  = $stemmingen[$m['id']] ?? null;
+        $e = $extra[$m['id']] ?? [];
+        $m['replies']    = $e['replies'] ?? 0;
+        $m['last_reply'] = $e['last_reply'] ?? null;
+        $m['reply_user_ids'] = $e['reply_user_ids'] ?? [];
+        $m['pinned']     = $e['pinned'] ?? false;
+        $m['saved']      = $e['saved'] ?? false;
+    }
+    unset($m);
+}
+
+/** v0.9: per bericht het aantal antwoorden in de thread (+ wie), en of het vastgezet/opgeslagen is. */
+function extra_bij(PDO $db, array $ids, int $mijnId): array {
+    if (!$ids) return [];
+    $v = implode(',', array_fill(0, count($ids), '?'));
+    $ids = array_map('intval', $ids);
+    $uit = [];
+    $st = $db->prepare("SELECT parent_id, COUNT(*) AS n, MAX(created) AS laatste FROM messages WHERE parent_id IN ($v) AND deleted = 0 GROUP BY parent_id");
+    $st->execute($ids);
+    foreach ($st->fetchAll() as $r) $uit[(int)$r['parent_id']] = ['replies' => (int)$r['n'], 'last_reply' => $r['laatste'], 'reply_user_ids' => []];
+    if ($uit) {
+        $st = $db->prepare("SELECT DISTINCT parent_id, user_id FROM messages WHERE parent_id IN ($v) AND deleted = 0 ORDER BY id");
+        $st->execute($ids);
+        foreach ($st->fetchAll() as $r) $uit[(int)$r['parent_id']]['reply_user_ids'][] = (int)$r['user_id'];
+    }
+    $st = $db->prepare("SELECT message_id FROM pins WHERE message_id IN ($v)");
+    $st->execute($ids);
+    foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $id) $uit[(int)$id]['pinned'] = true;
+    $st = $db->prepare("SELECT message_id FROM saved WHERE user_id = ? AND message_id IN ($v)");
+    $st->execute(array_merge([$mijnId], $ids));
+    foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $id) $uit[(int)$id]['saved'] = true;
+    return $uit;
+}
+
+/* ---- Linkvoorvertoning (v0.9) ---- */
+
+/** Eerste "gewone" link in een tekst (geen beeld/gif, die staan al inline). */
+function eerste_link(string $body): ?string {
+    if (!preg_match('~https?://[^\s<>"\']+~i', $body, $m)) return null;
+    $url = rtrim($m[0], '.,;:!?)\'"]');
+    if (preg_match('/\.(gif|png|jpe?g|webp)(\?.*)?$/i', $url)) return null;
+    return mb_substr($url, 0, 500);
+}
+
+/** Is deze host veilig om vanaf de server op te halen? (geen privé-/lokale adressen) */
+function host_publiek(string $host): bool {
+    $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
+    if ($ip === $host && !filter_var($host, FILTER_VALIDATE_IP)) return false; // niet te resolven
+    return (bool)filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+}
+
+/**
+ * Titel, omschrijving en plaatje van een pagina (Open Graph / <title>), met
+ * cache per URL. Korte timeouts: het versturen mag er niet op wachten.
+ * null = niets te tonen.
+ */
+function vacom_link_preview(PDO $db, string $url): ?array {
+    $st = $db->prepare('SELECT data FROM link_previews WHERE url = ?');
+    $st->execute([$url]);
+    $cache = $st->fetch();
+    if ($cache) return $cache['data'] ? (json_decode((string)$cache['data'], true) ?: null) : null;
+    $data = null;
+    $u = parse_url($url);
+    if (!empty($u['host']) && in_array(strtolower((string)($u['scheme'] ?? '')), ['http', 'https'], true) && host_publiek($u['host']) && function_exists('curl_init')) {
+        $c = curl_init($url);
+        curl_setopt_array($c, [
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 3,
+            CURLOPT_TIMEOUT => 4, CURLOPT_CONNECTTIMEOUT => 3, CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; VaCom-linkpreview/1.0; +https://portal.invite.nl/vacom/)',
+            CURLOPT_HTTPHEADER => ['Accept: text/html,application/xhtml+xml', 'Accept-Language: nl,en'],
+            CURLOPT_RANGE => '0-300000',
+        ]);
+        $html = curl_exec($c);
+        $type = (string)curl_getinfo($c, CURLINFO_CONTENT_TYPE);
+        $eind = (string)curl_getinfo($c, CURLINFO_EFFECTIVE_URL);
+        curl_close($c);
+        if (is_string($html) && $html !== '' && stripos($type, 'html') !== false) {
+            $html = substr($html, 0, 300000);
+            $meta = fn(string $naam) => (preg_match('~<meta[^>]+(?:property|name)=["\']' . preg_quote($naam, '~') . '["\'][^>]+content=["\']([^"\']*)["\']~i', $html, $m)
+                || preg_match('~<meta[^>]+content=["\']([^"\']*)["\'][^>]+(?:property|name)=["\']' . preg_quote($naam, '~') . '["\']~i', $html, $m)) ? html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8') : '';
+            $titel = $meta('og:title') ?: (preg_match('~<title[^>]*>(.*?)</title>~is', $html, $t) ? html_entity_decode(trim($t[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8') : '');
+            $beeld = $meta('og:image');
+            if ($beeld !== '' && !preg_match('~^https?://~i', $beeld)) { // relatieve afbeelding → absoluut maken
+                $b = parse_url($eind ?: $url);
+                $beeld = ($b['scheme'] ?? 'https') . '://' . ($b['host'] ?? $u['host']) . (str_starts_with($beeld, '/') ? '' : '/') . $beeld;
+            }
+            if ($titel !== '') {
+                $data = [
+                    'url' => $url, 'title' => mb_substr(trim(preg_replace('/\s+/', ' ', $titel)), 0, 120),
+                    'description' => mb_substr(trim(preg_replace('/\s+/', ' ', $meta('og:description') ?: $meta('description'))), 0, 200),
+                    'image' => preg_match('~^https://~i', $beeld) ? mb_substr($beeld, 0, 500) : '',
+                    'site' => mb_substr($meta('og:site_name') ?: (string)($u['host']), 0, 60),
+                ];
+            }
+        }
+    }
+    $db->prepare('INSERT OR REPLACE INTO link_previews(url, data, fetched) VALUES (?, ?, ?)')
+       ->execute([$url, $data ? json_encode($data, JSON_UNESCAPED_UNICODE) : '', time()]);
+    return $data;
+}
+
+/* ---- Pushmeldingen bij een nieuw bericht (v0.9) ---- */
+
+/**
+ * Wie krijgt een melding? Leden van het kanaal behalve de schrijver, die niet
+ * net actief zijn (last_seen ouder dan 75 s: wie de app open heeft, ziet het al).
+ *   DM             → de ander(en)
+ *   @vermelding    → de genoemden
+ *   thread-antwoord→ wie in die thread meedoet (starter + eerdere reageerders)
+ *   kanaalbericht  → alleen wie "alle berichten" aan heeft gezet
+ */
+function push_bij_bericht(PDO $db, array $k, int $berichtId, int $auteurId, string $tekst, ?int $parentId = null): void {
+    if (!vacom_push_kan()) return;
+    $st = $db->prepare('SELECT u.id, u.push_alles, u.last_seen FROM channel_members cm JOIN users u ON u.id = cm.user_id WHERE cm.channel_id = ? AND cm.user_id != ? AND u.active = 1');
+    $st->execute([(int)$k['id'], $auteurId]);
+    $leden = $st->fetchAll();
+    if (!$leden) return;
+    $genoemd = array_flip(vacom_vermeldingen_in($db, $tekst));
+    $threadLeden = [];
+    if ($parentId) {
+        $st = $db->prepare('SELECT DISTINCT user_id FROM messages WHERE (id = ? OR parent_id = ?) AND deleted = 0');
+        $st->execute([$parentId, $parentId]);
+        $threadLeden = array_flip(array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN)));
+    }
+    $doel = [];
+    foreach ($leden as $l) {
+        $uid = (int)$l['id'];
+        if (!empty($l['last_seen']) && strtotime((string)$l['last_seen']) > time() - 75) continue; // zit er nu in
+        $reden = $k['type'] === 'dm' || isset($genoemd[$uid]) || isset($threadLeden[$uid]) || (int)$l['push_alles'] === 1;
+        if ($reden) $doel[] = $uid;
+    }
+    if (!$doel) return;
+    $v = implode(',', array_fill(0, count($doel), '?'));
+    $st = $db->prepare("SELECT endpoint, p256dh, auth FROM push_subs WHERE user_id IN ($v)");
+    $st->execute($doel);
+    $subs = $st->fetchAll();
+    if (!$subs) return;
+    $auteur = $db->query('SELECT name FROM users WHERE id = ' . $auteurId)->fetchColumn();
+    $waar = $k['type'] === 'dm' ? '' : ' in #' . $k['name'];
+    $kort = mb_substr(preg_replace('/\s+/', ' ', trim($tekst)), 0, 140);
+    $weg = vacom_push_stuur($subs, [
+        'title' => $auteur . $waar,
+        'body'  => $kort,
+        'url'   => 'index.php#k=' . (int)$k['id'] . ($parentId ? '&t=' . $parentId : ''),
+        'tag'   => 'vacom-k' . (int)$k['id'],
+    ]);
+    foreach ($weg as $ep) $db->prepare('DELETE FROM push_subs WHERE endpoint = ?')->execute([$ep]);
+}
+
+/** Typt-indicator opruimen zodra iemand daadwerkelijk iets verstuurt. */
+function typing_weg(PDO $db, int $kanaalId, int $userId): void {
+    $db->prepare('DELETE FROM typing WHERE channel_id = ? AND user_id = ?')->execute([$kanaalId, $userId]);
 }
 
 /**
@@ -196,6 +355,8 @@ function bericht_uit(array $r): array {
         'deleted'    => (int)$r['deleted'] === 1,
         // v0.6: bijlage als array, of null (geen bijlage / bericht verwijderd)
         'attachment' => ((int)$r['deleted'] === 1 || empty($r['attachment'])) ? null : (json_decode((string)$r['attachment'], true) ?: null),
+        // v0.9: linkvoorvertoning
+        'preview'    => ((int)$r['deleted'] === 1 || empty($r['preview'])) ? null : (json_decode((string)$r['preview'], true) ?: null),
     ];
 }
 
@@ -296,10 +457,19 @@ case 'poll': {
     $mx      = (int)vacom_meta('mx'); // v0.6: bewerkt/verwijderd
     $sinceId = param_int($invoer, 'since_id');
     $kanaalId = param_int($invoer, 'channel_id');
-    if ($maxId <= $sinceId && $state === param_int($invoer, 'state') && $rx === param_int($invoer, 'rx') && $mx === param_int($invoer, 'mx')) {
-        vacom_json(['ok' => true, 'changed' => false, 'max_id' => $maxId, 'state' => $state, 'rx' => $rx, 'mx' => $mx]);
+    $threadId = param_int($invoer, 'thread_id'); // v0.9: open thread (starter-id), 0 = geen
+    // v0.9: typt-indicator — wie typte de laatste 6 s in dit kanaal (niet ikzelf)?
+    // Klein genoeg om altijd mee te sturen; verandert ook als er verder niets nieuw is.
+    $typt = [];
+    if ($kanaalId > 0) {
+        $st = $db->prepare('SELECT u.name FROM typing t JOIN users u ON u.id = t.user_id WHERE t.channel_id = ? AND t.user_id != ? AND t.at > ? ORDER BY t.at');
+        $st->execute([$kanaalId, $mijnId, time() - 6]);
+        $typt = $st->fetchAll(PDO::FETCH_COLUMN);
     }
-    $antwoord = ['ok' => true, 'changed' => true, 'max_id' => $maxId, 'state' => $state, 'rx' => $rx, 'mx' => $mx];
+    if ($maxId <= $sinceId && $state === param_int($invoer, 'state') && $rx === param_int($invoer, 'rx') && $mx === param_int($invoer, 'mx')) {
+        vacom_json(['ok' => true, 'changed' => false, 'max_id' => $maxId, 'state' => $state, 'rx' => $rx, 'mx' => $mx, 'typing' => $typt]);
+    }
+    $antwoord = ['ok' => true, 'changed' => true, 'max_id' => $maxId, 'state' => $state, 'rx' => $rx, 'mx' => $mx, 'typing' => $typt];
     $isLid = false;
     if ($kanaalId > 0) {
         $st = $db->prepare('SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?');
@@ -309,31 +479,41 @@ case 'poll': {
     // Nieuwe berichten in het geopende kanaal meesturen (mits lid).
     if ($isLid && $maxId > $sinceId) {
         $antwoord['messages'] = berichten_uit($db, 'm.channel_id = ? AND m.id > ? AND m.parent_id IS NULL', [$kanaalId, $sinceId], 200, true);
+        // v0.9: nieuwe antwoorden in de open thread
+        if ($threadId > 0) $antwoord['thread_messages'] = berichten_uit($db, 'm.channel_id = ? AND m.parent_id = ? AND m.id > ?', [$kanaalId, $threadId, $sinceId], 200, true);
     }
     // Reacties veranderd? Stuur de actuele reactie-sets van de laatste 100
-    // berichten van het open kanaal mee; de client werkt bij wat hij kent.
+    // berichten van het open kanaal (en de open thread) mee; de client werkt bij wat hij kent.
     if ($isLid && $rx !== param_int($invoer, 'rx')) {
-        $st = $db->prepare('SELECT id FROM messages WHERE channel_id = ? AND parent_id IS NULL ORDER BY id DESC LIMIT 100');
-        $st->execute([$kanaalId]);
+        $st = $db->prepare('SELECT id FROM messages WHERE channel_id = ? AND (parent_id IS NULL OR parent_id = ?) ORDER BY id DESC LIMIT 150');
+        $st->execute([$kanaalId, $threadId]);
         $ids = array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
         $sets = reacties_bij($db, $ids);
         // Ook lege sets meesturen: een wéggehaalde laatste reactie moet ook aankomen.
         $antwoord['reactions'] = ['ids' => $ids, 'sets' => (object)$sets];
     }
     // v0.6: bericht bewerkt of verwijderd? Stuur tekst/bijlage-status van de
-    // laatste 100 berichten van het open kanaal mee; de client werkt bij wat hij kent.
+    // laatste 100 berichten van het open kanaal (+ de open thread) mee; de
+    // client werkt bij wat hij kent. v0.9: ook antwoord-teller, vastgezet, poll.
     if ($isLid && $mx !== param_int($invoer, 'mx')) {
-        $st = $db->prepare('SELECT id, body, edited, deleted, attachment FROM messages WHERE channel_id = ? AND parent_id IS NULL ORDER BY id DESC LIMIT 100');
-        $st->execute([$kanaalId]);
+        $st = $db->prepare('SELECT id, body, edited, deleted, attachment, preview FROM messages WHERE channel_id = ? AND (parent_id IS NULL OR parent_id = ?) ORDER BY id DESC LIMIT 150');
+        $st->execute([$kanaalId, $threadId]);
         $rijen = $st->fetchAll();
-        $stemmingen = stemmingen_bij($db, array_map(fn($r) => (int)$r['id'], $rijen), $mijnId); // v0.8: ook stemmen
+        $ids = array_map(fn($r) => (int)$r['id'], $rijen);
+        $stemmingen = stemmingen_bij($db, $ids, $mijnId); // v0.8: ook stemmen
+        $extra = extra_bij($db, $ids, $mijnId);
         $antwoord['updates'] = array_map(fn($r) => [
             'id'         => (int)$r['id'],
             'body'       => (int)$r['deleted'] ? '' : $r['body'],
             'edited'     => $r['edited'],
             'deleted'    => (int)$r['deleted'] === 1,
             'attachment' => ((int)$r['deleted'] === 1 || empty($r['attachment'])) ? null : (json_decode((string)$r['attachment'], true) ?: null),
+            'preview'    => ((int)$r['deleted'] === 1 || empty($r['preview'])) ? null : (json_decode((string)$r['preview'], true) ?: null),
             'stemming'   => (int)$r['deleted'] === 1 ? null : ($stemmingen[(int)$r['id']] ?? null),
+            'replies'    => $extra[(int)$r['id']]['replies'] ?? 0,
+            'last_reply' => $extra[(int)$r['id']]['last_reply'] ?? null,
+            'reply_user_ids' => $extra[(int)$r['id']]['reply_user_ids'] ?? [],
+            'pinned'     => $extra[(int)$r['id']]['pinned'] ?? false,
         ], $rijen);
     }
     // Ongelezen-tellers per kanaal (voor de badges in de zijbalk), en (v0.7)
@@ -357,9 +537,20 @@ case 'stuur': {
     $body = trim($body);
     if ($body === '') vacom_fout('Leeg bericht.');
     if (mb_strlen($body) > 8000) vacom_fout('Bericht is te lang (max. 8000 tekens).');
+    // v0.9: antwoord in een thread? De ouder moet een gewoon (niet-verwijderd)
+    // bericht in hetzelfde kanaal zijn; een antwoord op een antwoord hangt aan de starter.
+    $parentId = param_int($invoer, 'parent_id') ?: null;
+    if ($parentId) {
+        $st = $db->prepare('SELECT id, parent_id, deleted FROM messages WHERE id = ? AND channel_id = ?');
+        $st->execute([$parentId, (int)$k['id']]);
+        $ouder = $st->fetch();
+        if (!$ouder || (int)$ouder['deleted'] === 1) vacom_fout('Dit bericht bestaat niet (meer).', 404);
+        if ($ouder['parent_id'] !== null) $parentId = (int)$ouder['parent_id'];
+    }
+    $preview = ($link = eerste_link($body)) ? vacom_link_preview($db, $link) : null; // v0.9, vóór de transactie (kan even duren)
     $db->beginTransaction();
-    $db->prepare('INSERT INTO messages(channel_id, user_id, body, created) VALUES (?,?,?,?)')
-       ->execute([(int)$k['id'], $mijnId, $body, vacom_now()]);
+    $db->prepare('INSERT INTO messages(channel_id, user_id, parent_id, body, created, preview) VALUES (?,?,?,?,?,?)')
+       ->execute([(int)$k['id'], $mijnId, $parentId, $body, vacom_now(), $preview ? json_encode($preview, JSON_UNESCAPED_UNICODE) : null]);
     $id = (int)$db->lastInsertId();
     vacom_vermeldingen_opslaan($db, $id, $body, $mijnId); // v0.7: wie wordt er @genoemd?
     // Eigen bericht telt meteen als gelezen.
@@ -369,10 +560,134 @@ case 'stuur': {
     // de lijst van de ander (state omhoog zodat zijn zijbalk ververst).
     $terug = $db->prepare('UPDATE channel_members SET hidden = 0 WHERE channel_id = ? AND hidden = 1');
     $terug->execute([(int)$k['id']]);
+    typing_weg($db, (int)$k['id'], $mijnId);
     $db->commit();
     if ($terug->rowCount() > 0) vacom_bump_state();
+    if ($parentId) vacom_bump_mx(); // de teller "n antwoorden" bij de starter moet bij iedereen verversen
+    push_bij_bericht($db, $k, $id, $mijnId, $body, $parentId); // v0.9
     $lijst = berichten_uit($db, 'm.id = ?', [$id], 1, true);
-    vacom_json(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id()]);
+    vacom_json(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id(), 'mx' => (int)vacom_meta('mx')]);
+}
+
+/* ---- Threads (v0.9) ---- */
+
+case 'thread': {
+    // De starter + alle antwoorden, oplopend.
+    $berichtId = param_int($invoer, 'message_id');
+    $st = $db->prepare('SELECT channel_id, parent_id FROM messages WHERE id = ?');
+    $st->execute([$berichtId]);
+    $m = $st->fetch();
+    if (!$m) vacom_fout('Bericht niet gevonden.', 404);
+    if ($m['parent_id'] !== null) $berichtId = (int)$m['parent_id']; // antwoord aangeklikt → de hele thread
+    kanaal_voor_mij($db, (int)$m['channel_id'], $mijnId, true);
+    $ouder = berichten_uit($db, 'm.id = ?', [$berichtId], 1, true);
+    if (!$ouder) vacom_fout('Bericht niet gevonden.', 404);
+    $antwoorden = berichten_uit($db, 'm.parent_id = ?', [$berichtId], 500, true);
+    vacom_json(['ok' => true, 'parent' => $ouder[0], 'replies' => $antwoorden]);
+}
+
+/* ---- Typt… (v0.9) ---- */
+
+case 'typ': {
+    // De client roept dit hooguit elke 2,5 s aan zolang er getypt wordt. De
+    // poll van de anderen leest wie er de laatste 6 s getypt heeft.
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
+    $db->prepare('INSERT OR REPLACE INTO typing(channel_id, user_id, at) VALUES (?, ?, ?)')->execute([(int)$k['id'], $mijnId, time()]);
+    $db->exec('DELETE FROM typing WHERE at < ' . (time() - 30)); // oude rommel opruimen
+    vacom_json(['ok' => true]);
+}
+
+/* ---- Vastzetten en opslaan (v0.9) ---- */
+
+case 'pin_toggle': {
+    // Vastzetten in een kanaal: voor iedereen zichtbaar bovenin. Elk lid mag.
+    $berichtId = param_int($invoer, 'message_id');
+    $st = $db->prepare('SELECT channel_id, deleted FROM messages WHERE id = ?');
+    $st->execute([$berichtId]);
+    $m = $st->fetch();
+    if (!$m || (int)$m['deleted'] === 1) vacom_fout('Bericht niet gevonden.', 404);
+    $k = kanaal_voor_mij($db, (int)$m['channel_id'], $mijnId);
+    $st = $db->prepare('SELECT 1 FROM pins WHERE message_id = ?');
+    $st->execute([$berichtId]);
+    if ($st->fetchColumn()) {
+        $db->prepare('DELETE FROM pins WHERE message_id = ?')->execute([$berichtId]);
+        $vast = false;
+    } else {
+        $db->prepare('INSERT INTO pins(message_id, channel_id, user_id, created) VALUES (?, ?, ?, ?)')->execute([$berichtId, (int)$k['id'], $mijnId, vacom_now()]);
+        $vast = true;
+    }
+    vacom_bump_mx();
+    vacom_json(['ok' => true, 'pinned' => $vast, 'mx' => (int)vacom_meta('mx')]);
+}
+
+case 'kanaal_pins': {
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId, true);
+    $lijst = berichten_uit($db, 'm.id IN (SELECT message_id FROM pins WHERE channel_id = ?) AND m.deleted = 0', [(int)$k['id']], 100, false);
+    vacom_json(['ok' => true, 'messages' => $lijst]);
+}
+
+case 'opslaan_toggle': {
+    // Privé bewaren ("later"): alleen jij ziet je opgeslagen berichten.
+    $berichtId = param_int($invoer, 'message_id');
+    $st = $db->prepare('SELECT channel_id, deleted FROM messages WHERE id = ?');
+    $st->execute([$berichtId]);
+    $m = $st->fetch();
+    if (!$m || (int)$m['deleted'] === 1) vacom_fout('Bericht niet gevonden.', 404);
+    kanaal_voor_mij($db, (int)$m['channel_id'], $mijnId, true);
+    $st = $db->prepare('SELECT 1 FROM saved WHERE user_id = ? AND message_id = ?');
+    $st->execute([$mijnId, $berichtId]);
+    if ($st->fetchColumn()) {
+        $db->prepare('DELETE FROM saved WHERE user_id = ? AND message_id = ?')->execute([$mijnId, $berichtId]);
+        $opgeslagen = false;
+    } else {
+        $db->prepare('INSERT INTO saved(user_id, message_id, created) VALUES (?, ?, ?)')->execute([$mijnId, $berichtId, vacom_now()]);
+        $opgeslagen = true;
+    }
+    vacom_json(['ok' => true, 'saved' => $opgeslagen]);
+}
+
+case 'opgeslagen': {
+    $lijst = berichten_uit($db, 'm.id IN (SELECT message_id FROM saved WHERE user_id = ?) AND m.deleted = 0
+        AND m.channel_id IN (SELECT channel_id FROM channel_members WHERE user_id = ?)', [$mijnId, $mijnId], 200, false);
+    vacom_json(['ok' => true, 'messages' => array_reverse($lijst)]); // nieuwste eerst
+}
+
+/* ---- Pushmeldingen: abonnementen en voorkeur (v0.9) ---- */
+
+case 'push_abonneer': {
+    $sub = $invoer['subscription'] ?? null;
+    $endpoint = (string)($sub['endpoint'] ?? '');
+    $p256dh   = (string)($sub['keys']['p256dh'] ?? '');
+    $auth     = (string)($sub['keys']['auth'] ?? '');
+    if (!preg_match('~^https://~', $endpoint) || $p256dh === '' || $auth === '') vacom_fout('Ongeldig abonnement.');
+    if (!vacom_vapid()) vacom_fout('Deze server kan geen pushmeldingen sturen.');
+    $db->prepare('INSERT INTO push_subs(user_id, endpoint, p256dh, auth, created) VALUES (?, ?, ?, ?, ?)
+                  ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth')
+       ->execute([$mijnId, $endpoint, $p256dh, $auth, vacom_now()]);
+    vacom_json(['ok' => true]);
+}
+
+case 'push_afmelden': {
+    $endpoint = (string)($invoer['endpoint'] ?? '');
+    $db->prepare('DELETE FROM push_subs WHERE endpoint = ? AND user_id = ?')->execute([$endpoint, $mijnId]);
+    vacom_json(['ok' => true]);
+}
+
+case 'push_instelling': {
+    $alles = !empty($invoer['alles']) ? 1 : 0;
+    $db->prepare('UPDATE users SET push_alles = ? WHERE id = ?')->execute([$alles, $mijnId]);
+    vacom_json(['ok' => true, 'push_alles' => $alles === 1]);
+}
+
+case 'push_test': {
+    // Een proefmelding naar je eigen apparaten — om te zien dat het werkt.
+    $st = $db->prepare('SELECT endpoint, p256dh, auth FROM push_subs WHERE user_id = ?');
+    $st->execute([$mijnId]);
+    $subs = $st->fetchAll();
+    if (!$subs) vacom_fout('Geen apparaat aangemeld voor meldingen.');
+    $weg = vacom_push_stuur($subs, ['title' => 'VaCom', 'body' => 'Meldingen werken op dit apparaat 🎉', 'url' => 'index.php', 'tag' => 'vacom-test']);
+    foreach ($weg as $ep) $db->prepare('DELETE FROM push_subs WHERE endpoint = ?')->execute([$ep]);
+    vacom_json(['ok' => true, 'verstuurd' => count($subs) - count($weg)]);
 }
 
 case 'stuur_bestand': {
@@ -427,6 +742,7 @@ case 'stuur_bestand': {
     $terug->execute([(int)$k['id']]);
     $db->commit();
     if ($terug->rowCount() > 0) vacom_bump_state();
+    push_bij_bericht($db, $k, $id, $mijnId, ($bijschrift !== '' ? $bijschrift . ' ' : '') . '📎 ' . $naam); // v0.9
     $lijst = berichten_uit($db, 'm.id = ?', [$id], 1, true);
     vacom_json(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id()]);
 }
@@ -462,6 +778,7 @@ case 'stemming_maak': {
     $terug->execute([(int)$k['id']]);
     $db->commit();
     if ($terug->rowCount() > 0) vacom_bump_state();
+    push_bij_bericht($db, $k, $id, $mijnId, '📊 ' . $vraag); // v0.9
     $lijst = berichten_uit($db, 'm.id = ?', [$id], 1, true);
     vacom_json(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id()]);
 }
@@ -537,8 +854,10 @@ case 'verwijder': {
     if ((int)$m['user_id'] !== $mijnId && !vacom_is_superadmin()) vacom_fout('Je kunt alleen je eigen berichten verwijderen.', 403);
     kanaal_voor_mij($db, (int)$m['channel_id'], $mijnId, vacom_is_superadmin()); // superadmin mag ook in een gesloten kanaal opruimen
     $db->beginTransaction();
-    $db->prepare("UPDATE messages SET body = '', deleted = 1, attachment = NULL, edited = ? WHERE id = ?")->execute([vacom_now(), $berichtId]);
+    $db->prepare("UPDATE messages SET body = '', deleted = 1, attachment = NULL, preview = NULL, edited = ? WHERE id = ?")->execute([vacom_now(), $berichtId]);
     $db->prepare('DELETE FROM stemmingen WHERE message_id = ?')->execute([$berichtId]); // v0.8: poll + stemmen mee weg
+    $db->prepare('DELETE FROM pins WHERE message_id = ?')->execute([$berichtId]);       // v0.9
+    $db->prepare('DELETE FROM saved WHERE message_id = ?')->execute([$berichtId]);      // v0.9
     $db->prepare('DELETE FROM reactions WHERE message_id = ?')->execute([$berichtId]);
     $db->prepare('DELETE FROM mentions WHERE message_id = ?')->execute([$berichtId]); // v0.7
     $db->commit();
@@ -1019,22 +1338,43 @@ case 'zoek': {
     // gesloten kanalen doen gewoon mee (v0.4.1: en zijn vanuit de treffer ook
     // te openen, alleen-lezen).
     $q = mb_substr(param_str($invoer, 'q'), 0, 200);
-    if ($q === '') vacom_json(['ok' => true, 'results' => []]);
-    // Elke term als prefix-zoekterm, veilig tussen aanhalingstekens (FTS5-syntax).
-    $termen = preg_split('/\s+/', $q) ?: [];
-    $fts = implode(' ', array_map(fn($t) => '"' . str_replace('"', '""', $t) . '"*', $termen));
-    $st = $db->prepare(<<<'SQL'
-SELECT m.id, m.channel_id, m.user_id, m.parent_id, m.body, m.created, m.edited, m.deleted, u.name AS author,
+    // v0.9: filters — van wie, in welk kanaal, en een periode (YYYY-MM-DD).
+    $vanWie  = param_int($invoer, 'user_id');
+    $inKanaal = param_int($invoer, 'channel_id');
+    $vanaf = preg_match('/^\d{4}-\d{2}-\d{2}$/', param_str($invoer, 'from')) ? param_str($invoer, 'from') . 'T00:00:00Z' : '';
+    $tot   = preg_match('/^\d{4}-\d{2}-\d{2}$/', param_str($invoer, 'to'))   ? param_str($invoer, 'to')   . 'T23:59:59Z' : '';
+    $filters = ''; $fp = [];
+    if ($vanWie)   { $filters .= ' AND m.user_id = ?';    $fp[] = $vanWie; }
+    if ($inKanaal) { $filters .= ' AND m.channel_id = ?'; $fp[] = $inKanaal; }
+    if ($vanaf)    { $filters .= ' AND m.created >= ?';   $fp[] = $vanaf; }
+    if ($tot)      { $filters .= ' AND m.created <= ?';   $fp[] = $tot; }
+    if ($q === '' && $filters === '') vacom_json(['ok' => true, 'results' => []]);
+    if ($q !== '') {
+        // Elke term als prefix-zoekterm, veilig tussen aanhalingstekens (FTS5-syntax).
+        $termen = preg_split('/\s+/', $q) ?: [];
+        $fts = implode(' ', array_map(fn($t) => '"' . str_replace('"', '""', $t) . '"*', $termen));
+        $st = $db->prepare("SELECT m.id, m.channel_id, m.user_id, m.parent_id, m.body, m.created, m.edited, m.deleted, u.name AS author,
        snippet(messages_fts, 0, char(1), char(2), '…', 14) AS snippet
 FROM messages_fts f
 JOIN messages m ON m.id = f.rowid
 JOIN users u ON u.id = m.user_id
 JOIN channel_members cm ON cm.channel_id = m.channel_id AND cm.user_id = ?
-WHERE messages_fts MATCH ? AND m.deleted = 0
-ORDER BY m.id DESC LIMIT 50
-SQL);
+WHERE messages_fts MATCH ? AND m.deleted = 0 $filters
+ORDER BY m.id DESC LIMIT 50");
+        $params = array_merge([$mijnId, $fts], $fp);
+    } else {
+        // Alleen filters, geen zoekwoord: gewoon de laatste berichten die eraan voldoen.
+        $st = $db->prepare("SELECT m.id, m.channel_id, m.user_id, m.parent_id, m.body, m.created, m.edited, m.deleted, u.name AS author,
+       substr(m.body, 1, 160) AS snippet
+FROM messages m
+JOIN users u ON u.id = m.user_id
+JOIN channel_members cm ON cm.channel_id = m.channel_id AND cm.user_id = ?
+WHERE m.deleted = 0 $filters
+ORDER BY m.id DESC LIMIT 50");
+        $params = array_merge([$mijnId], $fp);
+    }
     try {
-        $st->execute([$mijnId, $fts]);
+        $st->execute($params);
         $rijen = $st->fetchAll();
     } catch (Throwable $e) {
         $rijen = [];
