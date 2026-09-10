@@ -209,25 +209,60 @@ a.logo:hover .logo-naam { color: var(--goud); }
 .zijbalk-lijsten li button:has(.status-tekst) .naam { flex: 0 1 auto; }
 .dm-keuze li button:has(.status-tekst) .naam { flex: 0 1 auto; }
 
-/* ---------- Polls (v0.8) ---------- */
-.poll { max-width: 480px; margin-top: 2px; padding: 10px 12px 8px; border: 1px solid var(--lijn); border-radius: var(--r-kaart); background: var(--vlak); }
-.poll-vraag { font-weight: 700; margin-bottom: 8px; }
-.poll-optie {
-  position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  width: 100%; margin: 4px 0; padding: 7px 10px; overflow: hidden; text-align: left;
-  font: inherit; font-size: 14px; color: var(--tekst); background: none;
-  border: 1px solid var(--lijn); border-radius: 8px; cursor: pointer;
+/* Mini-avatar in de zijbalk (v0.8): foto of initiaal, met het online-stipje in de hoek */
+.zijbalk-lijsten .avatar.mini {
+  position: relative; width: 22px; height: 22px; border-radius: 7px; font-size: 10px;
+  flex: none; overflow: visible; margin: 1px 2px 1px 0;
 }
-.poll-optie:hover:not(:disabled) { border-color: var(--goud); }
+.zijbalk-lijsten .avatar.mini img { border-radius: 7px; }
+.zijbalk-lijsten .avatar.mini .stip {
+  position: absolute; right: -4px; bottom: -4px; width: 8px; height: 8px;
+  border: 2px solid var(--oppervlak); box-shadow: none;
+}
+.zijbalk-lijsten .avatar.mini .stip.online { box-shadow: none; }
+
+/* ---------- Polls (v0.8) ---------- */
+/* v0.8.1: rustige opzet — per antwoord één regel (vinkje · tekst · aantal) met
+   een dun gouden balkje eronder; geen gevulde blokken achter de tekst. */
+.poll { max-width: 460px; margin-top: 2px; padding: 10px 14px 8px; border: 1px solid var(--lijn); border-radius: var(--r-kaart); background: var(--vlak); }
+.poll-vraag { font-weight: 700; margin-bottom: 6px; }
+.poll-lijst { display: flex; flex-direction: column; }
+.poll-optie {
+  display: grid; grid-template-columns: 18px 1fr auto; grid-template-rows: auto 4px; column-gap: 8px; row-gap: 5px; align-items: center;
+  width: 100%; margin: 0; padding: 6px 0 7px; text-align: left;
+  font: inherit; font-size: 14px; color: var(--tekst); background: none; border: 0; border-radius: 6px; cursor: pointer;
+}
+.poll-optie + .poll-optie { border-top: 1px solid var(--lijn); }
+.poll-optie:hover:not(:disabled) .poll-tekst { color: var(--goud); }
 .poll-optie:disabled { cursor: default; }
-.poll-optie.mijn { border-color: var(--goud); font-weight: 600; }
-.poll-balk { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(251, 188, 67, 0.18); transition: width .3s; }
-.poll-optie.mijn .poll-balk { background: rgba(251, 188, 67, 0.30); }
-.poll-tekst, .poll-aantal { position: relative; }
-.poll-tekst { overflow-wrap: anywhere; }
-.poll-aantal { flex: none; font-size: 12px; color: var(--stil); font-variant-numeric: tabular-nums; }
-.poll-voet { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; color: var(--stil); }
-.poll.gesloten .poll-optie { opacity: .85; }
+.poll-vink {
+  width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--stil);
+  display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #14181f;
+}
+.poll-optie.mijn .poll-vink { background: var(--goud); border-color: var(--goud); }
+.poll-optie.mijn .poll-tekst { font-weight: 600; }
+.poll-tekst { min-width: 0; overflow-wrap: anywhere; }
+.poll-aantal { font-size: 12px; color: var(--stil); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.poll-spoor { grid-column: 2 / 4; height: 4px; border-radius: 2px; background: var(--lijn); overflow: hidden; }
+.poll-balk { display: block; height: 100%; background: var(--goud); border-radius: 2px; transition: width .3s; }
+.poll-optie.mijn .poll-balk { background: var(--goud-2, var(--goud)); }
+.poll.gesloten .poll-optie .poll-tekst { opacity: .85; }
+.poll-voet { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--lijn); font-size: 12px; color: var(--stil); }
+.poll-voet-knoppen { display: flex; gap: 6px; flex: none; }
+/* Uitslag-dialoog: zelfde regels als de poll, met ronde mini-avatars van de stemmers */
+.poll-uitslag-vraag { font-weight: 700; font-size: 16px; margin: 0 0 2px; }
+.poll-uitslag-info { font-size: 12px; margin: 0 0 6px; }
+.uitslag-optie { display: grid; grid-template-columns: 1fr; grid-template-rows: auto 4px; row-gap: 5px; padding: 8px 0; border-top: 1px solid var(--lijn); }
+.uitslag-optie .poll-spoor { grid-column: 1; }
+.uitslag-optie.zonder .uitslag-naam, .uitslag-optie.zonder .uitslag-aantal { opacity: .5; } /* 'zonder', niet 'leeg': die klasse is de lege-staat van het gesprek */
+.uitslag-regel { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.uitslag-naam { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.uitslag-kopjes { display: flex; flex: none; }
+.avatar.uitslag-kopje { width: 22px; height: 22px; border-radius: 50%; font-size: 10px; border: 2px solid var(--kaart); margin-left: -6px; }
+.avatar.uitslag-kopje:first-child { margin-left: 0; }
+.uitslag-kopjes.gedempt .avatar { opacity: .5; }
+.uitslag-aantal { flex: none; min-width: 52px; text-align: right; font-size: 12px; color: var(--stil); font-variant-numeric: tabular-nums; }
+.uitslag-rest { grid-template-rows: auto; margin-top: 2px; }
 /* Poll-dialoog */
 .poll-opties { display: flex; flex-direction: column; gap: 6px; margin: -6px 0 8px; }
 .poll-optie-veld { display: flex; gap: 6px; align-items: center; }
@@ -292,7 +327,16 @@ a.logo:hover .logo-naam { color: var(--goud); }
 /* ---------- Chat ---------- */
 
 /* Het gesprek is één kaart: kop, berichten en schrijfveld, gescheiden door dunne lijnen. */
-.chat { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-radius: var(--r-kaart); overflow: hidden; }
+.chat { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; border-radius: var(--r-kaart); overflow: hidden; }
+/* v0.8: zwevend "naar beneden"-knopje boven het schrijfveld, rechts */
+.naar-onder {
+  position: absolute; right: 18px; bottom: 72px; z-index: 5;
+  width: 40px; height: 40px; padding: 0; border-radius: 50%;
+  background: var(--kaart); border: 1px solid var(--lijn); color: var(--goud);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+.naar-onder:hover { border-color: var(--goud); }
+.naar-onder[hidden] { display: none; }
 .chat-kop {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 12px 10px 16px; flex: none; border-bottom: 1px solid var(--lijn);

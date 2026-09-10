@@ -142,6 +142,10 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
       </div>
     </div>
 
+    <!-- v0.8: zwevend "naar beneden"-knopje, zichtbaar zolang je niet onderaan staat -->
+    <button type="button" class="knop naar-onder" id="knop-onder" hidden title="Naar het laatste bericht" aria-label="Naar het laatste bericht">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+    </button>
     <form class="schrijver" id="schrijver" hidden>
       <button type="button" class="knop icoon" id="knop-emoji" title="Emoji" aria-label="Emoji kiezen">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c.9 1.2 2.1 1.8 3.5 1.8s2.6-.6 3.5-1.8" stroke-linecap="round"/><circle cx="9" cy="9.6" r="1.15" fill="currentColor" stroke="none"/><circle cx="15" cy="9.6" r="1.15" fill="currentColor" stroke="none"/></svg>
@@ -272,6 +276,20 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
       <button type="submit" class="knop primair" id="poll-plaatsen">Poll plaatsen</button>
     </div>
   </form>
+</dialog>
+
+<!-- Poll-uitslag (v0.8): wie stemde wat -->
+<dialog id="dialoog-poll-uitslag" class="dialoog klein">
+  <div class="dialoog-kop">
+    <h2>Stemmen</h2>
+    <button type="button" class="knop mini" id="poll-uitslag-sluit" aria-label="Sluiten">✕</button>
+  </div>
+  <div class="opties-body">
+    <p class="poll-uitslag-vraag" id="poll-uitslag-vraag"></p>
+    <p class="poll-uitslag-info stil" id="poll-uitslag-info"></p>
+    <div id="poll-uitslag-lijst"></div>
+    <div class="uitslag-optie uitslag-rest" id="poll-uitslag-rest" hidden></div>
+  </div>
 </dialog>
 
 <!-- Foto bijsnijden (v0.7.4): slepen om te verschuiven, schuif of scrollwiel om te zoomen -->

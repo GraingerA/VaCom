@@ -33,8 +33,10 @@ vacom_require_login();
   <section class="kaart glas">
     <h2>v0.8.0 <span class="stil">— 10 september 2026</span></h2>
     <ul>
-      <li><strong>Polls.</strong> Nieuw knopje (staafdiagram) naast het schrijfveld: stel een vraag met twee tot tien antwoorden, eventueel met meerdere antwoorden tegelijk. Klik op een antwoord om te stemmen (nog eens klikken trekt je stem in); je ziet meteen de balken, de aantallen en wie wat koos (aanwijzen). Wie de poll plaatste kan hem sluiten, daarna staat alleen de uitslag. De vraag is doorzoekbaar als gewoon bericht.</li>
-      <li>De status van collega's staat nu direct achter de naam in plaats van tegen de rechterkant, zodat je meer van de tekst leest.</li>
+      <li><strong>Polls.</strong> Nieuw knopje (staafdiagram) naast het schrijfveld: stel een vraag met twee tot tien antwoorden, eventueel met meerdere antwoorden tegelijk. Klik op een antwoord om te stemmen (nog eens klikken trekt je stem in); je ziet meteen de balken, de aantallen en wie wat koos (aanwijzen). Met <em>Bekijk stemmen</em> zie je per antwoord wie erop stemde, en in een kanaal ook wie nog niet gestemd heeft. Wie de poll plaatste kan hem sluiten, daarna staat alleen de uitslag. De vraag is doorzoekbaar als gewoon bericht.</li>
+      <li>Gif-links (Giphy) zijn niet meer klikbaar — ze staan al op ware grootte. Geüploade foto's openen nog wel groot in de lichtbak.</li>
+      <li><strong>Knopje "naar beneden".</strong> Open je een kanaal met veel nieuwe berichten, of scrol je terug in de tijd, dan zweeft er rechtsonder een pijltje: één klik en je staat weer bij het laatste bericht.</li>
+      <li>In de zijbalk staan bij Collega's en Berichten nu mini-foto's (of de gekleurde initiaal) met het online-stipje in de hoek. De status staat direct achter de naam in plaats van tegen de rechterkant, zodat je meer van de tekst leest.</li>
     </ul>
   </section>
 

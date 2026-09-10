@@ -158,7 +158,9 @@
     if (img) {
       // Laadt het beeld niet (verwijderd, geblokkeerd)? Toon dan de kale link.
       const url = esc(img);
-      return `<a class="beeld-link" href="${url}" target="_blank" rel="noopener"><img class="bericht-beeld" src="${url}" alt="" loading="lazy" onerror="this.parentElement.textContent = this.src"></a>`;
+      // v0.8: gif-/beeldlinks (Giphy) zijn niet klikbaar — ze staan al op ware grootte.
+      // Alleen geüploade foto's (bijlagen) openen groot in de lichtbak.
+      return `<img class="bericht-beeld" src="${url}" alt="" loading="lazy" onerror="this.replaceWith(this.src)">`;
     }
     let s = esc(body);
     s = s.replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)"'\]])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
@@ -389,20 +391,24 @@
     el.gesloten.innerHTML = gesloten.map((k) => item(k, k.name, '<span class="hash">#</span>', 'gesloten')).join('');
     // v0.5: status van een collega klein achter de naam.
     const statusHtml = (u) => (u && u.status ? `<span class="status-tekst" title="${esc(u.status)}">${esc(u.status)}</span>` : '');
+    // v0.8: mini-avatar met het online-stipje in de hoek, i.p.v. alleen een stipje.
+    const miniAvatar = (u, online) => u
+      ? `<span class="avatar mini"${avatarStijl(u.id)}>${avatarInhoud(u.id, u.name)}<span class="stip${online ? ' online' : ''}"></span></span>`
+      : `<span class="stip${online ? ' online' : ''}"></span>`;
     el.dms.innerHTML = S.channels.filter((k) => k.type === 'dm')
       .map((k) => {
         const u = gebruiker(k.other_id);
         const zelf = k.other_id === S.me.id;
         const naam = `<span class="naam">${esc(kanaalNaam(k))}</span>${zelf ? '' : statusHtml(u)}`;
         const klassen = [k.id === actiefId ? 'actief' : '', k.unread ? 'ongelezen' : ''].join(' ').trim();
-        return `<li><button type="button" data-kanaal="${k.id}" class="${klassen}"><span class="stip${u && isOnline(u) ? ' online' : ''}"></span>${naam}${badgeVan(k)}</button></li>`;
+        return `<li><button type="button" data-kanaal="${k.id}" class="${klassen}">${miniAvatar(u, zelf || (u && isOnline(u)))}${naam}${badgeVan(k)}</button></li>`;
       }).join('') || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen gesprekken — start er een met +</li>';
     // v0.7.4: jezelf bovenaan, met "(jij)" — zo zie je je eigen status zoals
     // collega's hem zien. Klikken opent je notities-gesprek.
     const ik = gebruiker(S.me.id);
-    const ikRij = ik ? `<li><button type="button" data-collega="${ik.id}" class="ikzelf"><span class="stip online"></span><span class="naam">${esc(ik.name)} <span class="stil">(jij)</span></span>${statusHtml(ik)}</button></li>` : '';
+    const ikRij = ik ? `<li><button type="button" data-collega="${ik.id}" class="ikzelf">${miniAvatar(ik, true)}<span class="naam">${esc(ik.name)} <span class="stil">(jij)</span></span>${statusHtml(ik)}</button></li>` : '';
     el.collegas.innerHTML = ikRij + (S.users.filter((u) => u.active && u.id !== S.me.id)
-      .map((u) => `<li><button type="button" data-collega="${u.id}"><span class="stip${isOnline(u) ? ' online' : ''}"></span><span class="naam">${esc(u.name)}</span>${statusHtml(u)}</button></li>`)
+      .map((u) => `<li><button type="button" data-collega="${u.id}">${miniAvatar(u, isOnline(u))}<span class="naam">${esc(u.name)}</span>${statusHtml(u)}</button></li>`)
       .join('') || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen collega\'s</li>');
 
     // v0.5: ongelezen-tellers per sectie — zichtbaar in de kop zodra een
@@ -564,6 +570,21 @@
   });
   el.berichten.addEventListener('touchmove', () => { S.gescrold = true; }, { passive: true });
 
+  // v0.8: zwevend "naar beneden"-knopje. Zichtbaar zodra je meer dan een
+  // schermhoogte-achtig stuk boven het einde staat (bv. na het openen van
+  // een kanaal met veel nieuwe berichten); klik = soepel naar het laatste bericht.
+  const knopOnder = $('#knop-onder');
+  function toonKnopOnder() {
+    const b = el.berichten;
+    knopOnder.hidden = !S.current || !S.msgs.length || b.scrollHeight - b.scrollTop - b.clientHeight < 200;
+  }
+  el.berichten.addEventListener('scroll', toonKnopOnder, { passive: true });
+  knopOnder.addEventListener('click', () => {
+    S.gescrold = true;
+    el.berichten.scrollTo({ top: el.berichten.scrollHeight, behavior: 'smooth' });
+    markeerGelezen();
+  });
+
   // Open kanaal: schrijfveld. Gesloten kanaal (v0.4.1): alleen-lezen-balk met,
   // voor wie dat mag, een Heropenen-knop. Projectkanalen heropen je via de
   // Portal (project uit de prullenbak halen), dus daar geen knop.
@@ -597,6 +618,7 @@
   function sluitKanaal() {
     S.current = null; S.msgs = [];
     el.optiesKnop.hidden = true;
+    $('#knop-onder').hidden = true; // v0.8
     el.geslotenBalk.hidden = true;
     if (el.optiesDialoog.open) el.optiesDialoog.close();
     document.body.dataset.pane = 'lijst';
@@ -663,6 +685,7 @@
     }
     el.berichten.innerHTML = delen.join('');
     if (naarOnder) plakScroll();
+    setTimeout(toonKnopOnder, 50); // v0.8: pijltje tonen/verbergen na de nieuwe scrollpositie
   }
 
   /* ---------- Berichttekst, bijlagen, bewerken/verwijderen (v0.6) ---------- */
@@ -719,18 +742,60 @@
     const p = m.stemming;
     const dicht = p.closed || (S.current && S.current.archived);
     const stemmenTotaal = p.options.reduce((n, o) => n + o.count, 0);
+    // Per antwoord: vinkvakje, tekst, aantal, en een dun balkje eronder (v0.8.1).
     const rijen = p.options.map((o) => {
       const pct = stemmenTotaal ? Math.round(o.count / stemmenTotaal * 100) : 0;
       const mijn = p.my.includes(o.id);
       const namen = o.user_ids.map((id) => (gebruiker(id) || {}).name || 'iemand').join(', ');
       return `<button type="button" class="poll-optie${mijn ? ' mijn' : ''}" data-poll-stem="${o.id}" data-stemming="${p.id}"${dicht ? ' disabled' : ''} title="${esc(namen)}">
-        <span class="poll-balk" style="width:${pct}%"></span>
-        <span class="poll-tekst">${mijn ? '✓ ' : ''}${esc(o.text)}</span><span class="poll-aantal">${o.count} · ${pct}%</span></button>`;
+        <span class="poll-vink" aria-hidden="true">${mijn ? '✓' : ''}</span>
+        <span class="poll-tekst">${esc(o.text)}</span>
+        <span class="poll-aantal">${o.count}${o.count ? ` · ${pct}%` : ''}</span>
+        <span class="poll-spoor"><span class="poll-balk" style="width:${pct}%"></span></span></button>`;
     }).join('');
     const magSluiten = !p.closed && S.me && (m.user_id === S.me.id || S.me.role === 'superadmin') && !(S.current && S.current.archived);
-    const info = `${p.total} ${p.total === 1 ? 'stem' : 'stemmen'}${p.multi ? ' · meerdere antwoorden mogelijk' : ''}${p.closed ? ' · gesloten' : ''}`;
-    return `<div class="poll${p.closed ? ' gesloten' : ''}"><div class="poll-vraag">${esc(m.body)}</div>${rijen}
-      <div class="poll-voet"><span>${info}</span>${magSluiten ? `<button type="button" class="knop mini" data-poll-sluit="${p.id}">Poll sluiten</button>` : ''}</div></div>`;
+    const info = `${p.total} ${p.total === 1 ? 'stem' : 'stemmen'}${p.multi ? ' · meerkeuze' : ''}${p.closed ? ' · gesloten' : ''}`;
+    return `<div class="poll${p.closed ? ' gesloten' : ''}"><div class="poll-vraag">${esc(m.body)}</div><div class="poll-lijst">${rijen}</div>
+      <div class="poll-voet"><span class="poll-info">${info}</span><span class="poll-voet-knoppen">${p.total ? `<button type="button" class="knop mini" data-poll-bekijk="${p.id}">Stemmen</button>` : ''}${magSluiten ? `<button type="button" class="knop mini" data-poll-sluit="${p.id}">Sluiten</button>` : ''}</span></div></div>`;
+  }
+
+  // "Bekijk stemmen": per antwoord wie erop stemde, en (in een kanaal) wie nog niet.
+  async function toonPollUitslag(stemmingId) {
+    const m = S.msgs.find((x) => x.stemming && x.stemming.id === stemmingId);
+    if (!m) return;
+    const p = m.stemming;
+    const d = $('#dialoog-poll-uitslag');
+    // Stemmer als rond mini-avatarje (naam bij aanwijzen) — compact, geen chips (v0.8.1).
+    const kopje = (id, naam) => {
+      const u = gebruiker(id);
+      const n = naam || (u ? u.name : 'iemand');
+      return `<span class="avatar uitslag-kopje"${avatarStijl(id)} title="${esc(n)}">${avatarInhoud(id, n)}</span>`;
+    };
+    const stemmenTotaal = p.options.reduce((n, o) => n + o.count, 0);
+    $('#poll-uitslag-vraag').textContent = m.body;
+    $('#poll-uitslag-info').textContent = `${p.total} ${p.total === 1 ? 'stemmer' : 'stemmers'}${p.multi ? ' · meerkeuze' : ''}${p.closed ? ' · gesloten' : ''}`;
+    const gestemd = new Set();
+    $('#poll-uitslag-lijst').innerHTML = p.options.map((o) => {
+      o.user_ids.forEach((id) => gestemd.add(id));
+      const pct = stemmenTotaal ? Math.round(o.count / stemmenTotaal * 100) : 0;
+      return `<div class="uitslag-optie${o.count ? '' : ' zonder'}">
+        <div class="uitslag-regel"><span class="uitslag-naam">${esc(o.text)}</span><span class="uitslag-kopjes">${o.user_ids.map((id) => kopje(id)).join('')}</span><span class="uitslag-aantal">${o.count}${o.count ? ` · ${pct}%` : ''}</span></div>
+        <span class="poll-spoor"><span class="poll-balk" style="width:${pct}%"></span></span></div>`;
+    }).join('');
+    const rest = $('#poll-uitslag-rest');
+    rest.hidden = true;
+    d.showModal();
+    // Wie heeft nog niet gestemd? Alleen zinvol in een kanaal met een ledenlijst.
+    if (S.current && S.current.type === 'public') {
+      try {
+        const j = await api('kanaal_leden', { channel_id: S.current.id });
+        const niet = j.members.filter((l) => !gestemd.has(l.id));
+        if (niet.length) {
+          rest.innerHTML = `<div class="uitslag-regel"><span class="uitslag-naam stil">Nog niet gestemd</span><span class="uitslag-kopjes gedempt">${niet.map((l) => kopje(l.id, l.name)).join('')}</span><span class="uitslag-aantal">${niet.length}</span></div>`;
+          rest.hidden = false;
+        }
+      } catch (e) { /* dan zonder */ }
+    }
   }
 
   async function stemOp(stemmingId, optieId) {
@@ -977,6 +1042,8 @@
     if (stem) { if (!stem.disabled) stemOp(Number(stem.dataset.stemming), Number(stem.dataset.pollStem)); return; }
     const pollDicht = e.target.closest('[data-poll-sluit]');
     if (pollDicht) { sluitPoll(Number(pollDicht.dataset.pollSluit)); return; }
+    const pollBekijk = e.target.closest('[data-poll-bekijk]');
+    if (pollBekijk) { toonPollUitslag(Number(pollBekijk.dataset.pollBekijk)); return; }
     // v0.6: bewerken / verwijderen
     const bewerk = e.target.closest('[data-bewerk]');
     if (bewerk) { startBewerken(Number(bewerk.dataset.bewerk)); return; }
@@ -1336,6 +1403,8 @@
     else if (velden.length < 10 && e.target.value.trim()) $('#poll-optie-plus').click();
   });
   $('#poll-annuleer').addEventListener('click', () => pollDialoog.close());
+  $('#poll-uitslag-sluit').addEventListener('click', () => $('#dialoog-poll-uitslag').close());
+  $('#dialoog-poll-uitslag').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
   pollDialoog.addEventListener('click', (e) => { if (e.target === pollDialoog) pollDialoog.close(); });
   $('#form-poll').addEventListener('submit', async (e) => {
     e.preventDefault();
