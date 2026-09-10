@@ -209,6 +209,33 @@ SQL);
         }
         $pdo->exec('PRAGMA user_version = 9');
     }
+
+    if ($versie < 10) {
+        // v0.8: polls ("stemmingen") in kanalen. De vraag is de tekst van het
+        // bericht (dus doorzoekbaar); de antwoorden en stemmen staan hier.
+        // Wordt het bericht definitief gewist, dan gaan ze mee (CASCADE).
+        $pdo->exec(<<<'SQL'
+CREATE TABLE stemmingen (
+    id         INTEGER PRIMARY KEY,
+    message_id INTEGER NOT NULL UNIQUE REFERENCES messages(id) ON DELETE CASCADE,
+    multi      INTEGER NOT NULL DEFAULT 0,   -- meerdere antwoorden mogelijk
+    closed     INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE stemming_opties (
+    id          INTEGER PRIMARY KEY,
+    stemming_id INTEGER NOT NULL REFERENCES stemmingen(id) ON DELETE CASCADE,
+    text        TEXT    NOT NULL,
+    sort        INTEGER NOT NULL
+);
+CREATE TABLE stemming_stemmen (
+    optie_id INTEGER NOT NULL REFERENCES stemming_opties(id) ON DELETE CASCADE,
+    user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created  TEXT    NOT NULL,
+    PRIMARY KEY (optie_id, user_id)
+);
+SQL);
+        $pdo->exec('PRAGMA user_version = 10');
+    }
 }
 
 /* ---------- Kleine helpers rond de database ---------- */

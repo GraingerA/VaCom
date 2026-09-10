@@ -170,6 +170,21 @@ body.embed #chat-open-vacom { flex: none; }
 #beheer-kanalen .beheer-info { font-size: 12px; }
 #leeg #knop-deelnemen { margin: 6px auto 0; }
 
+/* Logo als link naar de Portal (v0.7.4) */
+a.logo { color: inherit; text-decoration: none; }
+a.logo:hover .logo-naam { color: var(--goud); }
+
+/* Foto bijsnijden (v0.7.4) */
+.crop-kader {
+  position: relative; width: 260px; height: 260px; margin: 0 auto 12px;
+  overflow: hidden; border-radius: 22px; background: var(--vlak);
+  border: 1px solid var(--lijn); cursor: grab; touch-action: none; user-select: none;
+}
+.crop-kader:active { cursor: grabbing; }
+.crop-kader img { position: absolute; max-width: none; pointer-events: none; }
+.crop-zoom { display: flex; align-items: center; gap: 10px; margin: 0 auto 4px; width: 260px; font-size: 18px; color: var(--stil); }
+.crop-zoom input[type="range"] { flex: 1; margin: 0; padding: 0; background: none; border: 0; box-shadow: none; accent-color: var(--goud); }
+
 /* Instellingen-dialoog (v0.5) */
 .profiel { display: flex; align-items: center; gap: 16px; }
 .avatar.instellingen-avatar { width: 76px; height: 76px; border-radius: 18px; font-size: 32px; flex: none; }
@@ -188,7 +203,39 @@ body.embed #chat-open-vacom { flex: none; }
 .instellingen-rij { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; }
 .instellingen-links { margin-top: 10px; }
 /* Status van collega's: klein en stil achter de naam */
-.status-tekst { font-size: 12px; font-weight: 400; color: var(--stil); max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; }
+/* v0.7.4: cursief, en (v0.8) direct achter de naam i.p.v. tegen de rechterkant —
+   de status krijgt de resterende ruimte, de naam alleen wat hij nodig heeft. */
+.status-tekst { font-size: 12px; font-weight: 400; font-style: italic; color: var(--stil); flex: 1 1 auto; min-width: 0; margin-left: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zijbalk-lijsten li button:has(.status-tekst) .naam { flex: 0 1 auto; }
+.dm-keuze li button:has(.status-tekst) .naam { flex: 0 1 auto; }
+
+/* ---------- Polls (v0.8) ---------- */
+.poll { max-width: 480px; margin-top: 2px; padding: 10px 12px 8px; border: 1px solid var(--lijn); border-radius: var(--r-kaart); background: var(--vlak); }
+.poll-vraag { font-weight: 700; margin-bottom: 8px; }
+.poll-optie {
+  position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; margin: 4px 0; padding: 7px 10px; overflow: hidden; text-align: left;
+  font: inherit; font-size: 14px; color: var(--tekst); background: none;
+  border: 1px solid var(--lijn); border-radius: 8px; cursor: pointer;
+}
+.poll-optie:hover:not(:disabled) { border-color: var(--goud); }
+.poll-optie:disabled { cursor: default; }
+.poll-optie.mijn { border-color: var(--goud); font-weight: 600; }
+.poll-balk { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(251, 188, 67, 0.18); transition: width .3s; }
+.poll-optie.mijn .poll-balk { background: rgba(251, 188, 67, 0.30); }
+.poll-tekst, .poll-aantal { position: relative; }
+.poll-tekst { overflow-wrap: anywhere; }
+.poll-aantal { flex: none; font-size: 12px; color: var(--stil); font-variant-numeric: tabular-nums; }
+.poll-voet { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; color: var(--stil); }
+.poll.gesloten .poll-optie { opacity: .85; }
+/* Poll-dialoog */
+.poll-opties { display: flex; flex-direction: column; gap: 6px; margin: -6px 0 8px; }
+.poll-optie-veld { display: flex; gap: 6px; align-items: center; }
+.poll-optie-veld input { margin: 0; }
+.poll-optie-veld .knop { flex: none; }
+#poll-optie-plus { margin-bottom: 14px; }
+.poll-multi { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--tekst); font-weight: 500; }
+.poll-multi input { width: auto; margin: 0; }
 /* Nieuw gesprek: lijst met collega's */
 #dm-filter { margin: 0 0 10px; }
 .dm-keuze { list-style: none; margin: 0; padding: 0; max-height: min(50vh, 380px); overflow-y: auto; }
@@ -412,14 +459,9 @@ body.embed #chat-open-vacom { flex: none; }
 .reactie-chip:hover { border-color: rgba(255, 255, 255, 0.25); }
 .reactie-chip.mijn { background: rgba(251, 188, 67, 0.14); border-color: rgba(251, 188, 67, 0.45); }
 .reactie-chip.mijn .aantal { color: var(--goud); }
-.reactie-chip.plus { color: var(--stil); font-size: 13px; }
-.reactie-chip.plus .plusje { font-weight: 700; margin-left: -2px; }
-/* Zonder bestaande reacties: het plusje pas tonen bij aanwijzen (muis).
-   Op touch is er geen hover, daar blijft het gewoon zichtbaar. */
-@media (hover: hover) {
-  .reacties.zonder { margin-top: 0; height: 0; overflow: hidden; }
-  .bericht:hover .reacties.zonder { height: auto; overflow: visible; margin-top: 4px; }
-}
+/* v0.7.4: het reageer-plusje zit in de zwevende knoppenbalk (.bericht-acties),
+   dus geen uitklappende rij meer bij aanwijzen. */
+.bericht-acties .plusje { font-size: 11px; font-weight: 700; vertical-align: top; margin-left: -1px; }
 
 /* v0.5.1: zoekveld + categorieën + Recent. Het paneel is een vaste kolom
    (zoekveld boven, scrollend raster eronder). */

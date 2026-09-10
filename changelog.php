@@ -31,6 +31,25 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.8.0 <span class="stil">— 10 september 2026</span></h2>
+    <ul>
+      <li><strong>Polls.</strong> Nieuw knopje (staafdiagram) naast het schrijfveld: stel een vraag met twee tot tien antwoorden, eventueel met meerdere antwoorden tegelijk. Klik op een antwoord om te stemmen (nog eens klikken trekt je stem in); je ziet meteen de balken, de aantallen en wie wat koos (aanwijzen). Wie de poll plaatste kan hem sluiten, daarna staat alleen de uitslag. De vraag is doorzoekbaar als gewoon bericht.</li>
+      <li>De status van collega's staat nu direct achter de naam in plaats van tegen de rechterkant, zodat je meer van de tekst leest.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
+    <h2>v0.7.4 <span class="stil">— 10 september 2026</span></h2>
+    <ul>
+      <li><strong>Profielfoto bijsnijden.</strong> Kies je een foto bij Instellingen, dan zie je hem eerst in een vierkant kader: slepen om te verschuiven, zoomen met de schuif of het scrollwiel. Wat in het kader staat wordt je foto.</li>
+      <li><strong>Logo brengt je terug naar het overzicht.</strong> Vooral handig op de telefoon, waar een kanaal het hele scherm vult: tik op het VaCom-logo linksboven en je staat weer in de lijst.</li>
+      <li><strong>Reageer-knopje zweeft.</strong> Het ☺+ om met een emoji te reageren stond onder het bericht en klapte bij aanwijzen open, waardoor alles eronder verschoof. Het zit nu in het zwevende knoppenbalkje rechtsboven op het bericht, naast bewerken en verwijderen, en verschuift niets meer.</li>
+      <li><strong>iPhone-icoon zonder witte rand.</strong> Het icoon op het beginscherm had transparante hoeken, en iOS maakt die wit. Het is nu een gevuld vierkant; iOS rondt de hoeken zelf af. De link naar het icoon draagt nu ook een versienummer, zodat iOS niet het oude icoon blijft gebruiken. Haal de app van je beginscherm en zet hem er opnieuw op.</li>
+      <li>De status van collega's staat cursief achter hun naam in de lijst, en je staat er nu zelf ook in, bovenaan met "(jij)" — zo zie je je eigen status zoals anderen hem zien. Klikken opent je notities.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.7.3 <span class="stil">— 10 september 2026</span></h2>
     <ul>
       <li><strong>Foto's groot bekijken in een popup.</strong> Klik op een foto, screenshot of gif in het gesprek en hij opent groot over de pagina heen, met de bestandsnaam en knoppen voor Downloaden en Nieuw tabblad. Sluiten met ✕, Esc of een klik ernaast. Ctrl/Cmd-klik opent nog steeds een nieuw tabblad.</li>

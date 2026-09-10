@@ -114,7 +114,66 @@ function berichten_uit(PDO $db, string $where, array $params, int $limiet, bool 
     $reacties = reacties_bij($db, array_column($lijst, 'id'));
     foreach ($lijst as &$m) $m['reactions'] = $reacties[$m['id']] ?? [];
     unset($m);
+    $stemmingen = stemmingen_bij($db, array_column($lijst, 'id'), (int)$GLOBALS['mijnId']); // v0.8
+    foreach ($lijst as &$m) $m['stemming'] = $stemmingen[$m['id']] ?? null;
+    unset($m);
     return $lijst;
+}
+
+/**
+ * Polls bij een set berichten (v0.8): map bericht-id => stemming, met per
+ * antwoord het aantal stemmen en wie, en wat ik zelf gekozen heb.
+ */
+function stemmingen_bij(PDO $db, array $berichtIds, int $mijnId): array {
+    if (!$berichtIds) return [];
+    $v = implode(',', array_fill(0, count($berichtIds), '?'));
+    $st = $db->prepare("SELECT id, message_id, multi, closed FROM stemmingen WHERE message_id IN ($v)");
+    $st->execute(array_map('intval', $berichtIds));
+    $polls = []; $perBericht = [];
+    foreach ($st->fetchAll() as $p) {
+        $polls[(int)$p['id']] = ['id' => (int)$p['id'], 'multi' => (int)$p['multi'] === 1, 'closed' => (int)$p['closed'] === 1, 'options' => [], 'my' => [], 'total' => 0];
+        $perBericht[(int)$p['message_id']] = (int)$p['id'];
+    }
+    if (!$polls) return [];
+    $ids = array_keys($polls);
+    $v = implode(',', array_fill(0, count($ids), '?'));
+    $st = $db->prepare("SELECT id, stemming_id, text FROM stemming_opties WHERE stemming_id IN ($v) ORDER BY sort, id");
+    $st->execute($ids);
+    $optieVanPoll = [];
+    foreach ($st->fetchAll() as $o) {
+        $polls[(int)$o['stemming_id']]['options'][] = ['id' => (int)$o['id'], 'text' => $o['text'], 'count' => 0, 'user_ids' => []];
+        $optieVanPoll[(int)$o['id']] = (int)$o['stemming_id'];
+    }
+    if ($optieVanPoll) {
+        $oids = array_keys($optieVanPoll);
+        $v = implode(',', array_fill(0, count($oids), '?'));
+        $st = $db->prepare("SELECT optie_id, user_id FROM stemming_stemmen WHERE optie_id IN ($v) ORDER BY created");
+        $st->execute($oids);
+        foreach ($st->fetchAll() as $s) {
+            $pid = $optieVanPoll[(int)$s['optie_id']];
+            foreach ($polls[$pid]['options'] as &$opt) {
+                if ($opt['id'] !== (int)$s['optie_id']) continue;
+                $opt['count']++;
+                $opt['user_ids'][] = (int)$s['user_id'];
+                if ((int)$s['user_id'] === $mijnId) $polls[$pid]['my'][] = $opt['id'];
+            }
+            unset($opt);
+        }
+    }
+    foreach ($polls as &$p) {
+        $stemmers = [];
+        foreach ($p['options'] as $o) foreach ($o['user_ids'] as $u) $stemmers[$u] = true;
+        $p['total'] = count($stemmers); // aantal mensen, niet aantal vinkjes
+    }
+    unset($p);
+    $uit = [];
+    foreach ($perBericht as $mid => $pid) $uit[$mid] = $polls[$pid];
+    return $uit;
+}
+
+/** De poll van een bericht, na een wijziging (stemmen/sluiten). */
+function stemming_van_bericht(PDO $db, int $berichtId, int $mijnId): ?array {
+    return stemmingen_bij($db, [$berichtId], $mijnId)[$berichtId] ?? null;
 }
 
 /** Mag deze tekst als reactie-emoji? Kort, en alleen emoji-achtige tekens. */
@@ -266,13 +325,16 @@ case 'poll': {
     if ($isLid && $mx !== param_int($invoer, 'mx')) {
         $st = $db->prepare('SELECT id, body, edited, deleted, attachment FROM messages WHERE channel_id = ? AND parent_id IS NULL ORDER BY id DESC LIMIT 100');
         $st->execute([$kanaalId]);
+        $rijen = $st->fetchAll();
+        $stemmingen = stemmingen_bij($db, array_map(fn($r) => (int)$r['id'], $rijen), $mijnId); // v0.8: ook stemmen
         $antwoord['updates'] = array_map(fn($r) => [
             'id'         => (int)$r['id'],
             'body'       => (int)$r['deleted'] ? '' : $r['body'],
             'edited'     => $r['edited'],
             'deleted'    => (int)$r['deleted'] === 1,
             'attachment' => ((int)$r['deleted'] === 1 || empty($r['attachment'])) ? null : (json_decode((string)$r['attachment'], true) ?: null),
-        ], $st->fetchAll());
+            'stemming'   => (int)$r['deleted'] === 1 ? null : ($stemmingen[(int)$r['id']] ?? null),
+        ], $rijen);
     }
     // Ongelezen-tellers per kanaal (voor de badges in de zijbalk), en (v0.7)
     // hoeveel daarvan berichten zijn waarin ik met @Naam genoemd word.
@@ -369,6 +431,78 @@ case 'stuur_bestand': {
     vacom_json(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id()]);
 }
 
+/* ---- Polls / stemmingen (v0.8) ---- */
+
+case 'stemming_maak': {
+    // Een poll is een gewoon bericht (de vraag = tekst, dus doorzoekbaar) met
+    // een stemmingen-rij eraan. Minstens 2, hoogstens 10 antwoorden.
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
+    $vraag = mb_substr(param_str($invoer, 'question'), 0, 300);
+    if ($vraag === '') vacom_fout('Wat is de vraag?');
+    $opties = [];
+    foreach ((array)($invoer['options'] ?? []) as $o) {
+        $t = mb_substr(trim((string)$o), 0, 120);
+        if ($t !== '') $opties[] = $t;
+    }
+    if (count($opties) < 2) vacom_fout('Geef minstens twee antwoorden.');
+    if (count($opties) > 10) vacom_fout('Maximaal tien antwoorden.');
+    $multi = !empty($invoer['multi']) ? 1 : 0;
+    $db->beginTransaction();
+    $db->prepare('INSERT INTO messages(channel_id, user_id, body, created) VALUES (?,?,?,?)')
+       ->execute([(int)$k['id'], $mijnId, $vraag, vacom_now()]);
+    $id = (int)$db->lastInsertId();
+    $db->prepare('INSERT INTO stemmingen(message_id, multi) VALUES (?, ?)')->execute([$id, $multi]);
+    $sid = (int)$db->lastInsertId();
+    $ins = $db->prepare('INSERT INTO stemming_opties(stemming_id, text, sort) VALUES (?, ?, ?)');
+    foreach ($opties as $i => $t) $ins->execute([$sid, $t, $i]);
+    vacom_vermeldingen_opslaan($db, $id, $vraag, $mijnId); // v0.7: @Naam in de vraag telt als vermelding
+    $db->prepare('UPDATE channel_members SET last_read_id = MAX(last_read_id, ?) WHERE channel_id = ? AND user_id = ?')
+       ->execute([$id, (int)$k['id'], $mijnId]);
+    $terug = $db->prepare('UPDATE channel_members SET hidden = 0 WHERE channel_id = ? AND hidden = 1');
+    $terug->execute([(int)$k['id']]);
+    $db->commit();
+    if ($terug->rowCount() > 0) vacom_bump_state();
+    $lijst = berichten_uit($db, 'm.id = ?', [$id], 1, true);
+    vacom_json(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id()]);
+}
+
+case 'stemming_stem': {
+    // Stemmen (of je stem wijzigen/intrekken): de meegegeven antwoorden
+    // vervangen je eerdere keuze. Bij één antwoord telt alleen het eerste.
+    $sid = param_int($invoer, 'stemming_id');
+    $st = $db->prepare('SELECT s.*, m.channel_id, m.deleted FROM stemmingen s JOIN messages m ON m.id = s.message_id WHERE s.id = ?');
+    $st->execute([$sid]);
+    $s = $st->fetch();
+    if (!$s || (int)$s['deleted'] === 1) vacom_fout('Poll niet gevonden.', 404);
+    kanaal_voor_mij($db, (int)$s['channel_id'], $mijnId); // lid, kanaal niet gesloten
+    if ((int)$s['closed'] === 1) vacom_fout('Deze poll is gesloten.');
+    $geldig = array_map('intval', $db->query('SELECT id FROM stemming_opties WHERE stemming_id = ' . (int)$s['id'])->fetchAll(PDO::FETCH_COLUMN));
+    $keuze = array_values(array_unique(array_filter(array_map('intval', (array)($invoer['option_ids'] ?? [])), fn($o) => in_array($o, $geldig, true))));
+    if ((int)$s['multi'] !== 1) $keuze = array_slice($keuze, 0, 1);
+    $db->beginTransaction();
+    $v = implode(',', array_fill(0, count($geldig), '?'));
+    $db->prepare("DELETE FROM stemming_stemmen WHERE user_id = ? AND optie_id IN ($v)")->execute(array_merge([$mijnId], $geldig));
+    $ins = $db->prepare('INSERT INTO stemming_stemmen(optie_id, user_id, created) VALUES (?, ?, ?)');
+    foreach ($keuze as $o) $ins->execute([$o, $mijnId, vacom_now()]);
+    $db->commit();
+    vacom_bump_mx(); // anderen zien de nieuwe stand via de poll-'updates'
+    vacom_json(['ok' => true, 'stemming' => stemming_van_bericht($db, (int)$s['message_id'], $mijnId), 'mx' => (int)vacom_meta('mx')]);
+}
+
+case 'stemming_sluit': {
+    // Sluiten: wie de poll plaatste, of de superadmin. Daarna alleen nog de uitslag.
+    $sid = param_int($invoer, 'stemming_id');
+    $st = $db->prepare('SELECT s.*, m.channel_id, m.user_id, m.deleted FROM stemmingen s JOIN messages m ON m.id = s.message_id WHERE s.id = ?');
+    $st->execute([$sid]);
+    $s = $st->fetch();
+    if (!$s || (int)$s['deleted'] === 1) vacom_fout('Poll niet gevonden.', 404);
+    if ((int)$s['user_id'] !== $mijnId && !vacom_is_superadmin()) vacom_fout('Alleen wie de poll plaatste (of de superadmin) kan hem sluiten.', 403);
+    kanaal_voor_mij($db, (int)$s['channel_id'], $mijnId, true);
+    $db->prepare('UPDATE stemmingen SET closed = 1 WHERE id = ?')->execute([(int)$s['id']]);
+    vacom_bump_mx();
+    vacom_json(['ok' => true, 'stemming' => stemming_van_bericht($db, (int)$s['message_id'], $mijnId), 'mx' => (int)vacom_meta('mx')]);
+}
+
 case 'bewerk': {
     // v0.6: eigen bericht bewerken. Alleen de tekst; een bijlage blijft staan.
     $berichtId = param_int($invoer, 'message_id');
@@ -404,6 +538,7 @@ case 'verwijder': {
     kanaal_voor_mij($db, (int)$m['channel_id'], $mijnId, vacom_is_superadmin()); // superadmin mag ook in een gesloten kanaal opruimen
     $db->beginTransaction();
     $db->prepare("UPDATE messages SET body = '', deleted = 1, attachment = NULL, edited = ? WHERE id = ?")->execute([vacom_now(), $berichtId]);
+    $db->prepare('DELETE FROM stemmingen WHERE message_id = ?')->execute([$berichtId]); // v0.8: poll + stemmen mee weg
     $db->prepare('DELETE FROM reactions WHERE message_id = ?')->execute([$berichtId]);
     $db->prepare('DELETE FROM mentions WHERE message_id = ?')->execute([$berichtId]); // v0.7
     $db->commit();

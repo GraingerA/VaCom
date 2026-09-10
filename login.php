@@ -45,7 +45,7 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
 <meta name="theme-color" content="#0f1319">
 <title>Inloggen — VaCom</title>
 <link rel="icon" href="assets/icon-192.png">
-<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="apple-touch-icon" href="<?= asset('assets/apple-touch-icon.png') ?>">
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

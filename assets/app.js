@@ -183,12 +183,11 @@
       const namen = r.user_ids.map((id) => { const u = gebruiker(id); return u ? u.name : 'iemand'; }).join(', ');
       return `<button type="button" class="reactie-chip${mijn ? ' mijn' : ''}" data-toggle-reactie="${esc(r.emoji)}" data-bericht="${m.id}" title="${esc(namen)}">${esc(r.emoji)}<span class="aantal">${r.count}</span></button>`;
     });
-    // Het plusje om te reageren; bij een bericht zonder reacties verschijnt
-    // het alleen bij aanwijzen (CSS), zodat het gesprek rustig blijft.
-    // In een gesloten kanaal (alleen-lezen) geen plusje.
-    if (!m.deleted && !(S.current && S.current.archived)) chips.push(`<button type="button" class="reactie-chip plus" data-reageer="${m.id}" title="Reageer met emoji" aria-label="Reageer met emoji">☺<span class="plusje">+</span></button>`);
+    // v0.7.4: het plusje om te reageren zit nu in de zwevende knoppenbalk
+    // rechtsboven (berichtActies) — de chips-rij bestaat alleen nog als er
+    // écht reacties zijn, zodat aanwijzen niets meer verschuift.
     if (!chips.length) return '';
-    return `<div class="reacties${lijst.length ? '' : ' zonder'}">${chips.join('')}</div>`;
+    return `<div class="reacties">${chips.join('')}</div>`;
   }
 
   function zetReacties(berichtId, reactions) {
@@ -398,9 +397,13 @@
         const klassen = [k.id === actiefId ? 'actief' : '', k.unread ? 'ongelezen' : ''].join(' ').trim();
         return `<li><button type="button" data-kanaal="${k.id}" class="${klassen}"><span class="stip${u && isOnline(u) ? ' online' : ''}"></span>${naam}${badgeVan(k)}</button></li>`;
       }).join('') || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen gesprekken — start er een met +</li>';
-    el.collegas.innerHTML = S.users.filter((u) => u.active && u.id !== S.me.id)
+    // v0.7.4: jezelf bovenaan, met "(jij)" — zo zie je je eigen status zoals
+    // collega's hem zien. Klikken opent je notities-gesprek.
+    const ik = gebruiker(S.me.id);
+    const ikRij = ik ? `<li><button type="button" data-collega="${ik.id}" class="ikzelf"><span class="stip online"></span><span class="naam">${esc(ik.name)} <span class="stil">(jij)</span></span>${statusHtml(ik)}</button></li>` : '';
+    el.collegas.innerHTML = ikRij + (S.users.filter((u) => u.active && u.id !== S.me.id)
       .map((u) => `<li><button type="button" data-collega="${u.id}"><span class="stip${isOnline(u) ? ' online' : ''}"></span><span class="naam">${esc(u.name)}</span>${statusHtml(u)}</button></li>`)
-      .join('') || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen collega\'s</li>';
+      .join('') || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen collega\'s</li>');
 
     // v0.5: ongelezen-tellers per sectie — zichtbaar in de kop zodra een
     // sectie is ingeklapt (CSS verbergt ze bij een open sectie).
@@ -674,6 +677,7 @@
     const a = m.attachment;
     // Een bijlage zonder bijschrift heeft de bestandsnaam als tekst (voor het
     // zoeken); die tonen we dan niet nog een keer als tekst.
+    if (m.stemming) return pollHtml(m); // v0.8: de vraag staat in de poll zelf
     const tekst = a && m.body === a.name ? '' : opmaak(m.body);
     return tekst + bijlageHtml(m);
   }
@@ -709,13 +713,64 @@
     return (b / 1048576).toFixed(b < 10485760 ? 1 : 0).replace('.', ',') + ' MB';
   }
 
+  /* ---------- Polls (v0.8) ---------- */
+  // Een poll is een bericht met m.stemming: {id, multi, closed, options[{id,text,count,user_ids}], my[], total}.
+  function pollHtml(m) {
+    const p = m.stemming;
+    const dicht = p.closed || (S.current && S.current.archived);
+    const stemmenTotaal = p.options.reduce((n, o) => n + o.count, 0);
+    const rijen = p.options.map((o) => {
+      const pct = stemmenTotaal ? Math.round(o.count / stemmenTotaal * 100) : 0;
+      const mijn = p.my.includes(o.id);
+      const namen = o.user_ids.map((id) => (gebruiker(id) || {}).name || 'iemand').join(', ');
+      return `<button type="button" class="poll-optie${mijn ? ' mijn' : ''}" data-poll-stem="${o.id}" data-stemming="${p.id}"${dicht ? ' disabled' : ''} title="${esc(namen)}">
+        <span class="poll-balk" style="width:${pct}%"></span>
+        <span class="poll-tekst">${mijn ? '✓ ' : ''}${esc(o.text)}</span><span class="poll-aantal">${o.count} · ${pct}%</span></button>`;
+    }).join('');
+    const magSluiten = !p.closed && S.me && (m.user_id === S.me.id || S.me.role === 'superadmin') && !(S.current && S.current.archived);
+    const info = `${p.total} ${p.total === 1 ? 'stem' : 'stemmen'}${p.multi ? ' · meerdere antwoorden mogelijk' : ''}${p.closed ? ' · gesloten' : ''}`;
+    return `<div class="poll${p.closed ? ' gesloten' : ''}"><div class="poll-vraag">${esc(m.body)}</div>${rijen}
+      <div class="poll-voet"><span>${info}</span>${magSluiten ? `<button type="button" class="knop mini" data-poll-sluit="${p.id}">Poll sluiten</button>` : ''}</div></div>`;
+  }
+
+  async function stemOp(stemmingId, optieId) {
+    const m = S.msgs.find((x) => x.stemming && x.stemming.id === stemmingId);
+    if (!m) return;
+    const p = m.stemming;
+    let keuze;
+    if (p.multi) keuze = p.my.includes(optieId) ? p.my.filter((id) => id !== optieId) : p.my.concat([optieId]);
+    else keuze = p.my.includes(optieId) ? [] : [optieId]; // nog eens klikken = stem intrekken
+    try {
+      const j = await api('stemming_stem', { stemming_id: stemmingId, option_ids: keuze });
+      m.stemming = j.stemming;
+      S.mx = Math.max(S.mx, j.mx || 0);
+      renderBerichten(false);
+    } catch (e) { toast(e.message); }
+  }
+
+  async function sluitPoll(stemmingId) {
+    const m = S.msgs.find((x) => x.stemming && x.stemming.id === stemmingId);
+    if (!m || !confirm('Poll sluiten? Daarna kan niemand meer stemmen.')) return;
+    try {
+      const j = await api('stemming_sluit', { stemming_id: stemmingId });
+      m.stemming = j.stemming;
+      S.mx = Math.max(S.mx, j.mx || 0);
+      renderBerichten(false);
+    } catch (e) { toast(e.message); }
+  }
+
   // Knopjes rechtsboven op een bericht: bewerken (eigen) en verwijderen (eigen, of superadmin).
+  // Zwevende knoppenbalk rechtsboven op een bericht (v0.7.4: zweeft óver het
+  // bericht, verschuift niets): reageren met emoji (iedereen), bewerken
+  // (eigen bericht) en verwijderen (eigen, of superadmin).
   function berichtActies(m) {
     if (m.deleted || !S.me || (S.current && S.current.archived) || S.bewerkId === m.id) return '';
     const eigen = m.user_id === S.me.id;
     const superadmin = S.me.role === 'superadmin';
-    if (!eigen && !superadmin) return '';
-    return `<div class="bericht-acties">${eigen ? `<button type="button" data-bewerk="${m.id}" title="Bewerken" aria-label="Bewerken">✎</button>` : ''}<button type="button" data-wis="${m.id}" title="Verwijderen" aria-label="Verwijderen">🗑</button></div>`;
+    const knoppen = [`<button type="button" data-reageer="${m.id}" title="Reageer met emoji" aria-label="Reageer met emoji">☺<span class="plusje">+</span></button>`];
+    if (eigen) knoppen.push(`<button type="button" data-bewerk="${m.id}" title="Bewerken" aria-label="Bewerken">✎</button>`);
+    if (eigen || superadmin) knoppen.push(`<button type="button" data-wis="${m.id}" title="Verwijderen" aria-label="Verwijderen">🗑</button>`);
+    return `<div class="bericht-acties">${knoppen.join('')}</div>`;
   }
 
   function startBewerken(id) {
@@ -762,7 +817,8 @@
     for (const u of lijst) {
       const m = S.msgs.find((x) => x.id === u.id);
       if (!m) continue;
-      if (m.body !== u.body || m.edited !== u.edited || m.deleted !== u.deleted || JSON.stringify(m.attachment) !== JSON.stringify(u.attachment)) {
+      if (m.body !== u.body || m.edited !== u.edited || m.deleted !== u.deleted || JSON.stringify(m.attachment) !== JSON.stringify(u.attachment)
+          || JSON.stringify(m.stemming || null) !== JSON.stringify(u.stemming || null)) {
         if (S.bewerkId === m.id && u.deleted) S.bewerkId = 0; // net verwijderd door de superadmin
         Object.assign(m, u);
         if (u.deleted) m.reactions = [];
@@ -916,6 +972,11 @@
     if (chip) { toggleReactie(Number(chip.dataset.bericht), chip.dataset.toggleReactie); return; }
     const plus = e.target.closest('[data-reageer]');
     if (plus) { openPicker({ soort: 'reactie', berichtId: Number(plus.dataset.reageer) }, plus); return; }
+    // v0.8: stemmen / poll sluiten
+    const stem = e.target.closest('[data-poll-stem]');
+    if (stem) { if (!stem.disabled) stemOp(Number(stem.dataset.stemming), Number(stem.dataset.pollStem)); return; }
+    const pollDicht = e.target.closest('[data-poll-sluit]');
+    if (pollDicht) { sluitPoll(Number(pollDicht.dataset.pollSluit)); return; }
     // v0.6: bewerken / verwijderen
     const bewerk = e.target.closest('[data-bewerk]');
     if (bewerk) { startBewerken(Number(bewerk.dataset.bewerk)); return; }
@@ -947,6 +1008,17 @@
   });
 
   el.terug.addEventListener('click', () => { document.body.dataset.pane = 'lijst'; history.replaceState(null, '', location.pathname); });
+  // v0.7.4: het logo brengt je naar de VaCom-"homepage": op de telefoon terug
+  // naar de lijst (een kanaal vult daar het hele scherm), op desktop naar
+  // boven in de lijst. Geen herlaad nodig.
+  const logoLink = $('a.logo');
+  if (logoLink) logoLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.body.dataset.pane = 'lijst';
+    history.replaceState(null, '', location.pathname);
+    const lijsten = $('.zijbalk-lijsten');
+    if (lijsten) lijsten.scrollTop = 0;
+  });
 
   $('#knop-emoji').addEventListener('click', (e) => {
     const p = $('#emoji-picker');
@@ -1219,6 +1291,67 @@
     }
     const t = $('.toast'); if (t && /^Uploaden:/.test(t.textContent)) t.remove();
   }
+
+  /* ---------- Poll plaatsen (v0.8) ---------- */
+  const pollDialoog = $('#dialoog-poll'), pollOpties = $('#poll-opties'), pollFout = $('#poll-fout');
+  function pollOptieVeld(n) {
+    const d = document.createElement('div');
+    d.className = 'poll-optie-veld';
+    d.innerHTML = `<input type="text" maxlength="120" placeholder="Antwoord ${n}" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore><button type="button" class="knop mini" data-optie-weg title="Weghalen">✕</button>`;
+    return d;
+  }
+  function pollReset() {
+    $('#poll-vraag').value = '';
+    $('#poll-multi').checked = false;
+    pollFout.hidden = true;
+    pollOpties.innerHTML = '';
+    pollOpties.appendChild(pollOptieVeld(1));
+    pollOpties.appendChild(pollOptieVeld(2));
+  }
+  $('#knop-poll').addEventListener('click', () => {
+    if (!S.current) return;
+    if (S.current.archived) { toast('Dit kanaal is gesloten — alleen lezen.'); return; }
+    pollReset();
+    pollDialoog.showModal();
+    if (!isTouch) $('#poll-vraag').focus();
+  });
+  $('#poll-optie-plus').addEventListener('click', () => {
+    const n = pollOpties.children.length;
+    if (n >= 10) { toast('Maximaal tien antwoorden.'); return; }
+    const veld = pollOptieVeld(n + 1);
+    pollOpties.appendChild(veld);
+    veld.querySelector('input').focus();
+  });
+  pollOpties.addEventListener('click', (e) => {
+    const weg = e.target.closest('[data-optie-weg]');
+    if (weg && pollOpties.children.length > 2) weg.parentElement.remove();
+  });
+  // Enter in een antwoordveld springt naar het volgende (of maakt er een bij), i.p.v. plaatsen.
+  pollOpties.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const velden = [...pollOpties.querySelectorAll('input')];
+    const i = velden.indexOf(e.target);
+    if (i < velden.length - 1) velden[i + 1].focus();
+    else if (velden.length < 10 && e.target.value.trim()) $('#poll-optie-plus').click();
+  });
+  $('#poll-annuleer').addEventListener('click', () => pollDialoog.close());
+  pollDialoog.addEventListener('click', (e) => { if (e.target === pollDialoog) pollDialoog.close(); });
+  $('#form-poll').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!S.current) return;
+    const k = S.current;
+    const options = [...pollOpties.querySelectorAll('input')].map((i) => i.value.trim()).filter(Boolean);
+    if (options.length < 2) { pollFout.textContent = 'Geef minstens twee antwoorden.'; pollFout.hidden = false; return; }
+    $('#poll-plaatsen').disabled = true;
+    try {
+      const j = await api('stemming_maak', { channel_id: k.id, question: $('#poll-vraag').value.trim(), options, multi: $('#poll-multi').checked ? 1 : 0 });
+      pollDialoog.close();
+      if (S.current === k) { voegToe([j.message]); markeerGelezen(); }
+      S.maxId = Math.max(S.maxId, j.max_id || 0);
+    } catch (err) { pollFout.textContent = err.message; pollFout.hidden = false; }
+    finally { $('#poll-plaatsen').disabled = false; }
+  });
 
   $('#knop-bestand').addEventListener('click', () => $('#bestand-invoer').click());
   $('#bestand-invoer').addEventListener('change', (e) => { uploadBestanden(e.target.files); e.target.value = ''; });
@@ -1573,17 +1706,22 @@
   dmDialoog.addEventListener('click', (e) => { if (e.target === dmDialoog) dmDialoog.close(); });
 
   $('#avatar-kiezen').addEventListener('click', () => $('#avatar-bestand').click());
-  $('#avatar-bestand').addEventListener('change', async (e) => {
+  $('#avatar-bestand').addEventListener('change', (e) => {
     const bestand = e.target.files && e.target.files[0];
     e.target.value = '';
     if (!bestand) return;
     instellingenFout('');
+    if (!/^image\//.test(bestand.type)) { instellingenFout('Kies een afbeelding (jpg, png, gif, webp).'); return; }
+    openCrop(bestand); // v0.7.4: eerst bijsnijden/zoomen, dan uploaden
+  });
+
+  async function uploadAvatar(blob) {
     $('#avatar-kiezen').disabled = true;
     try {
       // Multipart i.p.v. JSON: de foto gaat als bestand mee, het CSRF-token in de header.
       const fd = new FormData();
       fd.append('actie', 'avatar_upload');
-      fd.append('avatar', bestand);
+      fd.append('avatar', blob, 'avatar.jpg');
       const r = await fetch('api.php', { method: 'POST', headers: { 'X-VaCom-Csrf': S.csrf }, body: fd });
       const j = await r.json().catch(() => ({ ok: false, fout: 'Onleesbaar antwoord van de server.' }));
       if (!j.ok) throw new Error(j.fout || 'Upload mislukt.');
@@ -1592,6 +1730,96 @@
       toast('Foto opgeslagen');
     } catch (err) { instellingenFout(err.message); }
     finally { $('#avatar-kiezen').disabled = false; }
+  }
+
+  /* ---------- Foto bijsnijden (v0.7.4) ---------- */
+  // De foto staat in een vierkant kader; je sleept hem en zoomt met de
+  // schuif of het scrollwiel. Bij "Gebruiken" tekenen we precies het kader
+  // op een canvas (384×384) en sturen dát als JPEG naar de server — die
+  // maakt er zoals altijd een 192×192 van. De foto blijft altijd het hele
+  // kader vullen (geen lege randen), net als bij een telefoon-app.
+  const cropDialoog = $('#dialoog-avatar'), cropKader = $('#crop-kader'), cropBeeld = $('#crop-beeld'), cropZoom = $('#crop-zoom');
+  const crop = { url: null, natW: 0, natH: 0, basis: 1, zoom: 1, x: 0, y: 0, sleep: null };
+  const K = () => cropKader.clientWidth; // kadermaat in px (CSS)
+
+  function openCrop(bestand) {
+    if (crop.url) URL.revokeObjectURL(crop.url);
+    crop.url = URL.createObjectURL(bestand);
+    cropBeeld.onload = () => {
+      crop.natW = cropBeeld.naturalWidth; crop.natH = cropBeeld.naturalHeight;
+      crop.basis = K() / Math.min(crop.natW, crop.natH); // kleinste zijde vult het kader
+      crop.zoom = 1; crop.x = 0; crop.y = 0;
+      cropZoom.value = '1';
+      tekenCrop();
+    };
+    cropBeeld.onerror = () => { instellingenFout('Deze afbeelding kan niet geladen worden.'); cropDialoog.close(); };
+    cropBeeld.src = crop.url;
+    cropDialoog.showModal();
+  }
+
+  function cropMaten() {
+    const w = crop.natW * crop.basis * crop.zoom, h = crop.natH * crop.basis * crop.zoom, k = K();
+    // Verschuiving begrenzen: het kader moet altijd helemaal gevuld blijven.
+    crop.x = Math.max(-(w - k) / 2, Math.min((w - k) / 2, crop.x));
+    crop.y = Math.max(-(h - k) / 2, Math.min((h - k) / 2, crop.y));
+    return { w, h, k, left: (k - w) / 2 + crop.x, top: (k - h) / 2 + crop.y };
+  }
+
+  function tekenCrop() {
+    if (!crop.natW) return;
+    const m = cropMaten();
+    cropBeeld.style.width = m.w + 'px'; cropBeeld.style.height = m.h + 'px';
+    cropBeeld.style.left = m.left + 'px'; cropBeeld.style.top = m.top + 'px';
+  }
+
+  // Zoomen om het midden van het kader: de verschuiving schaalt mee.
+  function zetZoom(nieuw) {
+    nieuw = Math.max(1, Math.min(4, nieuw));
+    const f = nieuw / crop.zoom;
+    crop.x *= f; crop.y *= f; crop.zoom = nieuw;
+    cropZoom.value = String(nieuw);
+    tekenCrop();
+  }
+  cropZoom.addEventListener('input', () => zetZoom(parseFloat(cropZoom.value)));
+  cropKader.addEventListener('wheel', (e) => { e.preventDefault(); zetZoom(crop.zoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08)); }, { passive: false });
+  cropKader.addEventListener('pointerdown', (e) => {
+    crop.sleep = { px: e.clientX, py: e.clientY, x: crop.x, y: crop.y };
+    cropKader.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  cropKader.addEventListener('pointermove', (e) => {
+    if (!crop.sleep) return;
+    crop.x = crop.sleep.x + (e.clientX - crop.sleep.px);
+    crop.y = crop.sleep.y + (e.clientY - crop.sleep.py);
+    tekenCrop();
+  });
+  const stopSleep = () => { crop.sleep = null; };
+  cropKader.addEventListener('pointerup', stopSleep);
+  cropKader.addEventListener('pointercancel', stopSleep);
+
+  function sluitCrop() {
+    cropDialoog.close();
+    if (crop.url) { URL.revokeObjectURL(crop.url); crop.url = null; }
+    cropBeeld.removeAttribute('src');
+  }
+  $('#avatar-crop-sluit').addEventListener('click', sluitCrop);
+  $('#avatar-crop-annuleer').addEventListener('click', sluitCrop);
+  cropDialoog.addEventListener('cancel', (e) => { e.preventDefault(); sluitCrop(); }); // Esc
+
+  $('#avatar-crop-ok').addEventListener('click', async () => {
+    if (!crop.natW) return;
+    const m = cropMaten();
+    const uit = 384, s = uit / m.k;
+    const c = document.createElement('canvas');
+    c.width = uit; c.height = uit;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, uit, uit); // transparante png's krijgen wit
+    ctx.drawImage(cropBeeld, m.left * s, m.top * s, m.w * s, m.h * s);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9));
+    if (!blob) { instellingenFout('Bijsnijden mislukt.'); return; }
+    sluitCrop();
+    await uploadAvatar(blob);
   });
   $('#avatar-weg').addEventListener('click', async () => {
     try {

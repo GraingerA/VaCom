@@ -40,7 +40,7 @@ $start = [
 <meta name="apple-mobile-web-app-title" content="VaCom">
 <title>VaCom</title>
 <link rel="icon" href="assets/icon-192.png">
-<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="apple-touch-icon" href="<?= asset('assets/apple-touch-icon.png') ?>"><!-- met versie: iOS bewaart het oude icoon anders hardnekkig -->
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -62,10 +62,11 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
   <!-- Header (v0.5), zoals de Portal-headerbalk: logo links, rechts wie je
        bent en de knoppen zoeken · thema · instellingen · uitloggen. -->
   <header class="app-kop glas">
-    <div class="logo">
+    <!-- v0.7.4: het logo brengt je terug naar het overzicht (op de telefoon: uit het kanaal, naar de lijst) -->
+    <a class="logo" href="index.php" title="Naar het overzicht">
       <img class="logo-icoon" src="assets/icon-192.png" alt="">
       <span class="logo-naam">VaCom</span>
-    </div>
+    </a>
     <button type="button" class="kop-ik" id="kop-ik" title="Instellingen">
       <span class="avatar klein" id="kop-avatar"></span>
       <span class="naam" id="kop-naam"><?= h($ik['name']) ?></span>
@@ -148,6 +149,10 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
       <!-- v0.5.3: GIF zoeken via Giphy; de knop verschijnt alleen als er een sleutel is (zie vacom_giphy_key) -->
       <button type="button" class="knop icoon" id="knop-gif" title="GIF zoeken" aria-label="GIF zoeken" hidden><span class="gif-label">GIF</span></button>
       <!-- v0.6: foto of bestand meesturen (ook plakken in het veld of slepen op het gesprek) -->
+      <!-- v0.8: poll plaatsen -->
+      <button type="button" class="knop icoon" id="knop-poll" title="Poll plaatsen" aria-label="Poll plaatsen">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>
+      </button>
       <button type="button" class="knop icoon" id="knop-bestand" title="Foto of bestand sturen" aria-label="Foto of bestand sturen">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.5 12.6 21a5.5 5.5 0 0 1-7.8-7.8l9-9a3.5 3.5 0 0 1 5 5l-9 9a1.5 1.5 0 0 1-2.1-2.1l8.3-8.3"/></svg>
       </button>
@@ -246,6 +251,42 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
         <a class="knop" href="gebruikers.php"><?= VACOM_PORTAL ? 'Collega\'s' : (vacom_is_superadmin() ? 'Gebruikers' : 'Mijn wachtwoord') ?></a>
         <a class="knop" href="changelog.php">Wat is er nieuw</a>
       </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Poll plaatsen (v0.8) -->
+<dialog id="dialoog-poll" class="dialoog klein">
+  <form id="form-poll" autocomplete="off">
+    <h2>Poll plaatsen</h2>
+    <label>Vraag
+      <input type="text" id="poll-vraag" required maxlength="300" placeholder="Bijv. Wanneer plannen we de teamdag?" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>
+    </label>
+    <label>Antwoorden</label>
+    <div class="poll-opties" id="poll-opties"></div>
+    <button type="button" class="knop mini" id="poll-optie-plus">+ Antwoord</button>
+    <label class="poll-multi"><input type="checkbox" id="poll-multi"> Meerdere antwoorden mogelijk</label>
+    <p class="melding fout" id="poll-fout" hidden></p>
+    <div class="dialoog-knoppen">
+      <button type="button" class="knop" id="poll-annuleer">Annuleren</button>
+      <button type="submit" class="knop primair" id="poll-plaatsen">Poll plaatsen</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Foto bijsnijden (v0.7.4): slepen om te verschuiven, schuif of scrollwiel om te zoomen -->
+<dialog id="dialoog-avatar" class="dialoog klein">
+  <div class="dialoog-kop">
+    <h2>Foto bijsnijden</h2>
+    <button type="button" class="knop mini" id="avatar-crop-sluit" aria-label="Sluiten">✕</button>
+  </div>
+  <div class="opties-body">
+    <div class="crop-kader" id="crop-kader"><img id="crop-beeld" alt="" draggable="false"></div>
+    <div class="crop-zoom"><span aria-hidden="true">−</span><input type="range" id="crop-zoom" min="1" max="4" step="0.01" value="1" aria-label="Zoom"><span aria-hidden="true">+</span></div>
+    <p class="inst-hint">Sleep de foto om hem te verschuiven; zoom met de schuif of het scrollwiel. Het vierkant wordt je profielfoto.</p>
+    <div class="dialoog-knoppen">
+      <button type="button" class="knop" id="avatar-crop-annuleer">Annuleren</button>
+      <button type="button" class="knop primair" id="avatar-crop-ok">Gebruiken</button>
     </div>
   </div>
 </dialog>

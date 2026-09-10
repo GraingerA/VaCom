@@ -89,8 +89,11 @@ JSON v0.6 — het bestand zelf staat in `VACOM_DATA/bestanden/<bericht-id>/`, me
 `thumb.jpg` bij foto's, geserveerd door `bestand.php?m=ID` aan kanaalleden),
 `messages_fts`, `reactions`, `mentions` (v0.7: wie in welk bericht met @Naam genoemd
 is; gevuld door `vacom_vermeldingen_opslaan()` bij sturen/bewerken, jezelf telt niet),
+`stemmingen` + `stemming_opties` + `stemming_stemmen` (polls v0.8: de vraag is de
+message-body, CASCADE op het bericht; API `stemming_maak/stem/sluit`, de stand
+gaat mee in de poll-'updates' via `mx`),
 `meta` (tellers `state` → overzicht opnieuw, `rx` →
-reacties, `mx` → bewerkte/verwijderde berichten; `portal_stempel`). Iedereen is
+reacties, `mx` → bewerkte/verwijderde berichten en poll-stemmen; `portal_stempel`). Iedereen is
 automatisch lid van elk openbaar kanaal. Verwijderen van een bericht is een soft
 delete (`deleted=1`, body leeg → uit de zoekindex, bijlage van schijf).
 
