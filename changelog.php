@@ -31,6 +31,13 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.9.2 <span class="stil">— 16 september 2026</span></h2>
+    <ul>
+      <li><strong>Meldingen ook aan te zetten vanuit de Portal.</strong> De Portal (v4.15.3) toont dezelfde uitnodigingsbalk als VaCom en meldt je apparaat via VaCom aan — het resultaat is identiek aan Instellingen → Meldingen hier. Technisch: nieuwe alleen-lezen actie <code>portal_push_info</code>.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.9.1 <span class="stil">— 16 september 2026</span></h2>
     <ul>
       <li><strong>Uitnodiging om meldingen aan te zetten.</strong> Op de laptop verschijnt onderin een balk "Wil je een melding als er iets voor je is?" zolang meldingen op dat apparaat nog uitstaan. Eén klik op Aanzetten regelt de toestemming en de aanmelding; "Niet nu" verbergt de balk twee weken. Aanpassen kan altijd onder Instellingen → Meldingen.</li>

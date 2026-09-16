@@ -1061,6 +1061,15 @@ case 'portal_vermeldingen': {
     vacom_json(['ok' => true, 'totaal' => $totaal, 'ongelezen' => $ongelezen, 'kanalen' => $uit]);
 }
 
+case 'portal_push_info': {
+    // v0.9.2: voor de meldingen-balk in de Portal. De Portal-pagina meldt zich
+    // zelf aan bij de push-dienst (met VaCom's service worker en publieke
+    // VAPID-sleutel) en bewaart het abonnement via push_abonneer — daarvoor
+    // heeft ze het CSRF-token van deze sessie nodig. Alleen-lezen, GET, zelfde
+    // origin; een lege 'vapid' betekent: deze server kan niet pushen.
+    vacom_json(['ok' => true, 'vapid' => vacom_vapid_public(), 'csrf' => vacom_csrf()]);
+}
+
 case 'portal_project': {
     // De kanaalkaart op de Portal-projectpagina: leden en de laatste berichten.
     // Geen lid? Dan alleen dát (privacy: je leest alleen mee waar je bij hoort).
