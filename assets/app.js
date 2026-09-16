@@ -1429,6 +1429,37 @@
     if (Notification.permission === 'denied') hint.textContent = 'Meldingen zijn in de browserinstellingen voor deze site geblokkeerd; zet ze daar weer aan.';
   }
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+  // Meldingen aanzetten (v0.9.1: gedeeld door de Instellingen-knop en de
+  // uitnodigingsbalk): toestemming vragen, abonneren, op de server bewaren.
+  // true = gelukt; bij een weigering false; bij een echte fout een Error met
+  // Nederlandse uitleg (zie pushFoutUitleg).
+  async function zetPushAan() {
+    const toestemming = await Notification.requestPermission();
+    if (toestemming !== 'granted') { toast('Geen toestemming voor meldingen.'); return false; }
+    const reg = await navigator.serviceWorker.ready;
+    let nieuw;
+    try {
+      nieuw = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidBytes() });
+    } catch (e) { throw new Error(pushFoutUitleg(e)); }
+    await api('push_abonneer', { subscription: nieuw.toJSON() });
+    return true;
+  }
+
+  // "Registration failed - push service error": de browser kon zich niet
+  // aanmelden bij zijn eigen meldingsdienst. Dat ligt aan de browser of het
+  // netwerk, niet aan VaCom — dus liever een uitleg dan de Engelse fout.
+  // Brave heeft die dienst standaard uit (dat was bij Ad de oorzaak).
+  function pushFoutUitleg(e) {
+    const tekst = String((e && e.message) || e);
+    const brave = !!(navigator.brave && typeof navigator.brave.isBrave === 'function');
+    if (/push service|registration failed/i.test(tekst)) {
+      if (brave) return 'Brave heeft de meldingsdienst standaard uitgeschakeld. Zet in de Brave-instellingen bij Privacy en beveiliging "Google-services gebruiken voor pushberichten" aan, herstart Brave en probeer het opnieuw.';
+      return 'De browser kan zich niet aanmelden bij zijn meldingsdienst. Gebruik je Edge, kijk dan bij Windows-instellingen → Systeem → Meldingen of meldingen (en Edge) aanstaan. Lukt het ook in Chrome niet, probeer het dan buiten het kantoornetwerk — een firewall kan de meldingsdienst blokkeren.';
+    }
+    return 'Meldingen aanzetten lukte niet: ' + tekst;
+  }
+
   $('#push-knop').addEventListener('click', async () => {
     try {
       const sub = await pushAbonnement();
@@ -1436,13 +1467,9 @@
         await api('push_afmelden', { endpoint: sub.endpoint });
         await sub.unsubscribe();
         toast('Meldingen uitgezet op dit apparaat');
-      } else {
-        const toestemming = await Notification.requestPermission();
-        if (toestemming !== 'granted') { toast('Geen toestemming voor meldingen.'); await renderPush(); return; }
-        const reg = await navigator.serviceWorker.ready;
-        const nieuw = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidBytes() });
-        await api('push_abonneer', { subscription: nieuw.toJSON() });
+      } else if (await zetPushAan()) {
         toast('Meldingen aan op dit apparaat');
+        const b = $('#banner-push'); if (b) b.hidden = true;
       }
     } catch (e) { instellingenFout(e.message); }
     renderPush();
@@ -1460,6 +1487,35 @@
   if (pushKan && Notification.permission === 'granted') {
     pushAbonnement().then((sub) => { if (sub) api('push_abonneer', { subscription: sub.toJSON() }).catch(() => {}); }).catch(() => {});
   }
+
+  /* ---------- Uitnodiging om meldingen aan te zetten (v0.9.1) ---------- */
+  // Op laptop/desktop, zolang meldingen op dit apparaat nog niet aanstaan.
+  // "Niet nu" verbergt de balk twee weken. Niet op iPhone/iPad (daar is de
+  // beginscherm-tip), niet in de Portal-popup, niet als de browser meldingen
+  // geblokkeerd heeft en niet als de server niet kan pushen.
+  (async () => {
+    const banner = $('#banner-push');
+    if (!banner || !pushKan || window.VACOM.embed) return;
+    if (/iphone|ipad|ipod/i.test(navigator.userAgent) || Notification.permission === 'denied') return;
+    let later = 0;
+    try { later = Number(localStorage.getItem('vacom_push_later') || 0); } catch (e) { /* privé-modus */ }
+    if (Date.now() - later < 14 * 24 * 60 * 60 * 1000) return;
+    const sub = await pushAbonnement().catch(() => null);
+    if (sub && Notification.permission === 'granted') return; // staat al aan
+    banner.hidden = false;
+    $('#banner-push-later').addEventListener('click', () => {
+      banner.hidden = true;
+      try { localStorage.setItem('vacom_push_later', String(Date.now())); } catch (e) { /* prima */ }
+    });
+    $('#banner-push-aan').addEventListener('click', async () => {
+      const knop = $('#banner-push-aan');
+      knop.disabled = true;
+      try {
+        if (await zetPushAan()) { banner.hidden = true; toast('Meldingen staan aan op dit apparaat 🎉'); }
+      } catch (e) { toast(e.message); }
+      knop.disabled = false;
+    });
+  })();
 
   /* ---------- GIF zoeken via Giphy (v0.5.3) ---------- */
   // Zelfde soort paneel als de emoji-picker: zoekveld, raster met previews,

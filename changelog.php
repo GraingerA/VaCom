@@ -31,6 +31,15 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.9.1 <span class="stil">— 16 september 2026</span></h2>
+    <ul>
+      <li><strong>Uitnodiging om meldingen aan te zetten.</strong> Op de laptop verschijnt onderin een balk "Wil je een melding als er iets voor je is?" zolang meldingen op dat apparaat nog uitstaan. Eén klik op Aanzetten regelt de toestemming en de aanmelding; "Niet nu" verbergt de balk twee weken. Aanpassen kan altijd onder Instellingen → Meldingen.</li>
+      <li><strong>Duidelijke uitleg als aanzetten niet lukt.</strong> De Engelse browserfout "Registration failed – push service error" is vervangen door een Nederlandse uitleg met wat je moet doen: in Brave de meldingsdienst aanzetten (staat daar standaard uit), bij Edge de Windows-meldingen controleren, of het buiten het kantoornetwerk proberen.</li>
+      <li>Voor de Portal: de VaCom-knop in de Portal-header telt nu alle nieuwe berichten (Portal v4.15.1).</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.9.0 <span class="stil">— 10 september 2026</span></h2>
     <p class="stil">Een grote: zeven dingen die je van Slack kent.</p>
     <ul>

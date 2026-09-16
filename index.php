@@ -431,6 +431,13 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
   </div>
 </dialog>
 
+<!-- v0.9.1: uitnodiging om meldingen aan te zetten (laptop/desktop), tot je kiest -->
+<div class="banner" id="banner-push" hidden>
+  <p><strong>Wil je een melding als er iets voor je is?</strong> Bij gesprekken, @vermeldingen en threads waar je in zit &mdash; ook als VaCom niet openstaat. Aanpassen kan altijd onder Instellingen.</p>
+  <button class="knop mini primair" id="banner-push-aan">Aanzetten</button>
+  <button class="knop mini" id="banner-push-later">Niet nu</button>
+</div>
+
 <!-- Installatie-tip voor iPhone -->
 <div class="banner" id="banner-ios" hidden>
   <p>Zet VaCom op je beginscherm voor meldingen: tik op <strong>Delen</strong> <span class="ios-deel">⎋</span> en dan <strong>Zet op beginscherm</strong>.</p>

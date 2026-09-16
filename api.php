@@ -1032,29 +1032,33 @@ case 'portal_ongelezen': {
 }
 
 case 'portal_vermeldingen': {
-    // v0.7.1: voor de @-indicator in de Portal-header — in welke kanalen word
-    // ik genoemd in berichten die ik nog niet gelezen heb? Alleen-lezen, GET.
+    // v0.7.1: voor de VaCom-knop in de Portal-header. v0.9.1: niet alleen
+    // @vermeldingen maar álle ongelezen berichten per kanaal ('unread', zelfde
+    // telling als de zijbalk), plus 'mentions' als deel daarvan. Alleen-lezen,
+    // GET. 'totaal' = vermeldingen (naam uit v0.7.1, de Portal leest hem nog).
     $st = $db->prepare('SELECT c.id, c.type, c.name, c.dm_key, c.project_token,
+        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.id > m.last_read_id AND x.user_id != m.user_id AND x.deleted = 0) AS unread,
         (SELECT COUNT(*) FROM mentions mn JOIN messages x ON x.id = mn.message_id
            WHERE x.channel_id = c.id AND mn.user_id = ? AND x.id > m.last_read_id AND x.deleted = 0) AS mentions
         FROM channels c JOIN channel_members m ON m.channel_id = c.id
-        WHERE m.user_id = ? AND c.archived = 0');
+        WHERE m.user_id = ? AND c.archived = 0 AND NOT (c.type = \'dm\' AND m.hidden = 1)');
     $st->execute([$mijnId, $mijnId]);
-    $uit = []; $totaal = 0;
+    $uit = []; $totaal = 0; $ongelezen = 0;
     foreach ($st->fetchAll() as $r) {
-        $n = (int)$r['mentions'];
-        if ($n === 0) continue;
+        $u = (int)$r['unread']; $n = (int)$r['mentions'];
+        if ($u === 0 && $n === 0) continue;
         $label = '#' . $r['name'];
         if ($r['type'] === 'dm') {
             [$a, $b] = array_map('intval', explode(':', (string)$r['dm_key']));
             $ander = vacom_user_by_id($a === $mijnId ? $b : $a);
             $label = $ander ? (string)$ander['name'] : 'Gesprek';
         }
-        $uit[] = ['id' => (int)$r['id'], 'label' => $label, 'project_token' => $r['project_token'] ?: '', 'mentions' => $n];
-        $totaal += $n;
+        $uit[] = ['id' => (int)$r['id'], 'label' => $label, 'project_token' => $r['project_token'] ?: '', 'unread' => $u, 'mentions' => $n];
+        $totaal += $n; $ongelezen += $u;
     }
-    usort($uit, fn($x, $y) => $y['mentions'] <=> $x['mentions']);
-    vacom_json(['ok' => true, 'totaal' => $totaal, 'kanalen' => $uit]);
+    // Kanalen waar je genoemd wordt bovenaan, daarna op aantal nieuw.
+    usort($uit, fn($x, $y) => [$y['mentions'], $y['unread']] <=> [$x['mentions'], $x['unread']]);
+    vacom_json(['ok' => true, 'totaal' => $totaal, 'ongelezen' => $ongelezen, 'kanalen' => $uit]);
 }
 
 case 'portal_project': {
