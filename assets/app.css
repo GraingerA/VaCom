@@ -197,6 +197,9 @@ a.logo:hover .logo-naam { color: var(--goud); }
 .inst-sectie { border-top: 1px solid var(--lijn); margin-top: 16px; padding-top: 14px; }
 .inst-kop { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--stil); margin-bottom: 8px; }
 .inst-hint { font-size: 13px; color: var(--stil); margin: 8px 0 0; line-height: 1.45; }
+/* v0.9.4: uitleg na een proefmelding — even in een kadertje, zodat hij opvalt */
+.push-test-uitleg { padding: 10px 12px; border: 1px solid rgba(251, 188, 67, 0.3); border-radius: var(--r-knop); background: rgba(251, 188, 67, 0.07); color: var(--tekst); }
+.push-test-uitleg[hidden] { display: none; }
 .status-rij { display: flex; gap: 8px; align-items: stretch; }
 .status-rij input { margin: 0; min-width: 0; }
 .status-rij .knop { flex: none; }

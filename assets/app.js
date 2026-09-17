@@ -1417,8 +1417,10 @@
       hint.textContent = ios ? 'Zet VaCom eerst op je beginscherm (Delen → Zet op beginscherm) en open het van daaruit; dan kun je meldingen aanzetten.'
         : (window.VACOM.vapid ? 'Deze browser ondersteunt geen pushmeldingen.' : 'De server kan (nog) geen pushmeldingen sturen.');
       knop.hidden = true; keuze.hidden = true;
+      $('#push-test-rij').hidden = true;
       return;
     }
+    $('#push-test-uitleg').hidden = true;
     const sub = await pushAbonnement();
     const aan = !!sub && Notification.permission === 'granted';
     status.textContent = aan ? 'Op dit apparaat: aan' : (Notification.permission === 'denied' ? 'Geblokkeerd in de browser' : 'Op dit apparaat: uit');
@@ -1481,9 +1483,25 @@
     try { const j = await api('push_instelling', { alles: r.value === '1' ? 1 : 0 }); if (S.me) S.me.push_alles = j.push_alles; toast('Voorkeur opgeslagen'); }
     catch (e) { instellingenFout(e.message); }
   }));
+  // v0.9.4: proefmelding met uitleg. De knop staat er altijd; staat het op dit
+  // apparaat nog uit, dan zeggen we dat. Na het versturen: wat te doen als er
+  // niets verschijnt — dan houdt het besturingssysteem de melding tegen.
   $('#push-test').addEventListener('click', async () => {
-    try { const j = await api('push_test'); toast(j.verstuurd ? 'Proefmelding verstuurd — hij komt zo binnen' : 'Geen apparaat aangemeld'); }
-    catch (e) { instellingenFout(e.message); }
+    const uitleg = $('#push-test-uitleg');
+    const toon = (html) => { uitleg.innerHTML = html; uitleg.hidden = false; };
+    try {
+      const sub = await pushAbonnement();
+      if (!sub || Notification.permission !== 'granted') {
+        toon('Meldingen staan op dit apparaat nog uit. Klik eerst hierboven op <strong>Aanzetten</strong> en probeer het dan opnieuw.');
+        return;
+      }
+      const j = await api('push_test');
+      const mac = /Mac/.test(navigator.platform || navigator.userAgent);
+      toon('<strong>Proefmelding verstuurd</strong> naar ' + (j.verstuurd === 1 ? '1 apparaat' : j.verstuurd + ' apparaten') + '. Hij hoort binnen een paar tellen te verschijnen.<br>'
+        + 'Zie je niets? Dan houdt je computer hem tegen, niet VaCom: '
+        + (mac ? 'open <em>Systeeminstellingen → Meldingen</em>, kies je browser (bijv. Google Chrome) en zet <em>Sta meldingen toe</em> aan. Kijk ook of <em>Focus / Niet storen</em> uitstaat.'
+               : 'open <em>Instellingen → Systeem → Meldingen</em>, zet meldingen voor je browser aan en kijk of <em>Niet storen</em> uitstaat.'));
+    } catch (e) { toon(esc(e.message)); }
   });
   // Bij het starten: bestaand abonnement stilletjes opnieuw registreren (na een
   // herinstallatie of als de server het kwijt is). Kost één klein verzoek.

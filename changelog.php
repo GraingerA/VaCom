@@ -31,6 +31,13 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.9.4 <span class="stil">— 17 september 2026</span></h2>
+    <ul>
+      <li><strong>Proefmelding, goed vindbaar.</strong> Onder Instellingen → Meldingen staat nu altijd de regel "Werkt het? Test het hier" met de knop <em>Stuur proefmelding</em> (voorheen een klein knopje dat pas verscheen als meldingen al aanstonden). Staan meldingen op dat apparaat nog uit, dan zegt hij dat. Na het versturen lees je wat je moet doen als er niets verschijnt: op de Mac bij Systeeminstellingen → Meldingen je browser toestaan en Focus uitzetten, op Windows hetzelfde bij Instellingen → Systeem → Meldingen.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.9.3 <span class="stil">— 17 september 2026</span></h2>
     <ul>
       <li><strong>Meldingen kwamen niet aan als je de Portal of VaCom open had staan.</strong> VaCom sloeg iedereen over die "net actief" was, en telde daarbij elk verzoek mee — ook de stille controle van de VaCom-knop in de Portal-header, elke halve minuut. Wie de Portal de hele dag in een tabblad open had, kreeg dus nooit een melding. Nu wordt een melding alleen nog overgeslagen als je op dat moment echt naar VaCom kijkt: het venster is zichtbaar én heeft de aandacht. Staat VaCom op de achtergrond, in een ander tabblad, of heb je alleen de Portal open, dan komt de melding gewoon.</li>

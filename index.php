@@ -301,8 +301,10 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
       <div class="push-keuze" id="push-keuze" hidden>
         <label><input type="radio" name="push-wat" value="0"> Alleen gesprekken, @vermeldingen en threads waar ik in zit</label>
         <label><input type="radio" name="push-wat" value="1"> Alle berichten in mijn kanalen</label>
-        <button type="button" class="knop mini" id="push-test">Proefmelding</button>
       </div>
+      <!-- v0.9.4: altijd zichtbare testknop, met uitleg als er niets binnenkomt -->
+      <div class="instellingen-rij" id="push-test-rij"><span>Werkt het? Test het hier</span><button type="button" class="knop mini" id="push-test">Stuur proefmelding</button></div>
+      <p class="inst-hint push-test-uitleg" id="push-test-uitleg" hidden></p>
       <p class="inst-hint" id="push-hint">Je krijgt een melding op dit apparaat als VaCom niet openstaat. Op de iPhone werkt dit alleen als VaCom op het beginscherm staat.</p>
     </div>
 
