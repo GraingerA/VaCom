@@ -286,6 +286,17 @@ CREATE TABLE typing (
 SQL);
         $pdo->exec('PRAGMA user_version = 11');
     }
+
+    if ($versie < 12) {
+        // v0.9.3: "kijkt nu naar VaCom" — unix-tijd van de laatste poll waarbij
+        // het VaCom-venster zichtbaar was én de aandacht had. Alleen dán slaan
+        // we een pushmelding over. last_seen was daar ongeschikt voor: dat
+        // wordt door élk verzoek bijgewerkt, ook de achtergrondcontrole van de
+        // Portal-header, waardoor iedereen met de Portal open nooit een
+        // melding kreeg.
+        $pdo->exec('ALTER TABLE users ADD COLUMN kijkt_at INTEGER NOT NULL DEFAULT 0');
+        $pdo->exec('PRAGMA user_version = 12');
+    }
 }
 
 /* ---------- Kleine helpers rond de database ---------- */

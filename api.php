@@ -230,7 +230,11 @@ function vacom_link_preview(PDO $db, string $url): ?array {
 
 /**
  * Wie krijgt een melding? Leden van het kanaal behalve de schrijver, die niet
- * net actief zijn (last_seen ouder dan 75 s: wie de app open heeft, ziet het al).
+ * op dit moment naar VaCom kijken (kijkt_at jonger dan 45 s: venster zichtbaar
+ * én met de aandacht, doorgegeven door de poll — zie case 'poll'). v0.9.3:
+ * voorheen keken we naar last_seen, maar dat wordt door elk verzoek bijgewerkt,
+ * ook door de achtergrondcontrole van de Portal-header; wie de Portal open had
+ * staan kreeg daardoor nooit een melding.
  *   DM             → de ander(en)
  *   @vermelding    → de genoemden
  *   thread-antwoord→ wie in die thread meedoet (starter + eerdere reageerders)
@@ -238,7 +242,7 @@ function vacom_link_preview(PDO $db, string $url): ?array {
  */
 function push_bij_bericht(PDO $db, array $k, int $berichtId, int $auteurId, string $tekst, ?int $parentId = null): void {
     if (!vacom_push_kan()) return;
-    $st = $db->prepare('SELECT u.id, u.push_alles, u.last_seen FROM channel_members cm JOIN users u ON u.id = cm.user_id WHERE cm.channel_id = ? AND cm.user_id != ? AND u.active = 1');
+    $st = $db->prepare('SELECT u.id, u.push_alles, u.kijkt_at FROM channel_members cm JOIN users u ON u.id = cm.user_id WHERE cm.channel_id = ? AND cm.user_id != ? AND u.active = 1');
     $st->execute([(int)$k['id'], $auteurId]);
     $leden = $st->fetchAll();
     if (!$leden) return;
@@ -252,7 +256,7 @@ function push_bij_bericht(PDO $db, array $k, int $berichtId, int $auteurId, stri
     $doel = [];
     foreach ($leden as $l) {
         $uid = (int)$l['id'];
-        if (!empty($l['last_seen']) && strtotime((string)$l['last_seen']) > time() - 75) continue; // zit er nu in
+        if ((int)$l['kijkt_at'] > time() - 45) continue; // kijkt nu naar VaCom: ziet het bericht al
         $reden = $k['type'] === 'dm' || isset($genoemd[$uid]) || isset($threadLeden[$uid]) || (int)$l['push_alles'] === 1;
         if ($reden) $doel[] = $uid;
     }
@@ -458,6 +462,12 @@ case 'poll': {
     $sinceId = param_int($invoer, 'since_id');
     $kanaalId = param_int($invoer, 'channel_id');
     $threadId = param_int($invoer, 'thread_id'); // v0.9: open thread (starter-id), 0 = geen
+    // v0.9.3: kijkt deze gebruiker nu echt naar VaCom (venster zichtbaar én met
+    // de aandacht)? Dan hoeft er geen pushmelding — zie push_bij_bericht.
+    // Hooguit elke 20 s wegschrijven; de poll zelf komt elke paar seconden.
+    if (param_int($invoer, 'kijkt') === 1 && (int)($ik['kijkt_at'] ?? 0) < time() - 20) {
+        $db->prepare('UPDATE users SET kijkt_at = ? WHERE id = ?')->execute([time(), $mijnId]);
+    }
     // v0.9: typt-indicator — wie typte de laatste 6 s in dit kanaal (niet ikzelf)?
     // Klein genoeg om altijd mee te sturen; verandert ook als er verder niets nieuw is.
     $typt = [];

@@ -108,7 +108,10 @@ delete (`deleted=1`, body leeg → uit de zoekindex, bijlage van schijf).
   eerste gebruik aangemaakt), RFC 8291-versleuteling, curl_multi. Abonnementen in
   `push_subs`; voorkeur `users.push_alles`. `push_bij_bericht()` bepaalt wie een
   melding krijgt (DM / @vermelding / thread-deelnemer / alles) en slaat mensen
-  over die de laatste 75 s actief waren. `sw.js` toont de melding en opent
+  over die nu naar VaCom kijken: `users.kijkt_at` jonger dan 45 s (v0.9.3; de
+  poll stuurt `kijkt=1` mee als het venster zichtbaar is én de aandacht heeft).
+  Níet `last_seen` gebruiken: dat wordt door elk verzoek bijgewerkt, ook door
+  de achtergrondcontrole van de Portal-header. `sw.js` toont de melding en opent
   `index.php#k=ID&t=THREAD`. Windows-dev: OPENSSL_CONF wordt gezet in push.php.
 - **Opslaan/vastzetten**: tabellen `saved` (privé) en `pins` (per kanaal).
 - **Voorvertoning**: `messages.preview` (JSON) + cache `link_previews`;

@@ -1185,7 +1185,10 @@
   async function poll() {
     if (document.hidden) return;
     try {
-      const q = new URLSearchParams({ actie: 'poll', since_id: S.maxId, state: S.state, rx: S.rx, mx: S.mx, channel_id: S.current ? S.current.id : 0, thread_id: S.thread ? S.thread.parent.id : 0 });
+      // v0.9.3: 'kijkt' = dit venster is zichtbaar én heeft de aandacht. Alleen dan
+      // slaat de server een pushmelding over (je ziet het bericht immers al).
+      const kijkt = document.visibilityState === 'visible' && document.hasFocus() ? 1 : 0;
+      const q = new URLSearchParams({ actie: 'poll', since_id: S.maxId, state: S.state, rx: S.rx, mx: S.mx, channel_id: S.current ? S.current.id : 0, thread_id: S.thread ? S.thread.parent.id : 0, kijkt: kijkt });
       const r = await fetch('api.php?' + q, { cache: 'no-store', headers: { Accept: 'application/json' } });
       if (r.status === 401) { location.href = 'login.php'; return; }
       const j = await r.json();

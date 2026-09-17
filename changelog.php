@@ -31,6 +31,13 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.9.3 <span class="stil">— 17 september 2026</span></h2>
+    <ul>
+      <li><strong>Meldingen kwamen niet aan als je de Portal of VaCom open had staan.</strong> VaCom sloeg iedereen over die "net actief" was, en telde daarbij elk verzoek mee — ook de stille controle van de VaCom-knop in de Portal-header, elke halve minuut. Wie de Portal de hele dag in een tabblad open had, kreeg dus nooit een melding. Nu wordt een melding alleen nog overgeslagen als je op dat moment echt naar VaCom kijkt: het venster is zichtbaar én heeft de aandacht. Staat VaCom op de achtergrond, in een ander tabblad, of heb je alleen de Portal open, dan komt de melding gewoon.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.9.2 <span class="stil">— 16 september 2026</span></h2>
     <ul>
       <li><strong>Meldingen ook aan te zetten vanuit de Portal.</strong> De Portal (v4.15.3) toont dezelfde uitnodigingsbalk als VaCom en meldt je apparaat via VaCom aan — het resultaat is identiek aan Instellingen → Meldingen hier. Technisch: nieuwe alleen-lezen actie <code>portal_push_info</code>.</li>
