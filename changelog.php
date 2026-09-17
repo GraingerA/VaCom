@@ -31,6 +31,22 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.9.6 <span class="stil">— 17 september 2026</span></h2>
+    <ul>
+      <li><strong>Proefmelding controleert eerst het achtergrondscript.</strong> Draait de browser nog een oude versie van het script dat meldingen ontvangt, dan werkt de knop het eerst bij. Zo kan "niet aangekomen" niet meer ten onrechte verschijnen. De versleuteling van de meldingen is los daarvan nagerekend met de officiële testgegevens van de standaard: die klopt.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
+    <h2>v0.9.5 <span class="stil">— 17 september 2026</span></h2>
+    <ul>
+      <li><strong>Proefmelding vertelt wat er gebeurt.</strong> Na het versturen zie je per apparaat wat de meldingsdienst van die browser antwoordde: "✓ Firefox: afgeleverd" of "✗ Firefox: fout 403 (…)". Staat er een ✓ maar verschijnt er niets, dan ligt het aan de computer (meldingen voor de browser uit, of Focus aan). Staat er een ✗, dan weten we met de foutcode waar het zit.</li>
+      <li><strong>Aangekomen of niet?</strong> Na het versturen wacht de knop een paar tellen op een seintje van je eigen browser. Komt dat seintje, dan is de melding aangekomen en aan je computer gegeven; zie je hem dan niet, dan verbergt macOS of Windows hem, en staat erbij waar je moet kijken (op de Mac onder meer de tweede regel <em>Google Chrome Helper (Alerts)</em> en de schakelaar voor meldingen tijdens spiegelen of schermdelen). Komt het seintje niet, dan bereikte de melding je browser niet, meestal door het netwerk.</li>
+      <li><strong>De knop herstelt een ontbrekende aanmelding.</strong> Had de browser wel een abonnement maar kende de server het niet (meer), dan gaf de proefmelding "Geen apparaat aangemeld". De knop meldt het apparaat nu eerst opnieuw aan en stuurt daarna pas de proefmelding.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.9.4 <span class="stil">— 17 september 2026</span></h2>
     <ul>
       <li><strong>Proefmelding, goed vindbaar.</strong> Onder Instellingen → Meldingen staat nu altijd de regel "Werkt het? Test het hier" met de knop <em>Stuur proefmelding</em> (voorheen een klein knopje dat pas verscheen als meldingen al aanstonden). Staan meldingen op dat apparaat nog uit, dan zegt hij dat. Na het versturen lees je wat je moet doen als er niets verschijnt: op de Mac bij Systeeminstellingen → Meldingen je browser toestaan en Focus uitzetten, op Windows hetzelfde bij Instellingen → Systeem → Meldingen.</li>

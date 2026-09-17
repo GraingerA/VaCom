@@ -695,9 +695,13 @@ case 'push_test': {
     $st->execute([$mijnId]);
     $subs = $st->fetchAll();
     if (!$subs) vacom_fout('Geen apparaat aangemeld voor meldingen.');
-    $weg = vacom_push_stuur($subs, ['title' => 'VaCom', 'body' => 'Meldingen werken op dit apparaat 🎉', 'url' => 'index.php', 'tag' => 'vacom-test']);
+    $rapport = [];
+    $weg = vacom_push_stuur($subs, ['title' => 'VaCom', 'body' => 'Meldingen werken op dit apparaat 🎉', 'url' => 'index.php', 'tag' => 'vacom-test'], $rapport);
     foreach ($weg as $ep) $db->prepare('DELETE FROM push_subs WHERE endpoint = ?')->execute([$ep]);
-    vacom_json(['ok' => true, 'verstuurd' => count($subs) - count($weg)]);
+    // v0.9.5: per apparaat wat de meldingsdienst antwoordde, zodat de
+    // Instellingen kunnen tonen wáár het misgaat (Chrome / Firefox / Apple).
+    $gelukt = count(array_filter($rapport, fn($r) => $r['code'] >= 200 && $r['code'] < 300));
+    vacom_json(['ok' => true, 'verstuurd' => $gelukt, 'resultaten' => $rapport]);
 }
 
 case 'stuur_bestand': {

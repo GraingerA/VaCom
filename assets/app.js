@@ -1495,13 +1495,73 @@
         toon('Meldingen staan op dit apparaat nog uit. Klik eerst hierboven op <strong>Aanzetten</strong> en probeer het dan opnieuw.');
         return;
       }
+      // v0.9.5: dit apparaat eerst (opnieuw) aanmelden bij de server. Zo herstelt
+      // de knop zelf het geval dat de browser wél een abonnement heeft maar de
+      // server het niet (meer) kent ("Geen apparaat aangemeld").
+      await api('push_abonneer', { subscription: sub.toJSON() });
+      // v0.9.6: eerst zeker weten dat het achtergrondscript (sw.js) actueel is.
+      // Een oud script toont de melding wel, maar stuurt geen seintje terug —
+      // dan zou hieronder ten onrechte "niet aangekomen" staan.
+      const reg = await navigator.serviceWorker.ready;
+      const vraagVersie = () => new Promise((klaar) => {
+        if (!reg.active) { klaar(''); return; }
+        const kanaal = new MessageChannel();
+        const t = setTimeout(() => klaar(''), 1500);
+        kanaal.port1.onmessage = (ev) => { clearTimeout(t); klaar((ev.data && ev.data.versie) || ''); };
+        reg.active.postMessage({ vacomVraag: 'versie' }, [kanaal.port2]);
+      });
+      // Een script dat op de versievraag antwoordt is v0.9.6 of nieuwer, en kan
+      // dus ook het seintje sturen. Geen antwoord = ouder script: bijwerken.
+      let swVersie = await vraagVersie();
+      if (!swVersie) {
+        toon('<em>Achtergrondscript bijwerken…</em>');
+        try { await reg.update(); } catch (e) {}
+        for (let i = 0; i < 10 && !swVersie; i++) { await new Promise((r) => setTimeout(r, 600)); swVersie = await vraagVersie(); }
+      }
+      if (!swVersie) {
+        toon('Het achtergrondscript van VaCom in deze browser is nog niet bijgewerkt. '
+          + 'Sluit alle tabbladen met VaCom en de Portal, open VaCom opnieuw en probeer het nog eens. Blijft dit staan, geef het dan door aan Ad.');
+        return;
+      }
+      // De service worker meldt terug zodra de proefmelding in déze browser
+      // aankomt (zie meldAanPaginas in sw.js). Daar wachten we zo even op.
+      let aangekomen = null;
+      const luister = (ev) => { if (ev.data && ev.data.vacomPush === 'vacom-test') aangekomen = ev.data; };
+      navigator.serviceWorker.addEventListener('message', luister);
       const j = await api('push_test');
       const mac = /Mac/.test(navigator.platform || navigator.userAgent);
-      toon('<strong>Proefmelding verstuurd</strong> naar ' + (j.verstuurd === 1 ? '1 apparaat' : j.verstuurd + ' apparaten') + '. Hij hoort binnen een paar tellen te verschijnen.<br>'
-        + 'Zie je niets? Dan houdt je computer hem tegen, niet VaCom: '
-        + (mac ? 'open <em>Systeeminstellingen → Meldingen</em>, kies je browser (bijv. Google Chrome) en zet <em>Sta meldingen toe</em> aan. Kijk ook of <em>Focus / Niet storen</em> uitstaat.'
-               : 'open <em>Instellingen → Systeem → Meldingen</em>, zet meldingen voor je browser aan en kijk of <em>Niet storen</em> uitstaat.'));
-    } catch (e) { toon(esc(e.message)); }
+      // Per apparaat wat de meldingsdienst van die browser antwoordde.
+      const dienst = (h) => /mozilla/.test(h) ? 'Firefox' : /apple/.test(h) ? 'Safari / iPhone' : /windows\.com/.test(h) ? 'Edge (Windows)' : /googleapis/.test(h) ? 'Chrome / Edge / Brave' : h;
+      const regels = (j.resultaten || []).map((r) => {
+        const ok = r.code >= 200 && r.code < 300;
+        const weg = r.code === 404 || r.code === 410;
+        return '<br>' + (ok ? '✓ ' : '✗ ') + esc(dienst(r.host)) + (ok ? ': afgeleverd bij de meldingsdienst'
+          : weg ? ': dit apparaat was niet meer aangemeld en is opgeruimd'
+          : ': fout ' + r.code + (r.tekst ? ' (' + esc(r.tekst) + ')' : ''));
+      }).join('');
+      const mislukt = (j.resultaten || []).some((r) => !(r.code >= 200 && r.code < 300));
+      const kop = '<strong>Proefmelding verstuurd</strong> naar ' + (j.verstuurd === 1 ? '1 apparaat' : j.verstuurd + ' apparaten') + '.' + regels + '<br>'
+        + (mislukt ? 'Staat er hierboven een ✗ met een foutcode? Geef die regel door aan Ad.<br>' : '');
+      if (!j.verstuurd) { navigator.serviceWorker.removeEventListener('message', luister); toon(kop); return; }
+      toon(kop + '<em>Wachten tot hij in deze browser aankomt…</em>');
+      // Hooguit 12 s wachten op het seintje van de service worker.
+      for (let i = 0; i < 24 && !aangekomen; i++) await new Promise((r) => setTimeout(r, 500));
+      navigator.serviceWorker.removeEventListener('message', luister);
+      if (aangekomen && aangekomen.getoond) {
+        toon(kop + '<strong>✓ Aangekomen in deze browser</strong>, en de browser heeft hem aan ' + (mac ? 'macOS' : 'Windows') + ' gegeven om te tonen. '
+          + 'Zie je hem niet? Dan verbergt je computer hem:'
+          + (mac ? '<br>• <em>Systeeminstellingen → Meldingen</em>: er staan vaak twee regels, <em>Google Chrome</em> én <em>Google Chrome Helper (Alerts)</em>. Zet bij allebei <em>Sta meldingen toe</em> aan en kies als stijl <em>Banners</em> of <em>Meldingen</em>, niet <em>Geen</em>. Heb je VaCom als app geïnstalleerd, dan staat VaCom er ook apart tussen.'
+                 + '<br>• Onderaan datzelfde scherm: <em>Sta meldingen toe bij spiegelen of delen van het beeldscherm</em>. Dat staat standaard uit; met een tweede scherm in spiegelmodus of tijdens schermdelen zie je dan niets.'
+                 + '<br>• Klik rechtsboven op de klok: staat de melding in het Meldingencentrum, dan komt hij wel binnen maar toont macOS geen banner.'
+               : '<br>• <em>Instellingen → Systeem → Meldingen</em>: zet meldingen voor je browser aan en <em>Niet storen</em> uit. Kijk ook in het meldingenpaneel rechtsonder.'));
+      } else if (aangekomen) {
+        toon(kop + '<strong>✗ Aangekomen, maar de browser kon hem niet tonen</strong> (' + esc(aangekomen.fout || 'onbekende fout') + '). Geef deze regel door aan Ad.');
+      } else {
+        toon(kop + '<strong>✗ Niet aangekomen in deze browser</strong> (achtergrondscript ' + esc(swVersie) + ' is in orde). De server heeft hem goed afgeleverd bij de meldingsdienst, maar die kreeg hem niet bij jouw browser. '
+          + 'Meestal is dat het netwerk: de browser houdt een eigen verbinding open met de meldingsdienst (bij Chrome: <em>mtalk.google.com</em>, poort 5228 of 443), en een firewall, VPN of beveiligingsprogramma kan die blokkeren. '
+          + 'Probeer het één keer via de hotspot van je telefoon; werkt het dan wel, dan zit het in het kantoornetwerk. Sluit de browser ook eens helemaal af' + (mac ? ' (Cmd+Q)' : '') + ' en start hem opnieuw.');
+      }
+    } catch (e) { toon('Het lukte niet: ' + esc(e.message)); }
   });
   // Bij het starten: bestaand abonnement stilletjes opnieuw registreren (na een
   // herinstallatie of als de server het kwijt is). Kost één klein verzoek.

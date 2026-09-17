@@ -5,7 +5,7 @@
  * is er zodat de app installeerbaar is, om een nette offline-pagina te tonen,
  * en (v0.9) om pushmeldingen te ontvangen en te tonen.
  */
-const VERSIE = 'vacom-0.9.4';
+const VERSIE = 'vacom-0.9.6';
 const OFFLINE = './offline.html';
 
 self.addEventListener('install', (e) => {
@@ -39,8 +39,27 @@ self.addEventListener('push', (e) => {
     tag: d.tag || 'vacom',
     renotify: true,
     data: { url: d.url || './index.php' },
-  }));
+  }).then(
+    () => meldAanPaginas({ vacomPush: d.tag || 'vacom', getoond: true }),
+    (err) => meldAanPaginas({ vacomPush: d.tag || 'vacom', getoond: false, fout: String(err && err.message || err) })
+  ));
 });
+
+// v0.9.5: de open VaCom-vensters laten weten dat er een push is aangekomen en
+// of de browser hem heeft getoond. De proefmelding in Instellingen gebruikt
+// dit om te zeggen waar het misgaat: komt dit bericht niet, dan bereikte de
+// push deze browser niet; komt het wel maar zie je niets, dan verbergt het
+// besturingssysteem de melding.
+// v0.9.6: de pagina kan vragen welke versie van dit script draait (de
+// proefmelding doet dat, om een verouderd script uit te sluiten).
+self.addEventListener('message', (e) => {
+  if (e.data && e.data.vacomVraag === 'versie' && e.ports && e.ports[0]) e.ports[0].postMessage({ versie: VERSIE });
+});
+
+function meldAanPaginas(bericht) {
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then((lijst) => lijst.forEach((c) => c.postMessage(bericht)));
+}
 
 // Klik op de melding: bestaand VaCom-venster naar voren halen (en naar het
 // kanaal sturen), anders een nieuw venster openen.

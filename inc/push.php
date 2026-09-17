@@ -122,8 +122,11 @@ function vacom_push_versleutel(string $p256dh, string $auth, string $inhoud): ?s
  * Stuurt één melding naar een lijst abonnementen [{endpoint, p256dh, auth}].
  * Parallel via curl_multi, korte timeouts. Geeft de endpoints terug die niet
  * meer bestaan (404/410), zodat de aanroeper ze kan opruimen.
+ * v0.9.5: $rapport (optioneel) krijgt per abonnement wat de push-dienst
+ * antwoordde — [{host, code, tekst}] — voor de proefmelding in Instellingen.
  */
-function vacom_push_stuur(array $subs, array $melding): array {
+function vacom_push_stuur(array $subs, array $melding, ?array &$rapport = null): array {
+    $rapport = [];
     $keys = vacom_vapid();
     if (!$keys || !$subs) return [];
     $json = json_encode($melding, JSON_UNESCAPED_UNICODE);
@@ -132,7 +135,10 @@ function vacom_push_stuur(array $subs, array $melding): array {
     foreach ($subs as $s) {
         $body = vacom_push_versleutel((string)$s['p256dh'], (string)$s['auth'], $json);
         $u = parse_url((string)$s['endpoint']);
-        if ($body === null || empty($u['scheme']) || empty($u['host'])) continue;
+        if ($body === null || empty($u['scheme']) || empty($u['host'])) {
+            $rapport[] = ['host' => (string)($u['host'] ?? '?'), 'code' => 0, 'tekst' => 'versleutelen mislukt (ongeldige sleutels van de browser)'];
+            continue;
+        }
         $jwt = vacom_vapid_jwt($u['scheme'] . '://' . $u['host'], $keys);
         $c = curl_init((string)$s['endpoint']);
         curl_setopt_array($c, [
@@ -152,11 +158,22 @@ function vacom_push_stuur(array $subs, array $melding): array {
         $status = curl_multi_exec($mh, $actief);
         if ($actief) curl_multi_select($mh, 1.0);
     } while ($actief && $status === CURLM_OK);
+    // Verbindingsfouten per handle (bij curl_multi geeft curl_error() niets terug).
+    $fouten = [];
+    while ($info = curl_multi_info_read($mh)) {
+        if ($info['result'] !== CURLE_OK) $fouten[spl_object_id($info['handle'])] = curl_strerror($info['result']);
+    }
     $weg = [];
     foreach ($handles as [$c, $endpoint]) {
         $code = (int)curl_getinfo($c, CURLINFO_RESPONSE_CODE);
+        $antwoord = substr((string)curl_multi_getcontent($c), 0, 200);
         if ($code === 404 || $code === 410) $weg[] = $endpoint;
-        elseif ($code < 200 || $code >= 300) error_log("VaCom push: HTTP $code voor $endpoint: " . substr((string)curl_multi_getcontent($c), 0, 200));
+        elseif ($code < 200 || $code >= 300) error_log("VaCom push: HTTP $code voor $endpoint: " . $antwoord);
+        $rapport[] = [
+            'host'  => (string)parse_url($endpoint, PHP_URL_HOST),
+            'code'  => $code,
+            'tekst' => $code === 0 ? ('geen verbinding met de meldingsdienst: ' . ($fouten[spl_object_id($c)] ?? 'onbekende fout')) : ($code >= 200 && $code < 300 ? '' : trim(preg_replace('/\s+/', ' ', strip_tags($antwoord)))),
+        ];
         curl_multi_remove_handle($mh, $c);
         curl_close($c);
     }
