@@ -3,7 +3,7 @@
  * VaCom — API. Alle acties van de app komen hier binnen als JSON.
  *
  * Aanroep: POST api.php met JSON-body {"actie": "...", ...} en de header
- * X-VaCom-Csrf. Alleen 'poll' mag ook via GET (goedkoop en vaak).
+ * X-VaCom-Csrf. Alleen-lezen acties (VACOM_GET_ACTIES) mogen ook via GET.
  *
  * Elk antwoord is JSON met minstens {"ok": true|false}.
  */
@@ -35,6 +35,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $invoer = $_GET;
 }
 $actie = (string)($invoer['actie'] ?? '');
+
+// v0.9.7: via GET (zonder CSRF-token) mogen alleen alleen-lezen acties. Anders
+// kan een gewone link op een andere site — de sessie-cookie gaat bij een klik
+// mee — ongemerkt iets wijzigen of verwijderen. Gebruikers van GET: de poll van
+// de app, de Portal (chat_ipp.php) en de Invite Hub (overzicht, portal_vermeldingen).
+const VACOM_GET_ACTIES = ['poll', 'overzicht', 'portal_vermeldingen', 'portal_ongelezen', 'portal_push_info', 'portal_project'];
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($actie, VACOM_GET_ACTIES, true)) {
+    header('Allow: POST');
+    vacom_fout('Deze actie kan alleen via POST.', 405);
+}
 $db = vacom_db();
 $mijnId = (int)$ik['id'];
 

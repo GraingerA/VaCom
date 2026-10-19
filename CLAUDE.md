@@ -70,7 +70,7 @@ popup op de projectkaart) en `index.php?project=TOKEN` (volledige app, kanaal op
 | Bestand | Wat |
 |---|---|
 | `index.php` | de app (één pagina); geeft het eerste overzicht mee in `window.VACOM` |
-| `api.php` | alle acties als JSON (POST + header `X-VaCom-Csrf`; alleen `poll` via GET) |
+| `api.php` | alle acties als JSON (POST + header `X-VaCom-Csrf`; via GET alleen de alleen-lezen acties in `VACOM_GET_ACTIES`, de rest 405) |
 | `login.php`, `gebruikers.php`, `changelog.php` | inloggen, gebruikers, wat is er nieuw |
 | `avatar.php`, `bestand.php` | profielfoto's en bijlagen uit de datamap serveren (alleen ingelogd / kanaallid) |
 | `inc/config.php` | versie, paden, Portal-detectie, helpers (`h()`, `vacom_json()`, `asset()`) |

@@ -31,6 +31,13 @@ vacom_require_login();
   </header>
 
   <section class="kaart glas">
+    <h2>v0.9.7 <span class="stil">— 19 oktober 2026</span></h2>
+    <ul>
+      <li><strong>Veiliger: wijzigen kan niet meer via een gewone link.</strong> Iets veranderen of verwijderen (een bericht, je status, een kanaal) gaat nu altijd via de beveiligde route met controle-sleutel. Een kwaadwillende link op een andere website kan daardoor niet meer ongemerkt iets in VaCom aanpassen. Voor jou verandert er niets.</li>
+    </ul>
+  </section>
+
+  <section class="kaart glas">
     <h2>v0.9.6 <span class="stil">— 17 september 2026</span></h2>
     <ul>
       <li><strong>Proefmelding controleert eerst het achtergrondscript.</strong> Draait de browser nog een oude versie van het script dat meldingen ontvangt, dan werkt de knop het eerst bij. Zo kan "niet aangekomen" niet meer ten onrechte verschijnen. De versleuteling van de meldingen is los daarvan nagerekend met de officiële testgegevens van de standaard: die klopt.</li>
