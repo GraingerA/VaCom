@@ -6,3 +6,7 @@ inc/config.local.php
 desktop.ini
 Thumbs.db
 .DS_Store
+
+# Lokale Claude Code-instellingen (machine-specifiek: PHP-pad, poort)
+.claude/launch.json
+.claude/settings.local.json

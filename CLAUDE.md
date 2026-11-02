@@ -5,10 +5,13 @@ kanalen, directe berichten, zoeken door alles. Doorzoekbaarheid is de kernbeloft
 Werktitel tot 3 sept 2026 was "wurd"; identifiers zijn toen hernoemd naar `vacom`.
 Op 7 sept 2026 heette de app één dag "Petear"; sinds 8 sept (v0.5.2) weer VaCom.
 
-VaCom is een **submap van de Portal-repo**: lokaal `Invite Project Portal\root\vacom\`,
-online `portal.invite.nl/vacom/` (Portal-modus), GitHub `GraingerA/Invite-Project-Portal`
-(map `vacom/`). Eén repo, één upload — maar VaCom heeft zijn eigen versienummer,
-changelog en deze CLAUDE.md. Tot 3 sept 2026 was het een losse repo (`GraingerA/VaCom`).
+VaCom is een **eigen repo** (GitHub `GraingerA/VaCom`), lokaal in een eigen map
+naast de Portal: `Documents\Claude\VaCom\`. Online draait het als submap van de
+Portal: `portal.invite.nl/vacom/` (Portal-modus), geüpload naar `public_html/vacom/`.
+Van 3 sept tot 2 nov 2026 zat VaCom als map `vacom/` ín de Portal-repo
+(`GraingerA/Invite-Project-Portal`); die geschiedenis is met `git subtree split`
+meegenomen naar deze repo en de map is daar daarna verwijderd. De Portal-repo
+heeft `vacom/` sindsdien in zijn `.gitignore`.
 
 ## Gebruiker
 
@@ -157,16 +160,27 @@ insets voor de iPhone-notch.
 
 ## Lokaal testen
 
-Start de Portal-dev-server (launch-config `portal` in `root\.claude\launch.json`,
-poort 8010; die laadt ook pdo_sqlite) en open http://localhost:8010/vacom/.
-Inloggen met een account uit de lokale `ipp_data/users.json` (testaccount
-Bram / test1234). VaCom draait dan in Portal-modus, precies zoals online.
-Lokale VaCom-data staat in `vacom/data/` (git-ignored).
+**Losse modus** (standaard, want deze map staat niet meer in de Portal): start
+launch-config `vacom` in `.claude/launch.json` (poort 8400, de winget-PHP 8.1 die
+ook pdo_sqlite laadt) en open http://localhost:8400/. Eerste keer: bootstrap-
+superadmin "Ad", wachtwoord in `data/`. Lokale VaCom-data staat in `data/` (git-ignored).
 
-Losse modus testen (zonder Portal): serveer alleen de map `vacom`:
+**Portal-modus** (precies zoals online) testen kan alleen als VaCom als map
+`vacom/` naast `config_ipp.php` in de Portal-map staat. Daarvoor een junction
+maken (één keer, Windows; de Portal-repo negeert `vacom/` via `.gitignore`):
 
 ```bash
-php -S localhost:8400 -t vacom -d extension_dir=C:\php\ext -d extension=pdo_sqlite -d extension=openssl -d extension=curl -d extension=mbstring -d extension=fileinfo -d extension=gd
+cmd //c mklink //J "C:\Users\Ad Grainger\Documents\Claude\Invite Project Portal\vacom" "C:\Users\Ad Grainger\Documents\Claude\VaCom"
+```
+
+Start dan de Portal-dev-server (launch-config `portal` in de Portal-map, poort
+8000) en open http://localhost:8000/vacom/. Inloggen met een account uit de
+lokale `ipp_data/users.json` (testaccount Bram / test1234).
+
+Handmatig, zonder launch-config:
+
+```bash
+php -S localhost:8400 -d extension_dir=C:\php\ext -d extension=pdo_sqlite -d extension=openssl -d extension=curl -d extension=mbstring -d extension=fileinfo -d extension=gd
 ```
 
 Voor EC-sleutels (push, later) op Windows: `OPENSSL_CONF=C:\php\extras\ssl\openssl.cnf`.
