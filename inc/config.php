@@ -8,7 +8,7 @@
 
 declare(strict_types=1);
 
-define('VACOM_VERSION', '0.9.7');
+define('VACOM_VERSION', '0.10.0');
 // Maximale grootte van een bijlage bij een bericht (v0.6). De server heeft
 // daarnaast z'n eigen limiet (upload_max_filesize); die melden we apart.
 define('VACOM_MAX_BIJLAGE', 25 * 1024 * 1024);
@@ -100,6 +100,20 @@ function vacom_now(): string {
 /** Naam normaliseren voor vergelijken en als unieke sleutel. */
 function vacom_naam_sleutel(string $naam): string {
     return mb_strtolower(trim(preg_replace('/\s+/', ' ', $naam) ?? $naam));
+}
+
+/**
+ * v0.10: de gedeelde stijl van de Portal (invite_stijl.css, de stijlgids), te laden
+ * VÓÓR assets/app.css. Portal-modus: het bestand van de Portal ernaast, met de
+ * wijzigingsdatum als cache-buster (zoals de Hub en de Socials Planner). Losse
+ * modus: het bestand van portal.invite.nl, per dag ververst (zoals Transfer).
+ */
+function vacom_gedeelde_stijl(): string {
+    if (VACOM_PORTAL) {
+        $pad = VACOM_PORTAL_ROOT . '/invite_stijl.css';
+        return VACOM_PORTAL_URL . 'invite_stijl.css?v=' . (is_file($pad) ? (string)filemtime($pad) : '0');
+    }
+    return 'https://portal.invite.nl/invite_stijl.css?v=' . date('Ymd');
 }
 
 /** Asset-URL met versie als cache-buster: na een upload haalt elke browser de nieuwe versie. */

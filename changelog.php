@@ -19,32 +19,41 @@ vacom_require_login();
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="<?= h(vacom_gedeelde_stijl()) ?>">
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
 </head>
 <body class="pagina-body">
 <script>try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
-<div class="aurora" aria-hidden="true"></div>
 <main class="pagina">
   <header class="pagina-kop">
-    <a class="knop" href="index.php">‹ Terug naar VaCom</a>
+    <a class="knop" href="index.php"><i>←</i> Terug naar VaCom</a>
     <h1>Wat is er nieuw</h1>
   </header>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
+    <h2>v0.10.0 <span class="stil">— 2 november 2026</span></h2>
+    <ul>
+      <li><strong>VaCom volgt nu de stijlgids van de Portal.</strong> Knoppen, invoervelden, popups, labels, tellers en de lichte en donkere kleuren komen rechtstreeks uit het gedeelde stijlbestand van de Invite Project Portal (<code>invite_stijl.css</code>), net als de Invite Hub, de Socials Planner en Transfer. Daardoor ziet alles er in de vier apps hetzelfde uit, en een verbetering in de Portal komt vanzelf ook in VaCom terecht.</li>
+      <li>Wat je ziet: dezelfde gouden hoofdknop en neutrale knoppen als in de Portal (gekleurde rand bij aanwijzen), dezelfde invoervelden met gouden focusrand, popups met een vaste kop en voet, kopjes in hoofdletters en een zoekveld met vergrootglas. De indeling van VaCom zelf (kop, zijbalk en gesprek als losse glazen kaarten) is gebleven.</li>
+      <li>Achter de schermen is <code>assets/app.css</code> grotendeels opnieuw geschreven: alles wat de stijlgids al levert is eruit, alleen wat echt van VaCom is (berichten, reacties, threads, polls, bijlagen, pickers) staat er nog in. VaCom is sinds vandaag ook weer een eigen repo (<code>GraingerA/VaCom</code>), naast de Portal in plaats van erin.</li>
+    </ul>
+  </section>
+
+  <section class="vlak kaart">
     <h2>v0.9.7 <span class="stil">— 19 oktober 2026</span></h2>
     <ul>
       <li><strong>Veiliger: wijzigen kan niet meer via een gewone link.</strong> Iets veranderen of verwijderen (een bericht, je status, een kanaal) gaat nu altijd via de beveiligde route met controle-sleutel. Een kwaadwillende link op een andere website kan daardoor niet meer ongemerkt iets in VaCom aanpassen. Voor jou verandert er niets.</li>
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.9.6 <span class="stil">— 17 september 2026</span></h2>
     <ul>
       <li><strong>Proefmelding controleert eerst het achtergrondscript.</strong> Draait de browser nog een oude versie van het script dat meldingen ontvangt, dan werkt de knop het eerst bij. Zo kan "niet aangekomen" niet meer ten onrechte verschijnen. De versleuteling van de meldingen is los daarvan nagerekend met de officiële testgegevens van de standaard: die klopt.</li>
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.9.5 <span class="stil">— 17 september 2026</span></h2>
     <ul>
       <li><strong>Proefmelding vertelt wat er gebeurt.</strong> Na het versturen zie je per apparaat wat de meldingsdienst van die browser antwoordde: "✓ Firefox: afgeleverd" of "✗ Firefox: fout 403 (…)". Staat er een ✓ maar verschijnt er niets, dan ligt het aan de computer (meldingen voor de browser uit, of Focus aan). Staat er een ✗, dan weten we met de foutcode waar het zit.</li>
@@ -53,28 +62,28 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.9.4 <span class="stil">— 17 september 2026</span></h2>
     <ul>
       <li><strong>Proefmelding, goed vindbaar.</strong> Onder Instellingen → Meldingen staat nu altijd de regel "Werkt het? Test het hier" met de knop <em>Stuur proefmelding</em> (voorheen een klein knopje dat pas verscheen als meldingen al aanstonden). Staan meldingen op dat apparaat nog uit, dan zegt hij dat. Na het versturen lees je wat je moet doen als er niets verschijnt: op de Mac bij Systeeminstellingen → Meldingen je browser toestaan en Focus uitzetten, op Windows hetzelfde bij Instellingen → Systeem → Meldingen.</li>
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.9.3 <span class="stil">— 17 september 2026</span></h2>
     <ul>
       <li><strong>Meldingen kwamen niet aan als je de Portal of VaCom open had staan.</strong> VaCom sloeg iedereen over die "net actief" was, en telde daarbij elk verzoek mee — ook de stille controle van de VaCom-knop in de Portal-header, elke halve minuut. Wie de Portal de hele dag in een tabblad open had, kreeg dus nooit een melding. Nu wordt een melding alleen nog overgeslagen als je op dat moment echt naar VaCom kijkt: het venster is zichtbaar én heeft de aandacht. Staat VaCom op de achtergrond, in een ander tabblad, of heb je alleen de Portal open, dan komt de melding gewoon.</li>
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.9.2 <span class="stil">— 16 september 2026</span></h2>
     <ul>
       <li><strong>Meldingen ook aan te zetten vanuit de Portal.</strong> De Portal (v4.15.3) toont dezelfde uitnodigingsbalk als VaCom en meldt je apparaat via VaCom aan — het resultaat is identiek aan Instellingen → Meldingen hier. Technisch: nieuwe alleen-lezen actie <code>portal_push_info</code>.</li>
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.9.1 <span class="stil">— 16 september 2026</span></h2>
     <ul>
       <li><strong>Uitnodiging om meldingen aan te zetten.</strong> Op de laptop verschijnt onderin een balk "Wil je een melding als er iets voor je is?" zolang meldingen op dat apparaat nog uitstaan. Eén klik op Aanzetten regelt de toestemming en de aanmelding; "Niet nu" verbergt de balk twee weken. Aanpassen kan altijd onder Instellingen → Meldingen.</li>
@@ -83,7 +92,7 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.9.0 <span class="stil">— 10 september 2026</span></h2>
     <p class="stil">Een grote: zeven dingen die je van Slack kent.</p>
     <ul>
@@ -97,7 +106,7 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.8.0 <span class="stil">— 10 september 2026</span></h2>
     <ul>
       <li><strong>Polls.</strong> Nieuw knopje (staafdiagram) naast het schrijfveld: stel een vraag met twee tot tien antwoorden, eventueel met meerdere antwoorden tegelijk. Klik op een antwoord om te stemmen (nog eens klikken trekt je stem in); je ziet meteen de balken, de aantallen en wie wat koos (aanwijzen). Met <em>Bekijk stemmen</em> zie je per antwoord wie erop stemde, en in een kanaal ook wie nog niet gestemd heeft. Wie de poll plaatste kan hem sluiten, daarna staat alleen de uitslag. De vraag is doorzoekbaar als gewoon bericht.</li>
@@ -107,7 +116,7 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.7.4 <span class="stil">— 10 september 2026</span></h2>
     <ul>
       <li><strong>Profielfoto bijsnijden.</strong> Kies je een foto bij Instellingen, dan zie je hem eerst in een vierkant kader: slepen om te verschuiven, zoomen met de schuif of het scrollwiel. Wat in het kader staat wordt je foto.</li>
@@ -118,21 +127,21 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.7.3 <span class="stil">— 10 september 2026</span></h2>
     <ul>
       <li><strong>Foto's groot bekijken in een popup.</strong> Klik op een foto, screenshot of gif in het gesprek en hij opent groot over de pagina heen, met de bestandsnaam en knoppen voor Downloaden en Nieuw tabblad. Sluiten met ✕, Esc of een klik ernaast. Ctrl/Cmd-klik opent nog steeds een nieuw tabblad.</li>
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.7.2 <span class="stil">— 10 september 2026</span></h2>
     <ul>
       <li><strong>🖕</strong> Op veler verzoek: de middelvinger zit nu in het emoji-paneel (bij Gebaren, zoek op "middelvinger"). Gebruik met beleid.</li>
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.7.1 <span class="stil">— 9 september 2026</span></h2>
     <ul>
       <li><strong>Een kanaal opent waar je gebleven was.</strong> Zijn er berichten die je nog niet gelezen hebt, dan springt het gesprek naar het eerste daarvan, met een blauwe streep <em>Nieuwe berichten</em> erboven — per persoon verschillend, net als in Slack. Is er niets nieuws, dan sta je onderaan bij het laatste bericht. Foto's en gifs die nog laden duwen je niet meer van je plek.</li>
@@ -140,7 +149,7 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.7.0 <span class="stil">— 9 september 2026</span></h2>
     <ul>
       <li><strong>@-vermeldingen die iets doen.</strong> Typ een @ in het schrijfveld en er verschijnt een lijstje collega's; typ door om te filteren, kies met de pijltjes en Enter (of klik). De naam komt als @Naam in je bericht te staan.</li>
@@ -150,14 +159,14 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.6.1 <span class="stil">— 9 september 2026</span></h2>
     <ul>
       <li><strong>Lichte Portal, lichte VaCom.</strong> Collega's die de Portal in het lichte thema gebruiken maar nooit zelf aan het ☀/☽-knopje hadden gezeten, kregen VaCom (ook in de popup op de projectkaart) toch donker. VaCom volgt nu in álle gevallen dezelfde standaard als de Portal, en zet het thema al vóór het tekenen zodat de popup niet eerst even donker opflitst.</li>
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.6.0 <span class="stil">— 8 september 2026</span></h2>
     <ul>
       <li><strong>Foto's en bestanden sturen.</strong> Via de paperclip naast het schrijfveld, door een screenshot of foto in het schrijfveld te plakken, of door bestanden op het gesprek te slepen. Foto's verschijnen als beeld in het gesprek (klik = groot); andere bestanden als een kaartje met naam en grootte, klik om te openen of te downloaden. Staat er tekst in het schrijfveld, dan gaat die als bijschrift mee. Max. 25 MB per bestand. Bestanden zijn alleen te openen door leden van het kanaal en de bestandsnaam is doorzoekbaar.</li>
@@ -165,21 +174,21 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.5.3 <span class="stil">— 8 september 2026</span></h2>
     <ul>
       <li><strong>GIF-knop.</strong> Naast de emoji-knop staat nu GIF: typ een zoekwoord, kies een gif uit Giphy en hij gaat meteen als bericht het kanaal in. Zonder zoekwoord zie je de populaire gifs van het moment. Het zoeken loopt via onze eigen server, dus Giphy ziet niet wie er zoekt. Het paneel staat vast boven de knop en past altijd in het scherm.</li>
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.5.2 <span class="stil">— 8 september 2026</span></h2>
     <ul>
       <li><strong>Heet weer VaCom.</strong> De naam Petear was een kort experiment; overal staat weer VaCom (van Vastgoed Communicatie). Adres en werking veranderen niet.</li>
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.5.1 <span class="stil">— 7 september 2026</span></h2>
     <ul>
       <li><strong>VaCom op de projectkaart in de Portal.</strong> Op elke projectkaart staat nu het VaCom-icoontje. Klik erop en je start het projectkanaal (je ziet vooraf wie erin komen) of je krijgt het gesprek meteen in een popup, midden in de Portal. Via "Open in VaCom" spring je naar de volledige app.</li>
@@ -191,7 +200,7 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.5.0 <span class="stil">— 4 september 2026</span></h2>
     <ul>
       <li><strong>Projectkanalen start je nu bewust.</strong> Er komt niet meer automatisch voor elk Portal-project een kanaal. Klik op de + naast "Projecten": je kiest een project waar je aan gekoppeld bent, en het kanaal is er — met meteen iedereen erin die in de Portal aan dat project hangt. Projectkanalen die nog nooit gebruikt waren zijn opgeruimd; kanalen met berichten blijven bestaan.</li>
@@ -205,7 +214,7 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.4.1 <span class="stil">— 4 september 2026</span></h2>
     <ul>
       <li><strong>Gesloten kanalen werken nu zoals in Slack.</strong> Een gesloten kanaal verdween uit de zijbalk en was daarna nergens meer terug te vinden; klikken op een zoekresultaat eruit gaf zelfs "Kanaal niet gevonden". Nu staat er onderin de zijbalk een inklapbaar kopje <em>Gesloten kanalen</em>: je kunt zo'n kanaal gewoon openen en teruglezen, alleen schrijven en reageren kan niet meer (er staat een 🔒-balkje boven het gesprek). Zoekresultaten uit gesloten kanalen zijn gemarkeerd en klikbaar.</li>
@@ -214,7 +223,7 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.4.0 <span class="stil">— 3 september 2026</span></h2>
     <ul>
       <li><strong>Je ziet alleen nog de projectkanalen van je eigen projecten</strong> — waar je projectmanager bent of designer van een middel (zoals in de Portal vastgelegd). Dat geldt voor iedereen, ook voor de superadmin. Word je aan een project gekoppeld, dan verschijnt het kanaal vanzelf; ga je eraf, dan verdwijnt het weer. #algemeen en andere losse kanalen blijven voor iedereen.</li>
@@ -223,7 +232,7 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.3.0 <span class="stil">— 3 september 2026</span></h2>
     <ul>
       <li><strong>Reageer met emoji.</strong> Wijs een bericht aan (of tik erop) en klik op het ☺+ — kies een emoji en hij verschijnt als knopje onder het bericht. Nog een keer klikken haalt jouw reactie weer weg; je ziet wie er gereageerd hebben als je erop aanwijst.</li>
@@ -233,7 +242,7 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.2.0 <span class="stil">— 3 september 2026</span></h2>
     <ul>
       <li><strong>VaCom hoort nu bij de Portal.</strong> Je logt in met je Portal-naam en -wachtwoord; wie in de Portal al ingelogd is, is in VaCom ook ingelogd. Klanten hebben geen toegang.</li>
@@ -244,7 +253,7 @@ vacom_require_login();
     </ul>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>v0.1.0 <span class="stil">— 3 september 2026</span></h2>
     <ul>
       <li>Eerste testversie: inloggen, kanalen, directe berichten en collega's in de zijbalk.</li>

@@ -221,7 +221,7 @@
     const chips = lijst.map((r) => {
       const mijn = r.user_ids.includes(S.me.id);
       const namen = r.user_ids.map((id) => { const u = gebruiker(id); return u ? u.name : 'iemand'; }).join(', ');
-      return `<button type="button" class="reactie-chip${mijn ? ' mijn' : ''}" data-toggle-reactie="${esc(r.emoji)}" data-bericht="${m.id}" title="${esc(namen)}">${esc(r.emoji)}<span class="aantal">${r.count}</span></button>`;
+      return `<button type="button" class="chip klein klik reactie${mijn ? ' mijn' : ''}" data-toggle-reactie="${esc(r.emoji)}" data-bericht="${m.id}" title="${esc(namen)}">${esc(r.emoji)}<span class="aantal">${r.count}</span></button>`;
     });
     // v0.7.4: het plusje om te reageren zit nu in de zwevende knoppenbalk
     // rechtsboven (berichtActies) — de chips-rij bestaat alleen nog als er
@@ -307,9 +307,9 @@
     if (p) return p;
     p = document.createElement('div');
     p.id = 'emoji-picker';
-    p.className = 'glas';
+    p.className = 'vlak zweef';
     p.hidden = true;
-    p.innerHTML = '<input type="search" id="emoji-zoek" placeholder="Zoek een emoji… (bijv. duim, feest, taart)" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>'
+    p.innerHTML = '<input type="search" id="emoji-zoek" class="veld" placeholder="Zoek een emoji… (bijv. duim, feest, taart)" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>'
       + '<div id="emoji-raster"></div>';
     document.body.appendChild(p);
     $('#emoji-zoek').addEventListener('input', (ev) => vulPicker(ev.target.value));
@@ -370,9 +370,9 @@
 
   let toastTimer = null;
   function toast(tekst) {
-    let t = $('.toast');
-    if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
-    t.textContent = tekst;
+    let t = $('.melding');
+    if (!t) { t = document.createElement('div'); t.className = 'melding'; document.body.appendChild(t); }
+    t.textContent = tekst; requestAnimationFrame(() => t.classList.add('show'));
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.remove(), 4000);
   }
@@ -409,7 +409,7 @@
     const actiefId = S.current ? S.current.id : 0;
     // v0.7: badge blauw als er ongelezen berichten bij zijn waarin je genoemd wordt.
     const badgeVan = (k) => k.unread
-      ? `<span class="badge${k.mentions ? ' vermelding' : ''}"${k.mentions ? ' title="Je wordt hier genoemd"' : ''}>${k.unread}</span>` : '';
+      ? `<span class="teller${k.mentions ? ' vermelding' : ''}"${k.mentions ? ' title="Je wordt hier genoemd"' : ''}>${k.unread}</span>` : '';
     const item = (k, label, extra = '', extraKlas = '') => {
       const klassen = [extraKlas, k.id === actiefId ? 'actief' : '', k.unread ? 'ongelezen' : ''].join(' ').trim();
       return `<li><button type="button" data-kanaal="${k.id}" class="${klassen}">${extra}<span class="naam">${esc(label)}</span>${badgeVan(k)}</button></li>`;
@@ -420,7 +420,7 @@
     const projecten = open.filter((k) => k.type === 'public' && k.project_token);
     // v0.5: de sectie blijft altijd staan (met het +-knopje), ook zonder kanalen.
     el.projecten.innerHTML = projecten.map((k) => item(k, k.name, '<span class="hash">#</span>')).join('')
-      || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen projectkanalen — start er een met +</li>';
+      || '<li class="stil">Nog geen projectkanalen — start er een met +</li>';
     el.kanalen.innerHTML = open.filter((k) => k.type === 'public' && !k.project_token)
       .map((k) => item(k, k.name, '<span class="hash">#</span>')).join('');
     const gesloten = S.channels.filter((k) => k.archived);
@@ -440,14 +440,14 @@
         const naam = `<span class="naam">${esc(kanaalNaam(k))}</span>${zelf ? '' : statusHtml(u)}`;
         const klassen = [k.id === actiefId ? 'actief' : '', k.unread ? 'ongelezen' : ''].join(' ').trim();
         return `<li><button type="button" data-kanaal="${k.id}" class="${klassen}">${miniAvatar(u, zelf || (u && isOnline(u)))}${naam}${badgeVan(k)}</button></li>`;
-      }).join('') || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen gesprekken — start er een met +</li>';
+      }).join('') || '<li class="stil">Nog geen gesprekken — start er een met +</li>';
     // v0.7.4: jezelf bovenaan, met "(jij)" — zo zie je je eigen status zoals
     // collega's hem zien. Klikken opent je notities-gesprek.
     const ik = gebruiker(S.me.id);
     const ikRij = ik ? `<li><button type="button" data-collega="${ik.id}" class="ikzelf">${miniAvatar(ik, true)}<span class="naam">${esc(ik.name)} <span class="stil">(jij)</span></span>${statusHtml(ik)}</button></li>` : '';
     el.collegas.innerHTML = ikRij + (S.users.filter((u) => u.active && u.id !== S.me.id)
       .map((u) => `<li><button type="button" data-collega="${u.id}">${miniAvatar(u, isOnline(u))}<span class="naam">${esc(u.name)}</span>${statusHtml(u)}</button></li>`)
-      .join('') || '<li class="stil" style="padding:4px 10px;font-size:13px">Nog geen collega\'s</li>');
+      .join('') || '<li class="stil">Nog geen collega\'s</li>');
 
     // v0.5: ongelezen-tellers per sectie — zichtbaar in de kop zodra een
     // sectie is ingeklapt (CSS verbergt ze bij een open sectie).
@@ -577,8 +577,8 @@
     l.id = 'lichtbak';
     l.hidden = true;
     l.innerHTML = `<div class="lichtbak-kop"><span class="lichtbak-naam" id="lichtbak-naam"></span>
-        <a class="knop mini" id="lichtbak-nieuw" target="_blank" rel="noopener">Nieuw tabblad ↗</a>
-        <a class="knop mini" id="lichtbak-download" download>Downloaden</a>
+        <a class="knop klein" id="lichtbak-nieuw" target="_blank" rel="noopener">Nieuw tabblad ↗</a>
+        <a class="knop klein" id="lichtbak-download" download>Downloaden</a>
         <button type="button" class="knop icoon" id="lichtbak-sluit" title="Sluiten" aria-label="Sluiten">✕</button></div>
       <img id="lichtbak-beeld" alt="">`;
     document.body.appendChild(l);
@@ -695,7 +695,7 @@
 
   function renderBerichten(naarOnder) {
     const delen = [];
-    if (S.hasMore) delen.push('<button type="button" class="knop mini knop-meer">Eerdere berichten</button>');
+    if (S.hasMore) delen.push('<button type="button" class="knop klein knop-meer">Eerdere berichten</button>');
     let vorige = null;
     for (const m of S.msgs) {
       if (!vorige || dagSleutel(vorige.created) !== dagSleutel(m.created)) {
@@ -839,7 +839,7 @@
         : (m.attachment && m.body === m.attachment.name) ? '📎 ' + esc(m.body)
         : m.stemming ? '📊 ' + esc(m.body)
         : opmaak(m.body);
-      return `<button type="button" class="zoek-hit" data-kanaal="${m.channel_id}" data-naar="${m.id}"${m.parent_id ? ` data-thread-na="${m.parent_id}"` : ''}><div class="waar"><b>${esc(m.author)}</b> in ${esc(kanaalNaam(k))}${m.parent_id ? ' <span class="tag">thread</span>' : ''} · ${d} ${tijd(m.created)}</div><div class="tekst">${tekst}</div></button>`;
+      return `<button type="button" class="zoek-hit" data-kanaal="${m.channel_id}" data-naar="${m.id}"${m.parent_id ? ` data-thread-na="${m.parent_id}"` : ''}><div class="waar"><b>${esc(m.author)}</b> in ${esc(kanaalNaam(k))}${m.parent_id ? ' <span class="label grijs">thread</span>' : ''} · ${d} ${tijd(m.created)}</div><div class="tekst">${tekst}</div></button>`;
     }).join('');
   }
 
@@ -895,8 +895,8 @@
   function berichtTekst(m) {
     if (m.deleted) return '<em class="stil">bericht verwijderd</em>';
     if (S.bewerkId === m.id) {
-      return `<div class="bewerk-veld"><textarea rows="2" data-bewerk-tekst="${m.id}" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>${esc(m.body)}</textarea>
-        <div class="bewerk-knoppen"><button type="button" class="knop mini primair" data-bewerk-opslaan="${m.id}">Opslaan</button><button type="button" class="knop mini" data-bewerk-annuleer="${m.id}">Annuleren</button><span class="stil bewerk-tip">Enter = opslaan · Esc = annuleren</span></div></div>`;
+      return `<div class="bewerk-veld"><textarea class="veld" rows="2" data-bewerk-tekst="${m.id}" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>${esc(m.body)}</textarea>
+        <div class="bewerk-knoppen"><button type="button" class="knop klein goud" data-bewerk-opslaan="${m.id}">Opslaan</button><button type="button" class="knop klein" data-bewerk-annuleer="${m.id}">Annuleren</button><span class="stil bewerk-tip">Enter = opslaan · Esc = annuleren</span></div></div>`;
     }
     const a = m.attachment;
     // Een bijlage zonder bijschrift heeft de bestandsnaam als tekst (voor het
@@ -957,7 +957,7 @@
     const magSluiten = !p.closed && S.me && (m.user_id === S.me.id || S.me.role === 'superadmin') && !(S.current && S.current.archived);
     const info = `${p.total} ${p.total === 1 ? 'stem' : 'stemmen'}${p.multi ? ' · meerkeuze' : ''}${p.closed ? ' · gesloten' : ''}`;
     return `<div class="poll${p.closed ? ' gesloten' : ''}"><div class="poll-vraag">${esc(m.body)}</div><div class="poll-lijst">${rijen}</div>
-      <div class="poll-voet"><span class="poll-info">${info}</span><span class="poll-voet-knoppen">${p.total ? `<button type="button" class="knop mini" data-poll-bekijk="${p.id}">Stemmen</button>` : ''}${magSluiten ? `<button type="button" class="knop mini" data-poll-sluit="${p.id}">Sluiten</button>` : ''}</span></div></div>`;
+      <div class="poll-voet"><span class="poll-info">${info}</span><span class="poll-voet-knoppen">${p.total ? `<button type="button" class="knop klein" data-poll-bekijk="${p.id}">Stemmen</button>` : ''}${magSluiten ? `<button type="button" class="knop klein" data-poll-sluit="${p.id}">Sluiten</button>` : ''}</span></div></div>`;
   }
 
   // "Bekijk stemmen": per antwoord wie erop stemde, en (in een kanaal) wie nog niet.
@@ -1266,7 +1266,7 @@
     const q = el.zoekInvoer.value.trim();
     const f = zoekFilters();
     const metFilter = Object.values(f).some(Boolean);
-    $('#zoek-filters-knop').classList.toggle('aan', metFilter);
+    $('#zoek-filters-knop').classList.toggle('actief', metFilter);
     if (!q && !metFilter) { el.zoekResultaten.innerHTML = ''; return; }
     try {
       const j = await api('zoek', { q, ...f });
@@ -1277,8 +1277,8 @@
         // De server markeert treffers met de stuurtekens U+0001 en U+0002 (komen nooit in tekst voor).
         const snip = esc(m.snippet).replace(/\u0001/g, '<mark>').replace(/\u0002/g, '</mark>');
         const d = new Date(m.created).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
-        const dicht = k && k.archived ? ' <span class="tag">gesloten</span>' : '';
-        const inThread = m.parent_id ? ' <span class="tag">thread</span>' : ''; // v0.9
+        const dicht = k && k.archived ? ' <span class="label grijs">gesloten</span>' : '';
+        const inThread = m.parent_id ? ' <span class="label grijs">thread</span>' : ''; // v0.9
         return `<button type="button" class="zoek-hit" data-kanaal="${m.channel_id}" data-naar="${m.id}"${m.parent_id ? ` data-thread-na="${m.parent_id}"` : ''}><div class="waar"><b>${esc(m.author)}</b> in ${esc(kanaalNaam(k))}${dicht}${inThread} · ${d} ${tijd(m.created)}</div><div>${snip}</div></button>`;
       }).join('');
     } catch (e) { el.zoekResultaten.innerHTML = `<p class="zoek-leeg">${esc(e.message)}</p>`; }
@@ -1611,9 +1611,9 @@
     if (p) return p;
     p = document.createElement('div');
     p.id = 'gif-picker';
-    p.className = 'glas';
+    p.className = 'vlak zweef';
     p.hidden = true;
-    p.innerHTML = '<input type="search" id="gif-zoek" placeholder="Zoek een gif… (bijv. applaus, koffie, vrijdag)" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>'
+    p.innerHTML = '<input type="search" id="gif-zoek" class="veld" placeholder="Zoek een gif… (bijv. applaus, koffie, vrijdag)" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>'
       + '<div id="gif-raster"><p class="gif-melding">Laden…</p></div>'
       + '<p class="gif-voet">Powered by GIPHY</p>';
     document.body.appendChild(p);
@@ -1704,7 +1704,7 @@
     let p = $('#mention-picker');
     if (p) return p;
     p = document.createElement('div');
-    p.id = 'mention-picker'; p.className = 'glas'; p.hidden = true;
+    p.id = 'mention-picker'; p.className = 'vlak zweef'; p.hidden = true;
     document.body.appendChild(p);
     // mousedown i.p.v. click: zo verliest het schrijfveld de focus niet.
     p.addEventListener('mousedown', (ev) => {
@@ -1812,7 +1812,7 @@
         const tekst = alsAfbeelding(m.body) ? '🖼️ afbeelding'
           : (m.attachment && m.body === m.attachment.name) ? '📎 ' + esc(m.body)
           : opmaak(m.body);
-        return `<button type="button" class="zoek-hit${m.ongelezen ? ' ongelezen' : ''}" data-kanaal="${m.channel_id}"><div class="waar"><b>${esc(m.author)}</b> in ${esc(kanaalNaam(k))}${k && k.archived ? ' <span class="tag">gesloten</span>' : ''} · ${d} ${tijd(m.created)}</div><div class="tekst">${tekst}</div></button>`;
+        return `<button type="button" class="zoek-hit${m.ongelezen ? ' ongelezen' : ''}" data-kanaal="${m.channel_id}"><div class="waar"><b>${esc(m.author)}</b> in ${esc(kanaalNaam(k))}${k && k.archived ? ' <span class="label grijs">gesloten</span>' : ''} · ${d} ${tijd(m.created)}</div><div class="tekst">${tekst}</div></button>`;
       }).join('');
     } catch (e) { lijst.innerHTML = `<p class="zoek-leeg">${esc(e.message)}</p>`; }
   }
@@ -1859,7 +1859,7 @@
         S.maxId = Math.max(S.maxId, j.max_id || 0);
       } catch (e) { toast(e.message); }
     }
-    const t = $('.toast'); if (t && /^Uploaden:/.test(t.textContent)) t.remove();
+    const t = $('.melding'); if (t && /^Uploaden:/.test(t.textContent)) t.remove();
   }
 
   /* ---------- Poll plaatsen (v0.8) ---------- */
@@ -1867,7 +1867,7 @@
   function pollOptieVeld(n) {
     const d = document.createElement('div');
     d.className = 'poll-optie-veld';
-    d.innerHTML = `<input type="text" maxlength="120" placeholder="Antwoord ${n}" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore><button type="button" class="knop mini" data-optie-weg title="Weghalen">✕</button>`;
+    d.innerHTML = `<input type="text" class="veld" maxlength="120" placeholder="Antwoord ${n}" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore><button type="button" class="knop klein" data-optie-weg title="Weghalen">✕</button>`;
     return d;
   }
   function pollReset() {
@@ -2064,10 +2064,10 @@
     const superadmin = S.me && S.me.role === 'superadmin';
     el.optiesLeden.innerHTML = j.members.map((m) => {
       const ik = m.id === S.me.id;
-      const label = m.via === 'portal' ? '<span class="lid-via">via Portal</span>'
-        : m.via === 'handmatig' ? '<span class="lid-via">toegevoegd</span>' : '';
+      const label = m.via === 'portal' ? '<span class="label grijs">via Portal</span>'
+        : m.via === 'handmatig' ? '<span class="label grijs">toegevoegd</span>' : '';
       const magWeg = !ik && superadmin && m.via === 'handmatig' && !dicht;
-      const weg = magWeg ? `<button type="button" class="knop mini" data-lid-weg="${m.id}" title="Verwijderen uit kanaal">✕</button>` : '';
+      const weg = magWeg ? `<button type="button" class="knop klein" data-lid-weg="${m.id}" title="Verwijderen uit kanaal">✕</button>` : '';
       return `<li><span class="stip${isOnline(gebruiker(m.id) || {}) ? ' online' : ''}"></span><span class="naam">${esc(m.name)}${ik ? ' <span class="stil">(jij)</span>' : ''}</span>${label}${weg}</li>`;
     }).join('') || '<li class="stil">Nog geen leden.</li>';
     // Collega's die nog geen lid zijn
@@ -2211,9 +2211,9 @@
     try {
       const j = await api('beheer_kanalen');
       ul.innerHTML = j.kanalen.map((k) => `<li>
-          <span class="naam">#${esc(k.name)}${k.is_project ? ' <span class="lid-via">project</span>' : ''}${k.archived ? ' <span class="lid-via">gesloten</span>' : ''}<br>
+          <span class="naam">#${esc(k.name)}${k.is_project ? ' <span class="label grijs">project</span>' : ''}${k.archived ? ' <span class="label grijs">gesloten</span>' : ''}<br>
           <span class="stil beheer-info">${k.leden} ${k.leden === 1 ? 'lid' : 'leden'} · ${k.berichten} ${k.berichten === 1 ? 'bericht' : 'berichten'}</span></span>
-          <button type="button" class="knop mini gevaar" data-kanaal-wis="${k.id}" data-naam="${esc(k.name)}">Verwijderen</button>
+          <button type="button" class="knop klein rood" data-kanaal-wis="${k.id}" data-naam="${esc(k.name)}">Verwijderen</button>
         </li>`).join('') || '<li class="stil">Geen kanalen.</li>';
     } catch (e) { ul.innerHTML = `<li class="stil">${esc(e.message)}</li>`; }
   }
@@ -2440,7 +2440,7 @@
     // lid (niet gekoppeld, of ooit verlaten). Deelnemen kan met één klik.
     document.body.dataset.pane = 'chat';
     el.naam.textContent = 'Projectkanaal';
-    el.leeg.innerHTML = '<p class="stil">Je bent (nog) geen lid van dit projectkanaal.</p><button type="button" class="knop primair" id="knop-deelnemen">Deelnemen</button>';
+    el.leeg.innerHTML = '<p class="stil">Je bent (nog) geen lid van dit projectkanaal.</p><button type="button" class="knop goud" id="knop-deelnemen">Deelnemen</button>';
     $('#knop-deelnemen').addEventListener('click', async () => {
       try { await api('kanaal_deelnemen', { project_token: window.VACOM.project }); location.reload(); }
       catch (e) { toast(e.message); }

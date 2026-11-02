@@ -50,37 +50,39 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="<?= h(vacom_gedeelde_stijl()) ?>">
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
 </head>
 <body class="login-body">
 <script>try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
-<div class="aurora" aria-hidden="true"></div>
-<main class="login-kaart glas">
+<main class="login-kaart vlak">
   <div class="logo groot">
     <img class="logo-icoon" src="assets/icon-192.png" alt="">
     <span class="logo-naam">VaCom</span>
   </div>
   <p class="login-sub">Het interne kanaal van Invite</p>
 
-  <p class="melding fout" id="fout" <?= $fout === '' ? 'hidden' : '' ?>><?= h($fout) ?></p>
+  <p class="meldregel fout" id="fout" <?= $fout === '' ? 'hidden' : '' ?>><?= h($fout) ?></p>
   <?php if ($eersteKeer): ?>
-    <p class="melding info">Eerste start: het startwachtwoord voor <strong>Ad</strong> staat in
+    <p class="meldregel info">Eerste start: het startwachtwoord voor <strong>Ad</strong> staat in
       <code>BOOTSTRAP_WACHTWOORD.txt</code> in de datamap.</p>
   <?php endif; ?>
   <?php if (VACOM_PORTAL): ?>
-    <p class="melding info">Log in met je naam en wachtwoord van de <strong>Portal</strong>.</p>
+    <p class="meldregel info">Log in met je naam en wachtwoord van de <strong>Portal</strong>.</p>
   <?php endif; ?>
 
   <form method="post" autocomplete="on" id="form-login">
     <input type="hidden" name="csrf" value="<?= h(vacom_csrf()) ?>">
-    <label>Naam
-      <input type="text" name="naam" required autofocus autocapitalize="words" autocomplete="username"
+    <div class="veldrij">
+      <label class="veldlabel" for="login-naam">Naam</label>
+      <input type="text" id="login-naam" class="veld groot" name="naam" required autofocus autocapitalize="words" autocomplete="username"
              value="<?= h((string)($_POST['naam'] ?? '')) ?>">
-    </label>
-    <label>Wachtwoord
-      <input type="password" name="wachtwoord" required autocomplete="current-password">
-    </label>
-    <button type="submit" class="knop primair breed" id="knop-login">Inloggen</button>
+    </div>
+    <div class="veldrij">
+      <label class="veldlabel" for="login-wachtwoord">Wachtwoord</label>
+      <input type="password" id="login-wachtwoord" class="veld groot" name="wachtwoord" required autocomplete="current-password">
+    </div>
+    <button type="submit" class="knop goud breed" id="knop-login">Inloggen</button>
   </form>
   <p class="login-voet">VaCom v<?= VACOM_VERSION ?> · Invite</p>
 </main>

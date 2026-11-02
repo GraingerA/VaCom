@@ -47,6 +47,7 @@ $start = [
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="<?= h(vacom_gedeelde_stijl()) ?>">
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
 </head>
 <body data-pane="lijst"<?= $embed ? ' class="embed"' : '' ?>>
@@ -57,13 +58,12 @@ $start = [
 try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'dark' ?>') === 'light') document.body.classList.add('light-mode'); } catch (e) {}
 </script>
 <script>/* v0.5: thema direct zetten (vóór render, geen flits). Zelfde voorkeur als de Portal. */try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
-<div class="aurora" aria-hidden="true"></div>
 
 <div class="app">
 
   <!-- Header (v0.5), zoals de Portal-headerbalk: logo links, rechts wie je
        bent en de knoppen zoeken · thema · instellingen · uitloggen. -->
-  <header class="app-kop glas">
+  <header class="app-kop vlak">
     <!-- v0.7.4: het logo brengt je terug naar het overzicht (op de telefoon: uit het kanaal, naar de lijst) -->
     <a class="logo" href="index.php" title="Naar het overzicht">
       <img class="logo-icoon" src="assets/icon-192.png" alt="">
@@ -88,20 +88,20 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
   </header>
 
   <!-- Zijbalk: kanalen, DM's, collega's -->
-  <aside class="zijbalk glas" id="zijbalk">
+  <aside class="zijbalk vlak" id="zijbalk">
     <nav class="zijbalk-lijsten">
       <!-- v0.5: elke sectie is inklapbaar (details/summary); de stand wordt
            per browser onthouden. De +-knopjes in de kop toggelen niét. -->
       <details class="sectie" data-sectie="kanalen" open>
-        <summary><span class="sectie-titel">Kanalen</span> <span class="badge sectie-badge" id="badge-kanalen" hidden></span> <button type="button" class="knop mini" id="knop-kanaal-nieuw" title="Nieuw kanaal">+</button></summary>
+        <summary><span class="sectie-titel">Kanalen</span> <span class="teller sectie-badge" id="badge-kanalen" hidden></span> <button type="button" class="knop icoon klein" id="knop-kanaal-nieuw" title="Nieuw kanaal">+</button></summary>
         <ul id="lijst-kanalen"></ul>
       </details>
       <details class="sectie" data-sectie="berichten" open>
-        <summary><span class="sectie-titel">Berichten</span> <span class="badge sectie-badge" id="badge-berichten" hidden></span> <button type="button" class="knop mini" id="knop-dm-nieuw" title="Nieuw gesprek met een collega">+</button></summary>
+        <summary><span class="sectie-titel">Berichten</span> <span class="teller sectie-badge" id="badge-berichten" hidden></span> <button type="button" class="knop icoon klein" id="knop-dm-nieuw" title="Nieuw gesprek met een collega">+</button></summary>
         <ul id="lijst-dms"></ul>
       </details>
       <details class="sectie" data-sectie="projecten" id="sectie-projecten" open>
-        <summary><span class="sectie-titel">Projecten</span> <span class="badge sectie-badge" id="badge-projecten" hidden></span> <button type="button" class="knop mini" id="knop-project-nieuw" title="Kanaal starten voor een project waar je aan gekoppeld bent">+</button></summary>
+        <summary><span class="sectie-titel">Projecten</span> <span class="teller sectie-badge" id="badge-projecten" hidden></span> <button type="button" class="knop icoon klein" id="knop-project-nieuw" title="Kanaal starten voor een project waar je aan gekoppeld bent">+</button></summary>
         <ul id="lijst-projecten"></ul>
       </details>
       <details class="sectie" data-sectie="collegas" open>
@@ -120,17 +120,17 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
 
   <!-- Hoofdvlak: het geopende kanaal -->
   <!-- Eén kaart: kanaalkop, gesprek en schrijfveld horen bij elkaar. -->
-  <main class="chat glas" id="chat">
+  <main class="chat vlak" id="chat">
     <header class="chat-kop">
       <button class="knop icoon alleen-mobiel" id="knop-terug" aria-label="Terug naar overzicht">‹</button>
       <div class="chat-titel">
         <h1 id="chat-naam">Welkom</h1>
         <p id="chat-topic" class="chat-topic"></p>
       </div>
-      <a class="knop mini chat-portal" id="chat-portal" hidden target="_blank" rel="noopener">Open in Portal ↗</a>
+      <a class="knop klein chat-portal" id="chat-portal" hidden target="_blank" rel="noopener">Open in Portal ↗</a>
       <button class="knop icoon" id="knop-kanaal-opties" hidden title="Kanaal-opties" aria-label="Kanaal-opties">⋯</button>
       <!-- v0.5.1: alleen ingesloten in de Portal — deze kop is dan dé kop van de popup -->
-      <a class="knop mini primair" id="chat-open-vacom" hidden target="_blank" rel="noopener" title="Het gesprek in de volledige VaCom-app openen (nieuw venster)">Open in VaCom ↗</a>
+      <a class="knop klein goud" id="chat-open-vacom" hidden target="_blank" rel="noopener" title="Het gesprek in de volledige VaCom-app openen (nieuw venster)">Open in VaCom ↗</a>
       <button class="knop icoon" id="chat-sluit" hidden title="Sluiten" aria-label="Sluiten">✕</button>
     </header>
 
@@ -141,11 +141,11 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
     <div class="gesloten-balk" id="gesloten-balk" hidden>
       <span class="slotje" aria-hidden="true">🔒</span>
       <span id="gesloten-tekst"></span>
-      <button type="button" class="knop mini" id="knop-heropenen" hidden>Heropenen</button>
+      <button type="button" class="knop klein" id="knop-heropenen" hidden>Heropenen</button>
     </div>
 
     <div class="berichten" id="berichten">
-      <div class="leeg" id="leeg">
+      <div class="leeg groot" id="leeg">
         <div class="logo groot"><img class="logo-icoon" src="assets/icon-192.png" alt=""><span class="logo-naam">VaCom</span></div>
         <p>Kies links een kanaal of een collega.</p>
       </div>
@@ -173,7 +173,7 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
       </button>
       <input type="file" id="bestand-invoer" multiple hidden>
       <textarea id="invoer" rows="1" placeholder="Schrijf een bericht…" autocomplete="off" enterkeyhint="send" title="Opmaak: **vet** _cursief_ ~~doorgehaald~~ `code` · regel met > = citaat, met - = lijst · Ctrl+B / Ctrl+I"></textarea>
-      <button type="submit" class="knop primair" id="knop-stuur" aria-label="Versturen">
+      <button type="submit" class="knop icoon goud" id="knop-stuur" aria-label="Versturen">
         <svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 11.5 21 3l-8.5 18-2.5-7.5z" fill="currentColor"/></svg>
       </button>
     </form>
@@ -187,7 +187,7 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
       <div class="thread-berichten" id="thread-berichten"></div>
       <form class="schrijver thread-schrijver" id="thread-schrijver">
         <textarea id="thread-invoer" rows="1" placeholder="Antwoord in thread…" autocomplete="off" enterkeyhint="send"></textarea>
-        <button type="submit" class="knop primair" id="thread-stuur" aria-label="Antwoord versturen">
+        <button type="submit" class="knop icoon goud" id="thread-stuur" aria-label="Antwoord versturen">
           <svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 11.5 21 3l-8.5 18-2.5-7.5z" fill="currentColor"/></svg>
         </button>
       </form>
@@ -196,161 +196,168 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
 </div>
 
 <!-- Zoeken (v0.9: met filters op persoon, kanaal en periode) -->
-<dialog id="dialoog-zoeken" class="dialoog">
-  <form method="dialog" class="dialoog-kop">
-    <input type="search" id="zoek-invoer" placeholder="Zoek in alle berichten…" autocomplete="off">
-    <button type="button" class="knop mini" id="zoek-filters-knop" title="Filters" aria-label="Filters">Filters</button>
-    <button class="knop mini" value="sluit" aria-label="Sluiten">✕</button>
+<dialog id="dialoog-zoeken" class="popup">
+  <form method="dialog" class="popup-kop">
+    <span class="zoekveld"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M10 10l4 4"/></svg><input type="search" id="zoek-invoer" class="veld" placeholder="Zoek in alle berichten…" autocomplete="off" aria-label="Zoeken"></span>
+    <button type="button" class="knop klein" id="zoek-filters-knop" title="Filters" aria-label="Filters">Filters</button>
+    <button class="knop icoon klein sluit" value="sluit" aria-label="Sluiten">&times;</button>
   </form>
   <div class="zoek-filters" id="zoek-filters" hidden>
-    <select id="zoek-van" aria-label="Van wie"><option value="">Van iedereen</option></select>
-    <select id="zoek-in" aria-label="In welk kanaal"><option value="">In alle kanalen</option></select>
-    <label>van <input type="date" id="zoek-vanaf"></label>
-    <label>tot <input type="date" id="zoek-tot"></label>
-    <button type="button" class="knop mini" id="zoek-filters-wis">Wis filters</button>
+    <select id="zoek-van" class="veld klein" aria-label="Van wie"><option value="">Van iedereen</option></select>
+    <select id="zoek-in" class="veld klein" aria-label="In welk kanaal"><option value="">In alle kanalen</option></select>
+    <label>van <input type="date" id="zoek-vanaf" class="veld klein"></label>
+    <label>tot <input type="date" id="zoek-tot" class="veld klein"></label>
+    <button type="button" class="knop klein" id="zoek-filters-wis">Wis filters</button>
   </div>
   <div id="zoek-resultaten" class="zoek-resultaten"></div>
 </dialog>
 
 <!-- Opgeslagen berichten (v0.9) -->
-<dialog id="dialoog-opgeslagen" class="dialoog">
-  <form method="dialog" class="dialoog-kop">
-    <h2 class="dialoog-titel">Opgeslagen berichten</h2>
-    <button class="knop mini" value="sluit" aria-label="Sluiten">✕</button>
+<dialog id="dialoog-opgeslagen" class="popup">
+  <form method="dialog" class="popup-kop">
+    <h3>Opgeslagen berichten</h3>
+    <button class="knop icoon klein sluit" value="sluit" aria-label="Sluiten">&times;</button>
   </form>
   <div id="opgeslagen-lijst" class="zoek-resultaten"></div>
 </dialog>
 
 <!-- Vastgezette berichten in een kanaal (v0.9) -->
-<dialog id="dialoog-pins" class="dialoog">
-  <form method="dialog" class="dialoog-kop">
-    <h2 class="dialoog-titel">📌 Vastgezet</h2>
-    <button class="knop mini" value="sluit" aria-label="Sluiten">✕</button>
+<dialog id="dialoog-pins" class="popup">
+  <form method="dialog" class="popup-kop">
+    <h3>📌 Vastgezet</h3>
+    <button class="knop icoon klein sluit" value="sluit" aria-label="Sluiten">&times;</button>
   </form>
   <div id="pins-lijst" class="zoek-resultaten"></div>
 </dialog>
 
 <!-- Vermeldingen (v0.7): berichten waarin je met @naam genoemd bent -->
-<dialog id="dialoog-vermeldingen" class="dialoog">
-  <form method="dialog" class="dialoog-kop">
-    <h2 class="dialoog-titel">Vermeldingen</h2>
-    <button class="knop mini" value="sluit" aria-label="Sluiten">✕</button>
+<dialog id="dialoog-vermeldingen" class="popup">
+  <form method="dialog" class="popup-kop">
+    <h3>Vermeldingen</h3>
+    <button class="knop icoon klein sluit" value="sluit" aria-label="Sluiten">&times;</button>
   </form>
   <div id="vermeldingen-lijst" class="zoek-resultaten"></div>
 </dialog>
 
 <!-- Nieuw kanaal -->
-<dialog id="dialoog-kanaal" class="dialoog klein">
+<dialog id="dialoog-kanaal" class="popup klein">
+  <div class="popup-kop"><h3>Nieuw kanaal</h3></div>
   <form id="form-kanaal">
-    <h2>Nieuw kanaal</h2>
-    <label>Naam
-      <!-- autocomplete/data-1p-ignore/data-lpignore: anders denkt 1Password/LastPass dat dit een inlogformulier is -->
-      <div class="hash-veld"><span>#</span><input type="text" id="kanaal-naam" required maxlength="40" autocapitalize="none" placeholder="bijv. projecten" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore></div>
-    </label>
-    <label>Onderwerp (optioneel)
-      <input type="text" id="kanaal-topic" maxlength="200" placeholder="Waar gaat dit kanaal over?" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>
-    </label>
-    <p class="melding fout" id="kanaal-fout" hidden></p>
-    <div class="dialoog-knoppen">
+    <div class="popup-inhoud">
+      <div class="veldrij">
+        <label class="veldlabel" for="kanaal-naam">Naam</label>
+        <!-- autocomplete/data-1p-ignore/data-lpignore: anders denkt 1Password/LastPass dat dit een inlogformulier is -->
+        <div class="hash-veld"><span>#</span><input type="text" id="kanaal-naam" class="veld" required maxlength="40" autocapitalize="none" placeholder="bijv. projecten" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore></div>
+      </div>
+      <div class="veldrij">
+        <label class="veldlabel" for="kanaal-topic">Onderwerp <span>(optioneel)</span></label>
+        <input type="text" id="kanaal-topic" class="veld" maxlength="200" placeholder="Waar gaat dit kanaal over?" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>
+      </div>
+      <p class="meldregel fout" id="kanaal-fout" hidden></p>
+    </div>
+    <div class="popup-voet">
       <button type="button" class="knop" id="kanaal-annuleer">Annuleren</button>
-      <button type="submit" class="knop primair">Aanmaken</button>
+      <button type="submit" class="knop goud">Aanmaken</button>
     </div>
   </form>
 </dialog>
 
 <!-- Instellingen (v0.5): avatarfoto, je gegevens uit de Portal, thema -->
-<dialog id="dialoog-instellingen" class="dialoog klein">
-  <div class="dialoog-kop">
-    <h2>Instellingen</h2>
-    <button type="button" class="knop mini" id="instellingen-sluit" aria-label="Sluiten">✕</button>
+<dialog id="dialoog-instellingen" class="popup klein">
+  <div class="popup-kop">
+    <h3>Instellingen</h3>
+    <button type="button" class="knop icoon klein sluit" id="instellingen-sluit" aria-label="Sluiten">&times;</button>
   </div>
-  <div class="opties-body">
-    <!-- Profiel: foto links, naam/rol/e-mail en de fotoknoppen rechts ernaast -->
-    <div class="profiel">
+  <div class="popup-inhoud">
+    <!-- Profiel: foto links, naam/rol/e-mail en de fotoknoppen rechts ernaast (.inst-profiel: .profiel is de voet-pil van de stijlgids) -->
+    <div class="inst-profiel">
       <div class="avatar instellingen-avatar" id="instellingen-avatar"></div>
-      <div class="profiel-info">
-        <div class="profiel-naam" id="inst-naam"></div>
-        <div class="profiel-sub"><span id="inst-rol"></span><span class="profiel-punt">·</span><span id="inst-email"></span></div>
-        <div class="profiel-knoppen">
-          <button type="button" class="knop mini" id="avatar-kiezen">Foto kiezen…</button>
-          <button type="button" class="knop mini" id="avatar-weg" hidden>Foto verwijderen</button>
+      <div class="inst-profiel-info">
+        <div class="inst-profiel-naam" id="inst-naam"></div>
+        <div class="inst-profiel-sub"><span id="inst-rol"></span><span class="inst-profiel-punt">·</span><span id="inst-email"></span></div>
+        <div class="inst-profiel-knoppen">
+          <button type="button" class="knop klein" id="avatar-kiezen">Foto kiezen…</button>
+          <button type="button" class="knop klein" id="avatar-weg" hidden>Foto verwijderen</button>
           <input type="file" id="avatar-bestand" accept="image/*" hidden>
         </div>
       </div>
     </div>
-    <p class="melding fout" id="instellingen-fout" hidden></p>
+    <p class="meldregel fout" id="instellingen-fout" hidden></p>
 
     <div class="inst-sectie">
-      <div class="inst-kop">Status</div>
+      <div class="kopje">Status</div>
       <div class="status-rij">
-        <input type="text" id="inst-status" maxlength="60" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore placeholder="Bijv. Op kantoor · Vrij tot 14:00 · In overleg">
+        <input type="text" id="inst-status" class="veld" maxlength="60" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore placeholder="Bijv. Op kantoor · Vrij tot 14:00 · In overleg">
         <button type="button" class="knop" id="inst-status-opslaan">Opslaan</button>
       </div>
       <p class="inst-hint">Collega's zien je status achter je naam in de zijbalk en bovenin jullie gesprek. Leeg laten = geen status.</p>
     </div>
 
     <div class="inst-sectie">
-      <div class="inst-kop">Weergave</div>
-      <div class="instellingen-rij"><span>Thema</span><button type="button" class="knop mini" id="inst-thema"></button></div>
+      <div class="kopje">Weergave</div>
+      <div class="instellingen-rij"><span>Thema</span><button type="button" class="knop klein" id="inst-thema"></button></div>
     </div>
 
     <!-- v0.9: pushmeldingen, per apparaat/browser -->
     <div class="inst-sectie" id="inst-push">
-      <div class="inst-kop">Meldingen</div>
-      <div class="instellingen-rij"><span id="push-status">Op dit apparaat: uit</span><button type="button" class="knop mini" id="push-knop">Aanzetten</button></div>
+      <div class="kopje">Meldingen</div>
+      <div class="instellingen-rij"><span id="push-status">Op dit apparaat: uit</span><button type="button" class="knop klein" id="push-knop">Aanzetten</button></div>
       <div class="push-keuze" id="push-keuze" hidden>
         <label><input type="radio" name="push-wat" value="0"> Alleen gesprekken, @vermeldingen en threads waar ik in zit</label>
         <label><input type="radio" name="push-wat" value="1"> Alle berichten in mijn kanalen</label>
       </div>
       <!-- v0.9.4: altijd zichtbare testknop, met uitleg als er niets binnenkomt -->
-      <div class="instellingen-rij" id="push-test-rij"><span>Werkt het? Test het hier</span><button type="button" class="knop mini" id="push-test">Stuur proefmelding</button></div>
+      <div class="instellingen-rij" id="push-test-rij"><span>Werkt het? Test het hier</span><button type="button" class="knop klein" id="push-test">Stuur proefmelding</button></div>
       <p class="inst-hint push-test-uitleg" id="push-test-uitleg" hidden></p>
       <p class="inst-hint" id="push-hint">Je krijgt een melding op dit apparaat als VaCom niet openstaat. Op de iPhone werkt dit alleen als VaCom op het beginscherm staat.</p>
     </div>
 
     <!-- v0.5.1: kanaalbeheer voor de superadmin — alle kanalen, ook zonder lid te zijn -->
     <div class="inst-sectie" id="inst-beheer" hidden>
-      <div class="inst-kop">Kanaalbeheer <span class="stil">· superadmin</span></div>
+      <div class="kopje">Kanaalbeheer <span>superadmin</span></div>
       <p class="inst-hint" style="margin:0 0 8px">Alle kanalen, ook waar je geen lid van bent. Verwijderen is definitief: berichten en zoekresultaten gaan mee.</p>
       <ul class="leden" id="beheer-kanalen"></ul>
     </div>
 
     <div class="inst-sectie">
       <p class="inst-hint"><?= VACOM_PORTAL ? 'Naam, rol en e-mail komen uit de Portal; wijzigen doe je daar.' : 'Je wachtwoord wijzig je via Gebruikers.' ?></p>
-      <div class="dialoog-knoppen instellingen-links">
-        <a class="knop" href="gebruikers.php"><?= VACOM_PORTAL ? 'Collega\'s' : (vacom_is_superadmin() ? 'Gebruikers' : 'Mijn wachtwoord') ?></a>
-        <a class="knop" href="changelog.php">Wat is er nieuw</a>
+      <div class="instellingen-links">
+        <a class="knop klein" href="gebruikers.php"><?= VACOM_PORTAL ? 'Collega\'s' : (vacom_is_superadmin() ? 'Gebruikers' : 'Mijn wachtwoord') ?></a>
+        <a class="knop klein" href="changelog.php">Wat is er nieuw</a>
       </div>
     </div>
   </div>
 </dialog>
 
 <!-- Poll plaatsen (v0.8) -->
-<dialog id="dialoog-poll" class="dialoog klein">
+<dialog id="dialoog-poll" class="popup klein">
+  <div class="popup-kop"><h3>Poll plaatsen</h3></div>
   <form id="form-poll" autocomplete="off">
-    <h2>Poll plaatsen</h2>
-    <label>Vraag
-      <input type="text" id="poll-vraag" required maxlength="300" placeholder="Bijv. Wanneer plannen we de teamdag?" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>
-    </label>
-    <label>Antwoorden</label>
-    <div class="poll-opties" id="poll-opties"></div>
-    <button type="button" class="knop mini" id="poll-optie-plus">+ Antwoord</button>
-    <label class="poll-multi"><input type="checkbox" id="poll-multi"> Meerdere antwoorden mogelijk</label>
-    <p class="melding fout" id="poll-fout" hidden></p>
-    <div class="dialoog-knoppen">
+    <div class="popup-inhoud">
+      <div class="veldrij">
+        <label class="veldlabel" for="poll-vraag">Vraag</label>
+        <input type="text" id="poll-vraag" class="veld" required maxlength="300" placeholder="Bijv. Wanneer plannen we de teamdag?" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>
+      </div>
+      <div class="veldlabel">Antwoorden</div>
+      <div class="poll-opties" id="poll-opties"></div>
+      <button type="button" class="knop klein" id="poll-optie-plus">+ Antwoord</button>
+      <label class="vink poll-multi"><input type="checkbox" id="poll-multi"><span>Meerdere antwoorden mogelijk</span></label>
+      <p class="meldregel fout" id="poll-fout" hidden></p>
+    </div>
+    <div class="popup-voet">
       <button type="button" class="knop" id="poll-annuleer">Annuleren</button>
-      <button type="submit" class="knop primair" id="poll-plaatsen">Poll plaatsen</button>
+      <button type="submit" class="knop goud" id="poll-plaatsen">Poll plaatsen</button>
     </div>
   </form>
 </dialog>
 
 <!-- Poll-uitslag (v0.8): wie stemde wat -->
-<dialog id="dialoog-poll-uitslag" class="dialoog klein">
-  <div class="dialoog-kop">
-    <h2>Stemmen</h2>
-    <button type="button" class="knop mini" id="poll-uitslag-sluit" aria-label="Sluiten">✕</button>
+<dialog id="dialoog-poll-uitslag" class="popup klein">
+  <div class="popup-kop">
+    <h3>Stemmen</h3>
+    <button type="button" class="knop icoon klein sluit" id="poll-uitslag-sluit" aria-label="Sluiten">&times;</button>
   </div>
-  <div class="opties-body">
+  <div class="popup-inhoud">
     <p class="poll-uitslag-vraag" id="poll-uitslag-vraag"></p>
     <p class="poll-uitslag-info stil" id="poll-uitslag-info"></p>
     <div id="poll-uitslag-lijst"></div>
@@ -359,91 +366,95 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
 </dialog>
 
 <!-- Foto bijsnijden (v0.7.4): slepen om te verschuiven, schuif of scrollwiel om te zoomen -->
-<dialog id="dialoog-avatar" class="dialoog klein">
-  <div class="dialoog-kop">
-    <h2>Foto bijsnijden</h2>
-    <button type="button" class="knop mini" id="avatar-crop-sluit" aria-label="Sluiten">✕</button>
+<dialog id="dialoog-avatar" class="popup klein">
+  <div class="popup-kop">
+    <h3>Foto bijsnijden</h3>
+    <button type="button" class="knop icoon klein sluit" id="avatar-crop-sluit" aria-label="Sluiten">&times;</button>
   </div>
-  <div class="opties-body">
+  <div class="popup-inhoud">
     <div class="crop-kader" id="crop-kader"><img id="crop-beeld" alt="" draggable="false"></div>
     <div class="crop-zoom"><span aria-hidden="true">−</span><input type="range" id="crop-zoom" min="1" max="4" step="0.01" value="1" aria-label="Zoom"><span aria-hidden="true">+</span></div>
     <p class="inst-hint">Sleep de foto om hem te verschuiven; zoom met de schuif of het scrollwiel. Het vierkant wordt je profielfoto.</p>
-    <div class="dialoog-knoppen">
-      <button type="button" class="knop" id="avatar-crop-annuleer">Annuleren</button>
-      <button type="button" class="knop primair" id="avatar-crop-ok">Gebruiken</button>
-    </div>
+  </div>
+  <div class="popup-voet">
+    <button type="button" class="knop" id="avatar-crop-annuleer">Annuleren</button>
+    <button type="button" class="knop goud" id="avatar-crop-ok">Gebruiken</button>
   </div>
 </dialog>
 
 <!-- Nieuw gesprek (v0.5): kies een collega — of jezelf, voor notities -->
-<dialog id="dialoog-dm" class="dialoog klein">
-  <div class="dialoog-kop">
-    <h2>Nieuw gesprek</h2>
-    <button type="button" class="knop mini" id="dm-sluit" aria-label="Sluiten">✕</button>
+<dialog id="dialoog-dm" class="popup klein">
+  <div class="popup-kop">
+    <h3>Nieuw gesprek</h3>
+    <button type="button" class="knop icoon klein sluit" id="dm-sluit" aria-label="Sluiten">&times;</button>
   </div>
-  <div class="opties-body">
-    <input type="text" id="dm-filter" placeholder="Zoek een collega…" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>
+  <div class="popup-inhoud">
+    <span class="zoekveld" style="display:block"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M10 10l4 4"/></svg><input type="search" id="dm-filter" class="veld mb-0" placeholder="Zoek een collega…" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore aria-label="Zoek een collega"></span>
     <ul class="dm-keuze" id="dm-keuze"></ul>
   </div>
 </dialog>
 
 <!-- Projectkanaal starten (v0.5): alleen projecten waar je aan gekoppeld bent en die nog geen kanaal hebben -->
-<dialog id="dialoog-project" class="dialoog klein">
+<dialog id="dialoog-project" class="popup klein">
+  <div class="popup-kop"><h3>Projectkanaal starten</h3></div>
   <form id="form-project">
-    <h2>Projectkanaal starten</h2>
-    <p class="stil" id="project-uitleg">Kies een project waar je aan gekoppeld bent. Iedereen die in de Portal aan het project hangt wordt automatisch lid.</p>
-    <label>Project
-      <select id="project-keuze" required></select>
-    </label>
-    <p class="melding fout" id="project-fout" hidden></p>
-    <div class="dialoog-knoppen">
+    <div class="popup-inhoud">
+      <p class="stil" id="project-uitleg">Kies een project waar je aan gekoppeld bent. Iedereen die in de Portal aan het project hangt wordt automatisch lid.</p>
+      <div class="veldrij">
+        <label class="veldlabel" for="project-keuze">Project</label>
+        <select id="project-keuze" class="veld" required></select>
+      </div>
+      <p class="meldregel fout" id="project-fout" hidden></p>
+    </div>
+    <div class="popup-voet">
       <button type="button" class="knop" id="project-annuleer">Annuleren</button>
-      <button type="submit" class="knop primair" id="project-aanmaken">Kanaal starten</button>
+      <button type="submit" class="knop goud" id="project-aanmaken">Kanaal starten</button>
     </div>
   </form>
 </dialog>
 
 <!-- Kanaal-opties (v0.4): leden, collega toevoegen, verlaten, sluiten/verwijderen -->
-<dialog id="dialoog-opties" class="dialoog klein">
-  <div class="dialoog-kop">
-    <h2 id="opties-titel">Kanaal</h2>
-    <button type="button" class="knop mini" id="opties-sluit" aria-label="Sluiten">✕</button>
+<dialog id="dialoog-opties" class="popup klein">
+  <div class="popup-kop">
+    <h3 id="opties-titel">Kanaal</h3>
+    <button type="button" class="knop icoon klein sluit" id="opties-sluit" aria-label="Sluiten">&times;</button>
   </div>
-  <div class="opties-body">
+  <div class="popup-inhoud">
     <p class="stil" id="opties-project" hidden>Projectkanaal — leden volgen de koppeling in de Portal (projectmanager en designers).</p>
     <p class="stil" id="opties-dm">Een gesprek uit je lijst halen verwijdert niets: de berichten blijven bewaard en doorzoekbaar. Het gesprek komt vanzelf terug zodra er een nieuw bericht is, of als je het opnieuw opent via de + bij Berichten.</p>
-    <p class="melding info" id="opties-gesloten" hidden>Dit kanaal is gesloten: iedereen kan het lezen en doorzoeken, maar er kan niets meer in geplaatst worden.</p>
-    <label>Onderwerp
-      <input type="text" id="opties-topic" maxlength="200" placeholder="Waar gaat dit kanaal over?" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>
-    </label>
-    <h3 class="opties-kop">Leden <span class="stil" id="opties-aantal"></span></h3>
+    <p class="meldregel info" id="opties-gesloten" hidden>Dit kanaal is gesloten: iedereen kan het lezen en doorzoeken, maar er kan niets meer in geplaatst worden.</p>
+    <div class="veldrij">
+      <label class="veldlabel" for="opties-topic">Onderwerp</label>
+      <input type="text" id="opties-topic" class="veld" maxlength="200" placeholder="Waar gaat dit kanaal over?" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>
+    </div>
+    <h3 class="kopje">Leden <span id="opties-aantal"></span></h3>
     <ul class="leden" id="opties-leden"></ul>
     <div class="toevoegen">
-      <select id="opties-collega"></select>
+      <select id="opties-collega" class="veld"></select>
       <button type="button" class="knop" id="opties-toevoegen">Toevoegen</button>
     </div>
-    <p class="melding fout" id="opties-fout" hidden></p>
-    <div class="dialoog-knoppen opties-knoppen">
-      <button type="button" class="knop" id="opties-verbergen">Uit mijn lijst halen</button>
-      <button type="button" class="knop" id="opties-verlaten" hidden>Kanaal verlaten</button>
-      <button type="button" class="knop" id="opties-archiveren" hidden>Kanaal sluiten</button>
-      <button type="button" class="knop" id="opties-heropenen" hidden>Kanaal heropenen</button>
-      <button type="button" class="knop gevaar" id="opties-verwijderen" hidden>Verwijderen</button>
-    </div>
+    <p class="meldregel fout" id="opties-fout" hidden></p>
+  </div>
+  <div class="popup-voet links">
+    <button type="button" class="knop" id="opties-verbergen">Uit mijn lijst halen</button>
+    <button type="button" class="knop" id="opties-verlaten" hidden>Kanaal verlaten</button>
+    <button type="button" class="knop" id="opties-archiveren" hidden>Kanaal sluiten</button>
+    <button type="button" class="knop" id="opties-heropenen" hidden>Kanaal heropenen</button>
+    <button type="button" class="knop rood" id="opties-verwijderen" hidden>Verwijderen</button>
   </div>
 </dialog>
 
 <!-- v0.9.1: uitnodiging om meldingen aan te zetten (laptop/desktop), tot je kiest -->
 <div class="banner" id="banner-push" hidden>
   <p><strong>Wil je een melding als er iets voor je is?</strong> Bij gesprekken, @vermeldingen en threads waar je in zit &mdash; ook als VaCom niet openstaat. Aanpassen kan altijd onder Instellingen.</p>
-  <button class="knop mini primair" id="banner-push-aan">Aanzetten</button>
-  <button class="knop mini" id="banner-push-later">Niet nu</button>
+  <button class="knop klein goud" id="banner-push-aan">Aanzetten</button>
+  <button class="knop klein" id="banner-push-later">Niet nu</button>
 </div>
 
 <!-- Installatie-tip voor iPhone -->
 <div class="banner" id="banner-ios" hidden>
   <p>Zet VaCom op je beginscherm voor meldingen: tik op <strong>Delen</strong> <span class="ios-deel">⎋</span> en dan <strong>Zet op beginscherm</strong>.</p>
-  <button class="knop mini" id="banner-ios-sluit" aria-label="Sluiten">✕</button>
+  <button class="knop icoon klein sluit" id="banner-ios-sluit" aria-label="Sluiten">&times;</button>
 </div>
 
 <script>window.VACOM = <?= json_encode($start, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?>;</script>

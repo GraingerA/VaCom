@@ -83,22 +83,22 @@ $csrf = vacom_csrf();
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="<?= h(vacom_gedeelde_stijl()) ?>">
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
 </head>
 <body class="pagina-body">
 <script>try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
-<div class="aurora" aria-hidden="true"></div>
 <main class="pagina">
   <header class="pagina-kop">
-    <a class="knop" href="index.php">‹ Terug naar VaCom</a>
+    <a class="knop" href="index.php"><i>←</i> Terug naar VaCom</a>
     <h1><?= VACOM_PORTAL ? 'Collega\'s' : ($admin ? 'Gebruikers' : 'Mijn account') ?></h1>
   </header>
 
-  <?php if ($fout !== ''): ?><p class="melding fout"><?= h($fout) ?></p><?php endif; ?>
-  <?php if ($melding !== ''): ?><p class="melding ok"><?= $melding ?></p><?php endif; ?>
+  <?php if ($fout !== ''): ?><p class="meldregel fout"><?= h($fout) ?></p><?php endif; ?>
+  <?php if ($melding !== ''): ?><p class="meldregel ok"><?= $melding ?></p><?php endif; ?>
 
   <?php if (VACOM_PORTAL): ?>
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>Accounts komen uit de Portal</h2>
     <p class="uitleg">VaCom gebruikt de inlog van de Invite Project Portal. Een collega toevoegen,
       een wachtwoord wijzigen of iemand de toegang ontnemen doe je dus <a href="<?= VACOM_PORTAL_URL ?>">in de Portal</a>;
@@ -108,7 +108,7 @@ $csrf = vacom_csrf();
       <tbody>
       <?php foreach ($gebruikers as $u): if (!(int)$u['active']) continue; ?>
         <tr>
-          <td><?= h($u['name']) ?><?= (int)$u['id'] === (int)$ik['id'] ? ' <span class="tag">jij</span>' : '' ?></td>
+          <td><?= h($u['name']) ?><?= (int)$u['id'] === (int)$ik['id'] ? ' <span class="label grijs">jij</span>' : '' ?></td>
           <td><?= h($u['role']) ?></td>
           <td class="stil"><?= $u['last_seen'] ? h(date('d-m-Y H:i', strtotime($u['last_seen']))) : '—' ?></td>
         </tr>
@@ -118,47 +118,47 @@ $csrf = vacom_csrf();
   </section>
   <?php else: ?>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>Mijn wachtwoord wijzigen</h2>
     <form method="post" class="form-rij">
       <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
       <input type="hidden" name="actie" value="eigen_wachtwoord">
-      <label>Huidig wachtwoord <input type="password" name="huidig" required autocomplete="current-password"></label>
-      <label>Nieuw wachtwoord <input type="password" name="nieuw" required minlength="8" autocomplete="new-password"></label>
-      <button class="knop primair" type="submit">Wijzigen</button>
+      <div class="veldrij"><label class="veldlabel" for="ww-huidig">Huidig wachtwoord</label><input type="password" id="ww-huidig" class="veld" name="huidig" required autocomplete="current-password"></div>
+      <div class="veldrij"><label class="veldlabel" for="ww-nieuw">Nieuw wachtwoord</label><input type="password" id="ww-nieuw" class="veld" name="nieuw" required minlength="8" autocomplete="new-password"></div>
+      <button class="knop goud" type="submit">Wijzigen</button>
     </form>
   </section>
 
   <?php if ($admin): ?>
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>Collega toevoegen</h2>
     <p class="uitleg">Geef de collega de naam en het wachtwoord door; die kan het daarna zelf wijzigen.</p>
     <form method="post" class="form-rij">
       <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
       <input type="hidden" name="actie" value="nieuw">
-      <label>Naam <input type="text" name="naam" required maxlength="40" autocapitalize="words" placeholder="Voornaam"></label>
-      <label>E-mail (optioneel) <input type="email" name="email" placeholder="naam@invite.nl"></label>
-      <label>Wachtwoord <input type="text" name="wachtwoord" required minlength="8" autocomplete="off" value="<?= h(substr(bin2hex(random_bytes(6)), 0, 10)) ?>"></label>
-      <label>Rol
-        <select name="rol"><option value="lid">Lid</option><option value="superadmin">Superadmin</option></select>
-      </label>
-      <button class="knop primair" type="submit">Toevoegen</button>
+      <div class="veldrij"><label class="veldlabel" for="nw-naam">Naam</label><input type="text" id="nw-naam" class="veld" name="naam" required maxlength="40" autocapitalize="words" placeholder="Voornaam"></div>
+      <div class="veldrij"><label class="veldlabel" for="nw-email">E-mail <span>(optioneel)</span></label><input type="email" id="nw-email" class="veld" name="email" placeholder="naam@invite.nl"></div>
+      <div class="veldrij"><label class="veldlabel" for="nw-wachtwoord">Wachtwoord</label><input type="text" id="nw-wachtwoord" class="veld" name="wachtwoord" required minlength="8" autocomplete="off" value="<?= h(substr(bin2hex(random_bytes(6)), 0, 10)) ?>"></div>
+      <div class="veldrij"><label class="veldlabel" for="nw-rol">Rol</label>
+        <select name="rol" id="nw-rol" class="veld"><option value="lid">Lid</option><option value="superadmin">Superadmin</option></select>
+      </div>
+      <button class="knop goud" type="submit">Toevoegen</button>
     </form>
   </section>
 
-  <section class="kaart glas">
+  <section class="vlak kaart">
     <h2>Alle gebruikers</h2>
     <table class="tabel">
       <thead><tr><th>Naam</th><th>Rol</th><th>Laatst gezien</th><th>Acties</th></tr></thead>
       <tbody>
       <?php foreach ($gebruikers as $u): $zelf = (int)$u['id'] === (int)$ik['id']; ?>
         <tr class="<?= (int)$u['active'] ? '' : 'inactief' ?>">
-          <td><?= h($u['name']) ?><?= $zelf ? ' <span class="tag">jij</span>' : '' ?><?= (int)$u['active'] ? '' : ' <span class="tag">uit</span>' ?></td>
+          <td><?= h($u['name']) ?><?= $zelf ? ' <span class="label grijs">jij</span>' : '' ?><?= (int)$u['active'] ? '' : ' <span class="label grijs">uit</span>' ?></td>
           <td>
             <?php if ($zelf): ?><?= h($u['role']) ?><?php else: ?>
             <form method="post" class="inline">
               <input type="hidden" name="csrf" value="<?= h($csrf) ?>"><input type="hidden" name="actie" value="rol"><input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
-              <select name="rol" onchange="this.form.submit()">
+              <select name="rol" class="veld klein" onchange="this.form.submit()">
                 <option value="lid" <?= $u['role'] === 'lid' ? 'selected' : '' ?>>Lid</option>
                 <option value="superadmin" <?= $u['role'] === 'superadmin' ? 'selected' : '' ?>>Superadmin</option>
               </select>
@@ -169,14 +169,14 @@ $csrf = vacom_csrf();
           <td class="acties">
             <form method="post" class="inline">
               <input type="hidden" name="csrf" value="<?= h($csrf) ?>"><input type="hidden" name="actie" value="reset"><input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
-              <input type="text" name="wachtwoord" placeholder="nieuw wachtwoord" minlength="8" required autocomplete="off" class="smal">
-              <button class="knop mini" type="submit">Reset</button>
+              <input type="text" name="wachtwoord" placeholder="nieuw wachtwoord" minlength="8" required autocomplete="off" class="veld klein smal">
+              <button class="knop klein" type="submit">Reset</button>
             </form>
             <?php if (!$zelf): ?>
             <form method="post" class="inline">
               <input type="hidden" name="csrf" value="<?= h($csrf) ?>"><input type="hidden" name="actie" value="actief"><input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
               <input type="hidden" name="aan" value="<?= (int)$u['active'] ? 0 : 1 ?>">
-              <button class="knop mini" type="submit"><?= (int)$u['active'] ? 'Deactiveren' : 'Activeren' ?></button>
+              <button class="knop klein" type="submit"><?= (int)$u['active'] ? 'Deactiveren' : 'Activeren' ?></button>
             </form>
             <?php endif; ?>
           </td>

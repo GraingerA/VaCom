@@ -142,12 +142,45 @@ server, `vacom/data/` lokaal — beide buiten Git). Zie `vacom_giphy_key()` in
 - API zet `display_errors` uit: waarschuwingen mogen nooit in JSON lekken.
 - Alle uitvoer escapen (`h()` in PHP, `esc()` in JS).
 
-## Vormgeving
+## Vormgeving — de stijlgids van de Portal (sinds v0.10.0)
 
-Huisstijl Invite Project Portal: donker met aurora-achtergrond, goud `#fbbc43`,
-blauw `#8ecae8`, groen `#4da875`, Manrope, glazen header/kaarten, hoekradius
-5px (knoppen) / 7px (kaarten). Inputs 16px zodat iOS niet inzoomt; safe-area
-insets voor de iPhone-notch.
+VaCom gebruikt de gedeelde stijl van Invite: `invite_stijl.css` in de Portal,
+met overzichtspagina `stijlgids_ipp.php` (alleen ingelogd). Elke pagina laadt
+**eerst `../invite_stijl.css`** (via `vacom_gedeelde_stijl()` in `inc/config.php`;
+cache-buster = wijzigingsdatum; in losse modus het bestand van portal.invite.nl)
+**en dan `assets/app.css`**; een VaCom-regel met dezelfde specificiteit wint dus.
+Zo doen de Hub, de Socials Planner en Transfer het ook. Een wijziging in
+`invite_stijl.css` geldt dus ook hier: na een Portal-stijlwijziging VaCom nakijken.
+
+Gebruik de bouwstenen van de stijlgids, niet iets eigens:
+- tokens: `--goud --groen --blauw --rood --oranje` (+ `-tekst` voor tekst),
+  `--text --muted --border --border-hov --card --surface`, `--letter-mini …
+  --letter-pagina`, `--radius` (5px) / `--radius-card` (7px) / `--radius-chip`,
+  `--shadow-card --shadow-pop --focus-ring`, `--glass-*`; de aurora zit op `body`;
+- `.knop` (+ `.goud` hoofdknop, `.rood` verwijderen, `.klein`, `.icoon`, `.sluit`,
+  `.breed`, `.stil`, `.doorzichtig`, `.actief`/`aria-pressed`);
+- `.veld` (+ `.klein`, `.groot`, `.mb-0` in een popup), `.veldrij`, `.veldlabel`
+  (met `<span>` voor "(optioneel)"), `.veldhint`, `.zoekveld`, `.vink`;
+- `.popup` op de `<dialog>` (`.popup-kop` h3 + `.knop.icoon.klein.sluit`,
+  `.popup-inhoud`, `.popup-voet`, `.links` = knoppen links), `.melding` (+ `.show`)
+  = de zwevende toast rechtsonder (`toast()` in app.js);
+- `.chip.klein.klik` (reacties: `.reactie`, `.mijn`), `.label.grijs` (jij, thread,
+  gesloten, via Portal), `.teller` (ongelezen; `.vermelding` = blauw), `.vlak`
+  (kop, zijbalk, gesprek, kaarten; `.zweef` voor pickers en banners), `.kopje`,
+  `.tabel`, `.leeg.groot` (leeg gesprek).
+
+Eigen namen in `app.css` (bewust anders dan de stijlgids, die namen botsten):
+`.meldregel` (melding in de pagina, `.fout`/`.info`/`.ok`), `.inst-profiel-*`
+(profielblok in Instellingen; `.profiel` is de voet-pil van de Portal), `--tint`
+/`--tint-2` (lichte vulling). Verder alleen wat van VaCom is: de app-indeling
+(kop, zijbalk, gesprek als losse glazen kaarten op de aurora), berichten,
+reacties, threads, polls, bijlagen, voorvertoning, pickers, lichtbak, foto
+bijsnijden, banners en de losse pagina's. Thema: localStorage `ipp_theme`
+(gedeeld met de Portal). Inputs 16px op mobiel zodat iOS niet inzoomt (zit in
+de stijlgids); safe-area insets voor de iPhone-notch.
+**Stijlgidspagina:** het VaCom-kader in `stijlgids_ipp.php` (Portal) toont nog
+de oude klassen (`.primair`, `.mini`, `.dialoog`, `.badge`, `--tekst`); dat is
+Portal-code en moet daar bijgewerkt worden.
 
 ## Werkwijze bij elke release
 
@@ -163,7 +196,10 @@ insets voor de iPhone-notch.
 **Losse modus** (standaard, want deze map staat niet meer in de Portal): start
 launch-config `vacom` in `.claude/launch.json` (poort 8400, de winget-PHP 8.1 die
 ook pdo_sqlite laadt) en open http://localhost:8400/. Eerste keer: bootstrap-
-superadmin "Ad", wachtwoord in `data/`. Lokale VaCom-data staat in `data/` (git-ignored).
+superadmin "Ad", wachtwoord in `data/`. Lokale VaCom-data staat in `data/` (git-ignored);
+daar staan ook twee testaccounts (Tester = superadmin, Collega = lid), wachtwoord in
+`data/TESTACCOUNT.txt`. In losse modus komt `invite_stijl.css` van portal.invite.nl
+(dus internet nodig).
 
 **Portal-modus** (precies zoals online) testen kan alleen als VaCom als map
 `vacom/` naast `config_ipp.php` in de Portal-map staat. Daarvoor een junction
@@ -175,7 +211,9 @@ cmd //c mklink //J "C:\Users\Ad Grainger\Documents\Claude\Invite Project Portal\
 
 Start dan de Portal-dev-server (launch-config `portal` in de Portal-map, poort
 8000) en open http://localhost:8000/vacom/. Inloggen met een account uit de
-lokale `ipp_data/users.json` (testaccount Bram / test1234).
+lokale `ipp_data/users.json` (lokaal staat daar alleen Admin in; het wachtwoord
+staat in `ipp_data/BOOTSTRAP_WACHTWOORD.txt`, niet in Git). Launch-config
+`portal` in deze map doet hetzelfde (serveert de Portal-map op poort 8000).
 
 Handmatig, zonder launch-config:
 
