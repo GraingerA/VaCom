@@ -67,8 +67,7 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
   <header class="app-kop vlak">
     <!-- v0.7.4: het logo brengt je terug naar het overzicht (op de telefoon: uit het kanaal, naar de lijst) -->
     <a class="logo" href="index.php" title="Naar het overzicht">
-      <img class="logo-icoon" src="assets/icon-192.png" alt="">
-      <span class="logo-naam">VaCom</span>
+      <span class="logo-naam">VaCom</span><!-- v0.12: alleen het woordmerk, het icoontje is weg -->
     </a>
     <button type="button" class="kop-ik" id="kop-ik" title="Instellingen">
       <span class="avatar klein" id="kop-avatar"></span>
@@ -147,7 +146,7 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
 
     <div class="berichten" id="berichten">
       <div class="leeg groot" id="leeg">
-        <div class="logo groot"><img class="logo-icoon" src="assets/icon-192.png" alt=""><span class="logo-naam">VaCom</span></div>
+        <div class="logo groot"><span class="logo-naam">VaCom</span></div>
         <p>Kies links een kanaal of een collega.</p>
       </div>
     </div>

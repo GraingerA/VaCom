@@ -194,9 +194,14 @@ reacties, threads, polls, bijlagen, voorvertoning, pickers, lichtbak, foto
 bijsnijden, banners en de losse pagina's. Thema: localStorage `ipp_theme`
 (gedeeld met de Portal). Inputs 16px op mobiel zodat iOS niet inzoomt (zit in
 de stijlgids); safe-area insets voor de iPhone-notch.
-**Stijlgidspagina:** het VaCom-kader in `stijlgids_ipp.php` (Portal) toont nog
-de oude klassen (`.primair`, `.mini`, `.dialoog`, `.badge`, `--tekst`); dat is
-Portal-code en moet daar bijgewerkt worden.
+**Stijlgidspagina:** het VaCom-kader in `stijlgids_ipp.php` (Portal) is sinds
+Portal v5.5.4 opgebouwd met de huidige klassen (laadt eerst `invite_stijl.css`,
+dan `vacom/assets/app.css`, en volgt het merk via `?merk=`). Komt er een nieuwe
+bouwsteen bij, dan daar ook een voorbeeld toevoegen.
+**Logo (v0.12):** alleen het woordmerk `.logo > .logo-naam` (`.logo.groot` op
+het inlogscherm en in het lege gesprek); `.logo-icoon` bestaat niet meer. De
+bestanden `assets/icon-*.png`, `apple-touch-icon.png` en `ICOONTJE.png` blijven
+voor de PWA en de favicon.
 
 ## Werkwijze bij elke release
 

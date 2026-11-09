@@ -32,6 +32,14 @@ vacom_require_login();
   </header>
 
   <section class="vlak kaart">
+    <h2>v0.12.0 <span class="stil">— 9 november 2026</span></h2>
+    <ul>
+      <li><strong>Het VaCom-icoontje is weg.</strong> In de kop, op het inlogscherm en in het lege gesprek staat nu alleen het woordmerk "VaCom", in lijn met de stijlgids van de Portal. Op de telefoon blijft de naam zichtbaar. Het app-icoon op je beginscherm (iPhone/Android) en de favicon blijven gewoon bestaan.</li>
+      <li>Het VaCom-kader in de stijlgids van de Portal is opnieuw opgebouwd met de echte bouwstenen van vandaag (Portal v5.5.4).</li>
+    </ul>
+  </section>
+
+  <section class="vlak kaart">
     <h2>v0.11.0 <span class="stil">— 9 november 2026</span></h2>
     <ul>
       <li><strong>VaCom voor Invite én Incombinatie.</strong> Collega's van beide bedrijven zitten in dezelfde VaCom: één #algemeen, iedereen kan elkaar een bericht sturen. Op <code>portal.incombinatie.nl/vacom/</code> heet het "het interne kanaal van Incombinatie" en krijgt VaCom hun kleuren, net als de Portal en de Hub daar; op portal.invite.nl verandert er niets.</li>

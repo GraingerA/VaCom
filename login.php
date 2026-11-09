@@ -58,7 +58,6 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
 <script>try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
 <main class="login-kaart vlak">
   <div class="logo groot">
-    <img class="logo-icoon" src="assets/icon-192.png" alt="">
     <span class="logo-naam">VaCom</span>
   </div>
   <p class="login-sub">Het interne kanaal van <?= h(vacom_merk_naam()) ?></p>
