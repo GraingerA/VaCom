@@ -1183,10 +1183,12 @@ case 'beheer_kanaal_wissen': {
 /* ---- Projectkanalen starten (v0.5) ---- */
 
 case 'projecten_beschikbaar':
+    if (!VACOM_PROJECTKANALEN) vacom_json(['ok' => true, 'projects' => []]); // v0.13: voorlopig uit
     if (!VACOM_PORTAL) vacom_json(['ok' => true, 'projects' => []]);
     vacom_json(['ok' => true, 'projects' => vacom_projecten_beschikbaar($db, $ik)]);
 
 case 'projectkanaal_aanmaken': {
+    if (!VACOM_PROJECTKANALEN) vacom_fout('Projectkanalen staan voorlopig uit.'); // v0.13
     if (!VACOM_PORTAL) vacom_fout('Alleen in Portal-modus.');
     $token = param_str($invoer, 'token');
     if ($token === '' || !preg_match('/^[a-f0-9]+$/', $token)) vacom_fout('Ongeldig project.');
@@ -1216,7 +1218,7 @@ case 'kanaal_leden': {
         'archived'      => $gesloten,
         'kan_sluiten'   => !$isProject && !$gesloten && mag_kanaal_beheren($k, $mijnId),
         'kan_heropenen' => !$isProject &&  $gesloten && mag_kanaal_beheren($k, $mijnId),
-        'kan_wissen'    => !$isProject && vacom_is_superadmin(),
+        'kan_wissen'    => !$isProject && mag_kanaal_beheren($k, $mijnId),   // v0.13: ook wie het kanaal aanmaakte
     ]);
 }
 
@@ -1287,7 +1289,7 @@ case 'kanaal_verwijderen': {
     // Definitief weg, inclusief alle berichten. Superadmin, losse kanalen —
     // ook gesloten kanalen (die ruim je zo alsnog definitief op).
     $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId, true);
-    if (!vacom_is_superadmin()) vacom_fout('Alleen de superadmin kan een kanaal verwijderen.', 403);
+    if (!mag_kanaal_beheren($k, $mijnId)) vacom_fout('Alleen de superadmin of wie het kanaal aanmaakte kan het verwijderen.', 403); // v0.13
     if ($k['type'] !== 'public' || is_projectkanaal($k)) vacom_fout('Een projectkanaal verwijder je via de Portal.');
     bijlagen_wis_kanaal($db, (int)$k['id']); // v0.6
     $db->beginTransaction();
@@ -1334,6 +1336,23 @@ case 'dm': {
         $db->prepare('UPDATE channel_members SET hidden = 0 WHERE channel_id = ? AND user_id = ?')->execute([$id, $mijnId]);
     }
     vacom_json(['ok' => true, 'channel_id' => $id] + vacom_overzicht($db, $ik));
+}
+
+case 'gesprek_verwijderen': {
+    // v0.13: een gesprek (DM) definitief weg, inclusief berichten en bijlagen,
+    // voor allebei. Mag door elk van de twee deelnemers (kanaal_voor_mij
+    // controleert het lidmaatschap).
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId, true);
+    if ($k['type'] !== 'dm') vacom_fout('Alleen een gesprek kun je zo verwijderen; een kanaal verwijder je via Kanaal-opties.');
+    bijlagen_wis_kanaal($db, (int)$k['id']);
+    $db->beginTransaction();
+    $db->prepare('DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE channel_id = ?)')->execute([(int)$k['id']]);
+    $db->prepare('DELETE FROM messages WHERE channel_id = ?')->execute([(int)$k['id']]);
+    $db->prepare('DELETE FROM channel_members WHERE channel_id = ?')->execute([(int)$k['id']]);
+    $db->prepare('DELETE FROM channels WHERE id = ?')->execute([(int)$k['id']]);
+    vacom_bump_state();
+    $db->commit();
+    vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
 }
 
 case 'gesprek_verbergen': {

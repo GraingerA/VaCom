@@ -28,6 +28,7 @@ $start = [
     'project'   => $project,
     'giphy'     => vacom_giphy_key() !== '', // v0.5.3: GIF-knop alleen met sleutel
     'vapid'     => vacom_vapid_public(),      // v0.9: publieke sleutel voor pushmeldingen ('' = server kan het niet)
+    'projectkanalen' => VACOM_PROJECTKANALEN, // v0.13: sectie Projecten aan/uit
 ];
 ?>
 <!doctype html>
@@ -64,7 +65,7 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
 
   <!-- Header (v0.5), zoals de Portal-headerbalk: logo links, rechts wie je
        bent en de knoppen zoeken · thema · instellingen · uitloggen. -->
-  <header class="app-kop vlak">
+  <header class="app-kop"><!-- v0.13: open regel zonder kader, zoals de Portal-kop -->
     <!-- v0.7.4: het logo brengt je terug naar het overzicht (op de telefoon: uit het kanaal, naar de lijst) -->
     <a class="logo" href="index.php" title="Naar het overzicht">
       <span class="logo-naam">VaCom</span><!-- v0.12: alleen het woordmerk, het icoontje is weg -->
@@ -100,7 +101,7 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
         <summary><span class="sectie-titel">Berichten</span> <span class="teller sectie-badge" id="badge-berichten" hidden></span> <button type="button" class="knop icoon klein" id="knop-dm-nieuw" title="Nieuw gesprek met een collega">+</button></summary>
         <ul id="lijst-dms"></ul>
       </details>
-      <details class="sectie" data-sectie="projecten" id="sectie-projecten" open>
+      <details class="sectie" data-sectie="projecten" id="sectie-projecten" open<?= VACOM_PROJECTKANALEN ? '' : ' hidden' ?>><!-- v0.13: uit via VACOM_PROJECTKANALEN -->
         <summary><span class="sectie-titel">Projecten</span> <span class="teller sectie-badge" id="badge-projecten" hidden></span> <button type="button" class="knop icoon klein" id="knop-project-nieuw" title="Kanaal starten voor een project waar je aan gekoppeld bent">+</button></summary>
         <ul id="lijst-projecten"></ul>
       </details>
@@ -421,7 +422,7 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
   </div>
   <div class="popup-inhoud">
     <p class="stil" id="opties-project" hidden>Projectkanaal — leden volgen de koppeling in de Portal (projectmanager en designers).</p>
-    <p class="stil" id="opties-dm">Een gesprek uit je lijst halen verwijdert niets: de berichten blijven bewaard en doorzoekbaar. Het gesprek komt vanzelf terug zodra er een nieuw bericht is, of als je het opnieuw opent via de + bij Berichten.</p>
+    <p class="stil" id="opties-dm">Een gesprek uit je lijst halen verwijdert niets: de berichten blijven bewaard en doorzoekbaar, en het gesprek komt terug bij een nieuw bericht. <strong>Gesprek verwijderen</strong> wist alle berichten definitief, ook bij de ander.</p>
     <p class="meldregel info" id="opties-gesloten" hidden>Dit kanaal is gesloten: iedereen kan het lezen en doorzoeken, maar er kan niets meer in geplaatst worden.</p>
     <div class="veldrij">
       <label class="veldlabel" for="opties-topic">Onderwerp</label>
@@ -437,6 +438,7 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
   </div>
   <div class="popup-voet links">
     <button type="button" class="knop" id="opties-verbergen">Uit mijn lijst halen</button>
+    <button type="button" class="knop rood" id="opties-dm-verwijderen"><i>&#10005;</i> Gesprek verwijderen</button><!-- v0.13 -->
     <button type="button" class="knop" id="opties-verlaten" hidden>Kanaal verlaten</button>
     <button type="button" class="knop" id="opties-archiveren" hidden>Kanaal sluiten</button>
     <button type="button" class="knop" id="opties-heropenen" hidden>Kanaal heropenen</button>

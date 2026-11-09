@@ -32,6 +32,15 @@ vacom_require_login();
   </header>
 
   <section class="vlak kaart">
+    <h2>v0.13.0 <span class="stil">— 9 november 2026</span></h2>
+    <ul>
+      <li><strong>Kop zoals in de Portal.</strong> Geen glazen balk meer bovenin: het woordmerk staat groot links op een open regel, de knoppen rechts op de basislijn, net als de kop van de Portal-pagina's.</li>
+      <li><strong>Projectkanalen staan voorlopig uit.</strong> De sectie Projecten en het +-knopje om een kanaal voor een Portal-project te starten zijn weg. Bestaande projectkanalen staan gewoon bij Kanalen en blijven doorzoekbaar. (Schakelaar <code>VACOM_PROJECTKANALEN</code>; komt mogelijk later terug.)</li>
+      <li><strong>Gesprek verwijderen.</strong> In de opties van een gesprek (⋯) kun je het gesprek nu definitief verwijderen, inclusief alle berichten en bijlagen, voor jou én de ander. "Uit mijn lijst halen" blijft bestaan voor wie alleen wil opruimen. Een kanaal verwijderen kan nu ook door wie het kanaal aanmaakte, niet alleen door de superadmin.</li>
+    </ul>
+  </section>
+
+  <section class="vlak kaart">
     <h2>v0.12.0 <span class="stil">— 9 november 2026</span></h2>
     <ul>
       <li><strong>Het VaCom-icoontje is weg.</strong> In de kop, op het inlogscherm en in het lege gesprek staat nu alleen het woordmerk "VaCom", in lijn met de stijlgids van de Portal. Op de telefoon blijft de naam zichtbaar. Het app-icoon op je beginscherm (iPhone/Android) en de favicon blijven gewoon bestaan.</li>

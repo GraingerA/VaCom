@@ -417,11 +417,14 @@
     // Projectkanalen (uit de Portal) apart van de losse kanalen. Gesloten
     // kanalen (v0.4.1) staan in geen van beide, maar onderin bij "Gesloten".
     const open = S.channels.filter((k) => !k.archived);
-    const projecten = open.filter((k) => k.type === 'public' && k.project_token);
+    // v0.13: staan projectkanalen uit (VACOM.projectkanalen), dan staan bestaande
+    // projectkanalen gewoon tussen de kanalen en blijft de sectie Projecten weg.
+    const projectenAan = !!(window.VACOM && window.VACOM.projectkanalen);
+    const projecten = projectenAan ? open.filter((k) => k.type === 'public' && k.project_token) : [];
     // v0.5: de sectie blijft altijd staan (met het +-knopje), ook zonder kanalen.
     el.projecten.innerHTML = projecten.map((k) => item(k, k.name, '<span class="hash">#</span>')).join('')
       || '<li class="stil">Nog geen projectkanalen — start er een met +</li>';
-    el.kanalen.innerHTML = open.filter((k) => k.type === 'public' && !k.project_token)
+    el.kanalen.innerHTML = open.filter((k) => k.type === 'public' && (!projectenAan || !k.project_token))
       .map((k) => item(k, k.name, '<span class="hash">#</span>')).join('');
     const gesloten = S.channels.filter((k) => k.archived);
     el.sectieGesloten.hidden = gesloten.length === 0;
@@ -2099,6 +2102,19 @@
       el.optiesDialoog.close();
       pasOverzichtToe(j); // gesprek staat niet meer in de lijst → chat sluit vanzelf
       toast('Gesprek uit je lijst gehaald');
+    } catch (e) { optiesFout(e.message); }
+  });
+  // v0.13: een gesprek (DM) definitief verwijderen, voor allebei
+  $('#opties-dm-verwijderen').addEventListener('click', async () => {
+    const k = S.current;
+    if (!k || k.type !== 'dm') return;
+    const naam = kanaalNaam(k);
+    if (!confirm(`Het gesprek met ${naam} DEFINITIEF verwijderen, inclusief alle berichten en bijlagen? Dit geldt ook voor de ander en kan niet ongedaan worden gemaakt.`)) return;
+    try {
+      const j = await api('gesprek_verwijderen', { channel_id: k.id });
+      el.optiesDialoog.close();
+      pasOverzichtToe(j);
+      toast('Gesprek verwijderd');
     } catch (e) { optiesFout(e.message); }
   });
   $('#opties-sluit').addEventListener('click', () => el.optiesDialoog.close());

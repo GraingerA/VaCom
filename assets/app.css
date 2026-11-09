@@ -65,12 +65,16 @@ a.logo:hover .logo-naam { color: var(--goud-tekst); }
 }
 
 /* Kop: over de volle breedte, zoals de gezakte Portal-kop (glazen balk). */
+/* v0.13: een open regel zonder kader, zoals de Portal-kop (.kop in style_ipp.css):
+   het woordmerk groot links, de knoppen rechts op de basislijn. */
 .app-kop {
   grid-column: 1 / -1;
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 12px 8px 16px;
+  display: flex; align-items: flex-end; gap: 6px;
+  padding: 10px 6px 0 10px;
 }
-.app-kop .logo { margin-right: auto; }
+.app-kop .logo { margin-right: auto; margin-bottom: -2px; }
+.app-kop .logo-naam { font-size: var(--letter-cijfer); font-weight: 800; letter-spacing: -0.03em; line-height: 1.25; }   /* 28px; de Portal-kop is 40px, voor een chat-app te groot */
+.app-kop .kop-ik, .app-kop .knop { margin-bottom: 2px; }
 /* De svg-icoontjes in een icoonknop (31px) iets kleiner dan de 20px van vroeger */
 .knop.icoon > svg { width: 18px; height: 18px; }
 .kop-ik {
@@ -392,12 +396,12 @@ dialog.popup::backdrop { background: rgba(0, 0, 0, .45); backdrop-filter: blur(8
 .leden .naam { flex: 1; }
 .toevoegen { display: flex; gap: 8px; align-items: center; }
 .toevoegen .veld { flex: 1; }
-#dialoog-opties #opties-verbergen, #dialoog-opties #opties-dm { display: none; }
-#dialoog-opties.dm #opties-verbergen { display: inline-flex; }
+#dialoog-opties #opties-verbergen, #dialoog-opties #opties-dm-verwijderen, #dialoog-opties #opties-dm { display: none; }
+#dialoog-opties.dm #opties-verbergen, #dialoog-opties.dm #opties-dm-verwijderen { display: inline-flex; }
 #dialoog-opties.dm #opties-dm { display: block; margin: 0 0 14px; }
 #dialoog-opties.dm .veldrij, #dialoog-opties.dm .kopje, #dialoog-opties.dm .leden, #dialoog-opties.dm .toevoegen,
 #dialoog-opties.dm #opties-project, #dialoog-opties.dm #opties-gesloten,
-#dialoog-opties.dm .popup-voet .knop:not(#opties-verbergen) { display: none; }
+#dialoog-opties.dm .popup-voet .knop:not(#opties-verbergen):not(#opties-dm-verwijderen) { display: none; }
 
 /* Instellingen */
 .inst-profiel { display: flex; align-items: center; gap: 16px; }
@@ -564,8 +568,8 @@ body.lichtbak-open { overflow: hidden; }
 /* ── Telefoon ──────────────────────────────────────────────────────── */
 @media (max-width: 800px) {
   .app { grid-template-columns: 1fr; --lucht: 8px; }
-  .app-kop { padding: 6px 8px 6px 10px; gap: 4px; }
-  .app-kop .logo-naam { font-size: 17px; }   /* v0.12: blijft zichtbaar, er is geen icoontje meer */
+  .app-kop { padding: 4px 2px 0 6px; gap: 4px; }
+  .app-kop .logo-naam { font-size: 20px; }   /* v0.12: blijft zichtbaar, er is geen icoontje meer */
   .app-kop .kop-ik .naam { display: none; }
   .app-kop .kop-ik { padding: 3px; margin-right: 0; }
   body[data-pane="lijst"] .chat { display: none; }

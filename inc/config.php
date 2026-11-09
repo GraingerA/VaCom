@@ -8,7 +8,14 @@
 
 declare(strict_types=1);
 
-define('VACOM_VERSION', '0.12.0');
+define('VACOM_VERSION', '0.13.0');
+
+/* v0.13: projectkanalen (kanaal per Portal-project) staan voorlopig UIT op
+   verzoek van Ad. De code blijft: op true verschijnen de sectie Projecten en
+   het +-knopje weer en doen de API-acties projecten_beschikbaar /
+   projectkanaal_aanmaken het weer. Bestaande projectkanalen blijven gewoon
+   zichtbaar (bij Kanalen) en doorzoekbaar. */
+define('VACOM_PROJECTKANALEN', false);
 // Maximale grootte van een bijlage bij een bericht (v0.6). De server heeft
 // daarnaast z'n eigen limiet (upload_max_filesize); die melden we apart.
 define('VACOM_MAX_BIJLAGE', 25 * 1024 * 1024);

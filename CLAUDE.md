@@ -84,6 +84,24 @@ vanzelf mee. Projectkanalen: ook de tweede projectmanager van een gedeeld
 project (`managers_extra` in projects.json, Portal v5.5.1) is "gekoppeld".
 Niet per bedrijf gescheiden: kanalen, DM's, zoeken (bewust: één team).
 
+## v0.13: kop, projectkanalen uit, verwijderen
+
+- **Kop** (`.app-kop`, geen `.vlak` meer): open regel zonder kader zoals de
+  Portal-kop; woordmerk `var(--letter-titel)`/800 links, knoppen rechts op de
+  basislijn (`align-items: flex-end`). Mobiel 20px.
+- **Projectkanalen uit** via `VACOM_PROJECTKANALEN` (inc/config.php, nu
+  `false`): sectie `#sectie-projecten` krijgt `hidden`, `window.VACOM.projectkanalen`
+  laat `renderZijbalk()` bestaande projectkanalen bij Kanalen zetten, de API
+  weigert `projecten_beschikbaar`/`projectkanaal_aanmaken`. De sync in
+  inc/portal.php (leden, archiveren bij prullenbak) blijft werken voor
+  bestaande projectkanalen. Op `true` komt alles terug.
+- **Verwijderen:** `kanaal_verwijderen` mag nu door `mag_kanaal_beheren()`
+  (superadmin óf wie het kanaal aanmaakte; `kan_wissen` in `kanaal_leden`).
+  Nieuw `gesprek_verwijderen` (DM, door een van de twee deelnemers): wist
+  berichten, reacties, bijlagen, leden en het kanaal; knop
+  `#opties-dm-verwijderen` in de opties-popup (CSS `.dm`). "Uit mijn lijst
+  halen" (`gesprek_verbergen`) blijft.
+
 ## Opbouw
 
 | Bestand | Wat |
