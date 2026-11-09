@@ -142,7 +142,8 @@ uitgeschakeld tot `kan_hernoemen`; opslaan bij `change`.
   (invite_stijl.css sectie 13 sinds Portal v5.5.5: merkfoto via `--inlog-foto`,
   `.veld.groot.glas`, `.inlog-melding`) met `#login-ms-blok` + `../ms_login_ipp.js`
   (`redirectUri` = login.php zelf; **in Entra moet `…/vacom/login.php` als
-  SPA-redirect staan**, voor beide merkdomeinen). Daaronder `.voet.login`.
+  SPA-redirect staan**, voor beide merkdomeinen; staat erin sinds 9 nov 2026,
+  in de app-registratie Invite Transfer). Daaronder `.voet.login`.
   gebruikers.php en changelog.php eindigen met `.voet` + `.voet-logo`.
 
 ## v0.14: systeemberichten
