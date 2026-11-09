@@ -234,14 +234,57 @@ function vacom_avatar_pad(int $id): string {
     return VACOM_DATA . '/avatars/' . $id . '.jpg';
 }
 
+/**
+ * v0.15: in Portal-modus is de Portal de bron van foto en status (Portal v5.0.5:
+ * ipp_data/profielen.json en ipp_data/profiel/<sha1(naam-sleutel)>.jpg). VaCom
+ * leest die bestanden alleen; wijzigen gaat vanuit de browser via de Portal-API
+ * (profiel_status, profiel_foto, profiel_foto_weg), zoals de Invite Hub doet.
+ * De sleutel is dezelfde als ipp_name_key() in api_ipp.php van de Portal.
+ */
+function vacom_portal_naam_sleutel(string $s): string {
+    $s = mb_strtolower(trim($s));
+    $s = strtr($s, [
+        'à'=>'a','á'=>'a','â'=>'a','ã'=>'a','ä'=>'a','å'=>'a',
+        'è'=>'e','é'=>'e','ê'=>'e','ë'=>'e',
+        'ì'=>'i','í'=>'i','î'=>'i','ï'=>'i',
+        'ò'=>'o','ó'=>'o','ô'=>'o','õ'=>'o','ö'=>'o','ø'=>'o',
+        'ù'=>'u','ú'=>'u','û'=>'u','ü'=>'u',
+        'ç'=>'c','ñ'=>'n','ý'=>'y','ÿ'=>'y','ß'=>'ss','æ'=>'ae',
+        'À'=>'a','Á'=>'a','Â'=>'a','Ã'=>'a','Ä'=>'a','Å'=>'a',
+        'È'=>'e','É'=>'e','Ê'=>'e','Ë'=>'e',
+        'Ì'=>'i','Í'=>'i','Î'=>'i','Ï'=>'i',
+        'Ò'=>'o','Ó'=>'o','Ô'=>'o','Õ'=>'o','Ö'=>'o','Ø'=>'o',
+        'Ù'=>'u','Ú'=>'u','Û'=>'u','Ü'=>'u',
+        'Ç'=>'c','Ñ'=>'n','Ý'=>'y','Æ'=>'ae',
+    ]);
+    return preg_replace('/[\x{0300}-\x{036F}]/u', '', $s) ?? $s;
+}
+function vacom_portal_foto_pad(string $naam): string {
+    return VACOM_PORTAL_DATA . '/profiel/' . sha1(vacom_portal_naam_sleutel($naam)) . '.jpg';
+}
+function vacom_portal_profielen(): array {
+    static $alle = null;
+    if ($alle !== null) return $alle;
+    $f = VACOM_PORTAL ? VACOM_PORTAL_DATA . '/profielen.json' : '';
+    $d = ($f !== '' && is_file($f)) ? json_decode((string)file_get_contents($f), true) : null;
+    return $alle = is_array($d) ? $d : [];
+}
+/** Pad van de foto die avatar.php moet geven: de Portal-foto in Portal-modus, anders de eigen. */
+function vacom_foto_pad(array $u): string {
+    if (VACOM_PORTAL) return vacom_portal_foto_pad((string)$u['name']);
+    return vacom_avatar_pad((int)$u['id']);
+}
+
 function vacom_public_user(array $u): array {
-    $avatarPad = vacom_avatar_pad((int)$u['id']);
+    $avatarPad = vacom_foto_pad($u);
+    $status = (string)($u['status'] ?? '');
+    if (VACOM_PORTAL) $status = (string)(vacom_portal_profielen()[$u['name']]['status'] ?? ''); // v0.15: status uit de Portal
     return [
         'id'        => (int)$u['id'],
         'name'      => $u['name'],
         'role'      => $u['role'],
         'email'     => (string)($u['email'] ?? ''),
-        'status'    => (string)($u['status'] ?? ''),
+        'status'    => $status,
         'active'    => (int)$u['active'] === 1,
         'last_seen' => $u['last_seen'],
         // v0.5: mtime van de avatarfoto (0 = geen foto). Dient ook als cache-buster.

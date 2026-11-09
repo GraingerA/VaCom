@@ -969,6 +969,7 @@ case 'kanaal_topic': {
 
 case 'avatar_upload': {
     // Komt binnen als multipart (FormData), dus $invoer = $_POST en de foto in $_FILES.
+    if (VACOM_PORTAL) vacom_fout('Je foto staat in de Portal; VaCom zet hem via de Portal-API (profiel_foto).'); // v0.15
     $f = $_FILES['avatar'] ?? null;
     if (!$f || empty($f['tmp_name']) || !is_uploaded_file($f['tmp_name'])) vacom_fout('Geen foto ontvangen.');
     if ((int)$f['error'] !== UPLOAD_ERR_OK) vacom_fout('Upload mislukt (code ' . (int)$f['error'] . ').');
@@ -1005,6 +1006,7 @@ case 'avatar_upload': {
 }
 
 case 'avatar_verwijderen': {
+    if (VACOM_PORTAL) vacom_fout('Je foto staat in de Portal; VaCom haalt hem weg via de Portal-API (profiel_foto_weg).'); // v0.15
     $pad = vacom_avatar_pad($mijnId);
     if (is_file($pad)) @unlink($pad);
     vacom_bump_state();
@@ -1331,6 +1333,7 @@ case 'kanaal_verwijderen': {
 
 case 'status_zetten': {
     // v0.5: eigen status. Korte vrije tekst; leeg = geen status.
+    if (VACOM_PORTAL) vacom_fout('Je status staat in de Portal; VaCom zet hem via de Portal-API (profiel_status).'); // v0.15
     $status = mb_substr(param_str($invoer, 'status'), 0, 60);
     $db->prepare('UPDATE users SET status = ? WHERE id = ?')->execute([$status, $mijnId]);
     $ik['status'] = $status; // $ik was al geladen vóór de update; 'me' in het overzicht moet de nieuwe status tonen

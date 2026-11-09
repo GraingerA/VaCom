@@ -396,13 +396,29 @@
     if ($('#dialoog-dm').open) renderDmKeuze();
   }
 
-  // v0.5: wie ben ik, in de header (avatar + naam).
+  // v0.5: wie ben ik, in de header. v0.15: het profielrondje van de Portal
+  // (.kop-profiel): je foto, of je eerste letter op goud; klik = Instellingen.
   function renderKopIk() {
     if (!S.me) return;
-    const av = $('#kop-avatar');
-    av.innerHTML = avatarInhoud(S.me.id, S.me.name);
-    av.style.background = (gebruiker(S.me.id) || {}).avatar ? '' : avatarKleur(S.me.id);
-    $('#kop-naam').textContent = S.me.name;
+    const knop = $('#kop-ik');
+    const u = gebruiker(S.me.id) || {};
+    knop.innerHTML = u.avatar ? `<img src="avatar.php?u=${S.me.id}&v=${u.avatar}" alt="">` : esc(initiaal(S.me.name));
+    knop.title = 'Ingelogd als ' + S.me.name + ' — Instellingen';
+    knop.setAttribute('aria-label', knop.title);
+  }
+
+  // v0.15: in Portal-modus gaan status en foto naar de Portal-API (zoals in de
+  // Invite Hub); daarna halen we het overzicht opnieuw op, zodat iedereen de
+  // nieuwe foto/status ziet. Buiten de Portal (losse modus) de eigen API.
+  const PORTAL_API = (window.VACOM && window.VACOM.portal_api) || '';
+  async function portalPost(action, velden) {
+    const fd = velden instanceof FormData ? velden : new FormData();
+    if (!(velden instanceof FormData)) Object.entries(velden || {}).forEach(([k, v]) => fd.append(k, v));
+    fd.append('action', action);
+    const r = await fetch(PORTAL_API, { method: 'POST', body: fd, credentials: 'same-origin' });
+    const j = await r.json().catch(() => ({}));
+    if (!j.success) throw new Error(j.error || 'De Portal gaf een fout.');
+    return j;
   }
 
   function renderZijbalk() {
@@ -2264,7 +2280,9 @@
     const nieuw = st.value.trim();
     if (nieuw === (S.me.status || '')) return;
     try {
-      const j = await api('status_zetten', { status: nieuw });
+      let j;
+      if (PORTAL_API) { await portalPost('profiel_status', { status: nieuw }); j = await api('overzicht'); } // v0.15
+      else j = await api('status_zetten', { status: nieuw });
       st.blur();
       pasOverzichtToe(j);
       toast(nieuw ? 'Status opgeslagen' : 'Status gewist');
@@ -2311,13 +2329,22 @@
   async function uploadAvatar(blob) {
     $('#avatar-kiezen').disabled = true;
     try {
-      // Multipart i.p.v. JSON: de foto gaat als bestand mee, het CSRF-token in de header.
-      const fd = new FormData();
-      fd.append('actie', 'avatar_upload');
-      fd.append('avatar', blob, 'avatar.jpg');
-      const r = await fetch('api.php', { method: 'POST', headers: { 'X-VaCom-Csrf': S.csrf }, body: fd });
-      const j = await r.json().catch(() => ({ ok: false, fout: 'Onleesbaar antwoord van de server.' }));
-      if (!j.ok) throw new Error(j.fout || 'Upload mislukt.');
+      let j;
+      if (PORTAL_API) {
+        // v0.15: naar de Portal (die knipt zelf vierkant en verkleint naar 256 px)
+        const fd = new FormData();
+        fd.append('foto', blob, 'avatar.jpg');
+        await portalPost('profiel_foto', fd);
+        j = await api('overzicht');
+      } else {
+        // Multipart i.p.v. JSON: de foto gaat als bestand mee, het CSRF-token in de header.
+        const fd = new FormData();
+        fd.append('actie', 'avatar_upload');
+        fd.append('avatar', blob, 'avatar.jpg');
+        const r = await fetch('api.php', { method: 'POST', headers: { 'X-VaCom-Csrf': S.csrf }, body: fd });
+        j = await r.json().catch(() => ({ ok: false, fout: 'Onleesbaar antwoord van de server.' }));
+        if (!j.ok) throw new Error(j.fout || 'Upload mislukt.');
+      }
       pasOverzichtToe(j);
       if (S.current) renderBerichten(bijnaOnderaan());
       toast('Foto opgeslagen');
@@ -2416,7 +2443,9 @@
   });
   $('#avatar-weg').addEventListener('click', async () => {
     try {
-      const j = await api('avatar_verwijderen');
+      let j;
+      if (PORTAL_API) { await portalPost('profiel_foto_weg'); j = await api('overzicht'); } // v0.15
+      else j = await api('avatar_verwijderen');
       pasOverzichtToe(j);
       if (S.current) renderBerichten(bijnaOnderaan());
       toast('Foto verwijderd');

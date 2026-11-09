@@ -29,6 +29,8 @@ $start = [
     'giphy'     => vacom_giphy_key() !== '', // v0.5.3: GIF-knop alleen met sleutel
     'vapid'     => vacom_vapid_public(),      // v0.9: publieke sleutel voor pushmeldingen ('' = server kan het niet)
     'projectkanalen' => VACOM_PROJECTKANALEN, // v0.13: sectie Projecten aan/uit
+    'portal'    => VACOM_PORTAL,              // v0.15: foto en status via de Portal-API
+    'portal_api' => VACOM_PORTAL ? VACOM_PORTAL_URL . 'api_ipp.php' : '',
 ];
 ?>
 <!doctype html>
@@ -70,10 +72,7 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
     <a class="logo" href="index.php" title="Naar het overzicht">
       <span class="logo-naam">VaCom</span><!-- v0.12: alleen het woordmerk, het icoontje is weg -->
     </a>
-    <button type="button" class="kop-ik" id="kop-ik" title="Instellingen">
-      <span class="avatar klein" id="kop-avatar"></span>
-      <span class="naam" id="kop-naam"><?= h($ik['name']) ?></span>
-    </button>
+    <!-- v0.15: de knoppen in de volgorde van de Portal-kop; thema als laatste knop, daarna alleen het profielrondje -->
     <button class="knop icoon" id="knop-zoeken" title="Zoeken (Ctrl+K)" aria-label="Zoeken">
       <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
@@ -83,9 +82,11 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
     <button class="knop icoon" id="knop-opgeslagen" title="Opgeslagen berichten" aria-label="Opgeslagen berichten">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
     </button>
-    <button class="knop icoon" id="knop-thema" title="Licht / donker" aria-label="Licht of donker thema">☀</button>
-    <button class="knop icoon" id="knop-instellingen" title="Instellingen" aria-label="Instellingen">⚙</button>
+    <button class="knop icoon" id="knop-instellingen" title="Instellingen" aria-label="Instellingen">&#9881;&#xFE0E;</button>
     <button class="knop icoon" id="knop-uitloggen" title="Uitloggen" aria-label="Uitloggen">⏻</button>
+    <button class="knop icoon" id="knop-thema" title="Licht / donker" aria-label="Licht of donker thema">☀</button>
+    <!-- v0.15: het profielrondje van de Portal (.kop-profiel uit invite_stijl.css): je foto of letter; klik = Instellingen -->
+    <button type="button" class="kop-profiel" id="kop-ik" title="Instellingen"><span id="kop-avatar"><?= h(mb_substr($ik['name'], 0, 1)) ?></span></button>
   </header>
 
   <!-- Zijbalk: kanalen, DM's, collega's -->

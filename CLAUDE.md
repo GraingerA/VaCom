@@ -104,6 +104,29 @@ Niet per bedrijf gescheiden: kanalen, DM's, zoeken (bewust: één team).
   `#opties-dm-verwijderen` in de opties-popup (CSS `.dm`). "Uit mijn lijst
   halen" (`gesprek_verbergen`) blijft.
 
+## v0.15: kop, profiel en inloggen zoals de Portal
+
+- **Kop:** knoppen in de Portal-volgorde (zoeken, @, opgeslagen, instellingen,
+  uitloggen, thema), als laatste `#kop-ik.kop-profiel` (het rondje uit
+  invite_stijl.css; `renderKopIk()` vult foto of letter; klik = Instellingen).
+  `.kop-ik`-pil en `#kop-naam` bestaan niet meer.
+- **Profiel uit de Portal (Portal-modus):** `vacom_public_user()` leest de
+  foto-versie uit `ipp_data/profiel/<sha1(sleutel)>.jpg` en de status uit
+  `ipp_data/profielen.json` (`vacom_portal_naam_sleutel()` = kopie van
+  `ipp_name_key()` in de Portal: hou ze gelijk). `avatar.php` serveert die
+  Portal-foto (`vacom_foto_pad()`). Wijzigen gaat vanuit de browser via de
+  Portal-API (`portalPost()` in app.js: `profiel_status`, `profiel_foto` met
+  veld `foto`, `profiel_foto_weg`), daarna `overzicht` opnieuw; de eigen acties
+  `status_zetten`/`avatar_upload`/`avatar_verwijderen` weigeren in
+  Portal-modus en blijven alleen voor de losse modus. `users.status` en
+  `data/avatars/` worden in Portal-modus niet meer gebruikt.
+- **Inloggen:** login.php gebruikt het `.inlog`-vak van de Portal
+  (invite_stijl.css sectie 13 sinds Portal v5.5.5: merkfoto via `--inlog-foto`,
+  `.veld.groot.glas`, `.inlog-melding`) met `#login-ms-blok` + `../ms_login_ipp.js`
+  (`redirectUri` = login.php zelf; **in Entra moet `…/vacom/login.php` als
+  SPA-redirect staan**, voor beide merkdomeinen). Daaronder `.voet.login`.
+  gebruikers.php en changelog.php eindigen met `.voet` + `.voet-logo`.
+
 ## v0.14: systeemberichten
 
 `messages.systeem` (migratie 13). `systeembericht($db, $kanaalId, $doorId,

@@ -17,7 +17,9 @@ require_once __DIR__ . '/inc/auth.php';
 if (vacom_user() === null) { http_response_code(401); exit; }
 
 $id  = (int)($_GET['u'] ?? 0);
-$pad = vacom_avatar_pad($id);
+// v0.15: in Portal-modus de foto uit de Portal (ipp_data/profiel/…), anders de eigen
+$u   = $id > 0 ? vacom_user_by_id($id) : null;
+$pad = $u ? vacom_foto_pad($u) : vacom_avatar_pad($id);
 if ($id <= 0 || !is_file($pad)) { http_response_code(404); exit; }
 
 header('Content-Type: image/jpeg');

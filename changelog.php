@@ -32,6 +32,15 @@ vacom_require_login();
   </header>
 
   <section class="vlak kaart">
+    <h2>v0.15.0 <span class="stil">— 9 november 2026</span></h2>
+    <ul>
+      <li><strong>Kop zoals de Portal.</strong> Rechts staan de knoppen in de volgorde van de Portal, met het thema als laatste knop en daarna het profielrondje met je foto of letter (klik = Instellingen). De naam-pil is weg.</li>
+      <li><strong>Eén profiel voor Portal, Hub en VaCom.</strong> Je foto en status komen nu uit de Portal. Wijzig je ze hier in Instellingen, dan veranderen ze ook in de Portal en de Hub, en andersom. Oude VaCom-foto's die de Portal nog niet had, waren al eerder overgenomen.</li>
+      <li><strong>Inlogscherm en voet van de Portal.</strong> Het inlogscherm is nu hetzelfde vak als in de Portal en de Hub, met de merkfoto en (als dat voor jullie aanstaat) de knop <em>Inloggen met Microsoft</em>. De pagina's Collega's en Wat is er nieuw hebben de voet van de Portal.</li>
+    </ul>
+  </section>
+
+  <section class="vlak kaart">
     <h2>v0.14.0 <span class="stil">— 9 november 2026</span></h2>
     <ul>
       <li><strong>Systeemberichten.</strong> In een kanaal verschijnt nu een stille grijze regel als er iets met de leden gebeurt: "Ad heeft het kanaal aangemaakt", "Kim is toegevoegd door Ad", "Pim doet mee in het kanaal", "Ad heeft het kanaal verlaten" of "Kim is uit het kanaal verwijderd door Ad". Zo'n regel telt niet mee als ongelezen, geeft geen pushmelding en is niet doorzoekbaar.</li>
@@ -304,6 +313,12 @@ vacom_require_login();
       <li>Gebruikersbeheer voor de superadmin; iedereen kan zijn eigen wachtwoord wijzigen.</li>
     </ul>
   </section>
+  <!-- v0.15: de voet van de Portal (.voet uit invite_stijl.css) -->
+  <div class="voet">
+    &copy; Copyright &mdash; <a href="<?= h(vacom_merk()['site'] ?? 'https://invite.nl/') ?>" target="_blank" rel="noopener noreferrer" class="voetlink"><?= h(vacom_merk()['lang'] ?? 'Invite Vastgoedcommunicatie') ?></a><br>
+    VaCom v<?= VACOM_VERSION ?> &mdash; <a class="voetlink" href="changelog.php">changelog</a> &mdash; created by Ad Grainger &nbsp;&nbsp;&nbsp;*&#92;o/*
+  </div>
+  <div class="voet-logo"></div>
 </main>
 </body>
 </html>

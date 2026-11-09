@@ -74,15 +74,11 @@ a.logo:hover .logo-naam { color: var(--goud-tekst); }
 }
 .app-kop .logo { margin-right: auto; margin-bottom: -2px; }
 .app-kop .logo-naam { font-size: var(--letter-cijfer); font-weight: 800; letter-spacing: -0.03em; line-height: 1.25; }   /* 28px; de Portal-kop is 40px, voor een chat-app te groot */
-.app-kop .kop-ik, .app-kop .knop { margin-bottom: 2px; }
+.app-kop .knop, .app-kop .kop-profiel { margin-bottom: 2px; }
+.app-kop .kop-profiel { margin-left: 4px; }   /* v0.15: het profielrondje van de Portal als laatste */
 /* De svg-icoontjes in een icoonknop (31px) iets kleiner dan de 20px van vroeger */
 .knop.icoon > svg { width: 18px; height: 18px; }
-.kop-ik {
-  display: inline-flex; align-items: center; gap: 8px; margin-right: 6px;
-  padding: 3px 10px 3px 3px; font: inherit; font-size: var(--letter-tekst); font-weight: 700; color: var(--text);
-  background: none; border: 1px solid transparent; border-radius: 999px; cursor: pointer;
-}
-.kop-ik:hover { background: var(--tint-2); border-color: var(--border); }
+/* (v0.15: de naam-pil .kop-ik is vervangen door het profielrondje .kop-profiel uit invite_stijl.css) */
 /* @-knop met rood tellertje (ongelezen vermeldingen) */
 #knop-vermeldingen { position: relative; font-weight: 800; font-size: var(--letter-kop); }
 .kop-teller {
@@ -544,12 +540,14 @@ body.lichtbak-open { overflow: hidden; }
 .ios-deel { display: inline-block; color: var(--blauw-tekst); font-weight: 700; }
 
 /* ── Losse pagina's: inloggen, gebruikers, changelog ───────────────── */
-.login-body { display: grid; place-items: center; padding: 20px; }
-.login-kaart { width: min(400px, 100%); padding: 32px 28px; text-align: center; }
-.login-kaart form { text-align: left; margin-top: 20px; }
-.login-kaart .veldrij:last-of-type { margin-bottom: 20px; }
-.login-sub { margin: 10px 0 0; font-size: var(--letter-tekst); color: var(--muted); }
-.login-voet { margin: 20px 0 0; font-size: var(--letter-klein); color: var(--muted); text-align: center; }
+/* v0.15: het inlogscherm is het .inlog-vak van de Portal (invite_stijl.css sectie 13),
+   met de merkfoto, en daaronder de voet (.voet.login). */
+.login-body { display: grid; place-items: center; align-content: center; gap: 0; padding: 20px; height: auto; min-height: 100dvh; overflow-y: auto; }
+.login-body .inlog { margin: 0 auto; }
+.login-body .inlog .veld.glas { margin-bottom: 14px; }
+.login-body .voet.login { margin-top: 26px; }
+/* v0.15: de voet van de Portal onder de losse pagina's (gebruikers, wat is er nieuw) */
+.pagina .voet { margin-top: 36px; }
 
 .pagina-body { height: auto; min-height: 100vh; overflow-y: auto; padding: calc(16px + var(--sa-top)) 16px calc(24px + var(--sa-bottom)); }
 .pagina { max-width: 820px; margin: 0 auto; }
@@ -574,8 +572,6 @@ body.lichtbak-open { overflow: hidden; }
   .app { grid-template-columns: 1fr; --lucht: 8px; }
   .app-kop { padding: 4px 2px 0 6px; gap: 4px; }
   .app-kop .logo-naam { font-size: 20px; }   /* v0.12: blijft zichtbaar, er is geen icoontje meer */
-  .app-kop .kop-ik .naam { display: none; }
-  .app-kop .kop-ik { padding: 3px; margin-right: 0; }
   body[data-pane="lijst"] .chat { display: none; }
   body[data-pane="chat"] .zijbalk { display: none; }
   .alleen-mobiel { display: inline-flex; font-size: 26px; font-weight: 400; padding-bottom: 3px; }

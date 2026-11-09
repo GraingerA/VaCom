@@ -56,45 +56,50 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
 </head>
 <body class="login-body">
 <script>try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
-<main class="login-kaart vlak">
-  <div class="logo groot">
-    <span class="logo-naam">VaCom</span>
-  </div>
-  <p class="login-sub">Het interne kanaal van <?= h(vacom_merk_naam()) ?></p>
-
-  <p class="meldregel fout" id="fout" <?= $fout === '' ? 'hidden' : '' ?>><?= h($fout) ?></p>
-  <?php if ($eersteKeer): ?>
-    <p class="meldregel info">Eerste start: het startwachtwoord voor <strong>Ad</strong> staat in
-      <code>BOOTSTRAP_WACHTWOORD.txt</code> in de datamap.</p>
-  <?php endif; ?>
-  <?php if (VACOM_PORTAL): ?>
-    <p class="meldregel info">Log in met je naam en wachtwoord van de <strong>Portal</strong>.</p>
-  <?php endif; ?>
-
-  <form method="post" autocomplete="on" id="form-login">
-    <input type="hidden" name="csrf" value="<?= h(vacom_csrf()) ?>">
-    <div class="veldrij">
-      <label class="veldlabel" for="login-naam">Naam</label>
-      <input type="text" id="login-naam" class="veld groot" name="naam" required autofocus autocapitalize="words" autocomplete="username"
+<!-- v0.15: hetzelfde inlogvak als de Portal en de Hub (.inlog uit invite_stijl.css): de merkfoto,
+     Inloggen met Microsoft (alleen in Portal-modus, via ms_login_ipp.js van de Portal) en het wachtwoord. -->
+<div class="inlog">
+  <div class="inlog-foto"></div>
+  <div class="inlog-inhoud">
+    <div class="inlog-titel">VaCom</div>
+    <p class="inlog-tekst">Het interne kanaal van <?= h(vacom_merk_naam()) ?></p>
+    <div class="inlog-melding" id="fout"<?= $fout === '' ? '' : ' style="display:block"' ?>><?= h($fout) ?></div>
+    <?php if ($eersteKeer): ?>
+      <p class="inlog-tekst">Eerste start: het startwachtwoord voor <strong>Ad</strong> staat in <code>BOOTSTRAP_WACHTWOORD.txt</code> in de datamap.</p>
+    <?php endif; ?>
+    <?php if (VACOM_PORTAL): ?>
+    <div id="login-ms-blok" hidden>
+      <button type="button" class="knop breed glas inlog-ms" id="login-ms">Inloggen met Microsoft</button>
+      <div class="inlog-of"><span>of met je wachtwoord</span></div>
+    </div>
+    <?php endif; ?>
+    <form method="post" autocomplete="on" id="form-login">
+      <input type="hidden" name="csrf" value="<?= h(vacom_csrf()) ?>">
+      <input type="text" id="login-naam" class="veld groot glas" name="naam" required autocapitalize="words" autocomplete="username" placeholder="Jouw naam"
              value="<?= h((string)($_POST['naam'] ?? '')) ?>">
-    </div>
-    <div class="veldrij">
-      <label class="veldlabel" for="login-wachtwoord">Wachtwoord</label>
-      <input type="password" id="login-wachtwoord" class="veld groot" name="wachtwoord" required autocomplete="current-password">
-    </div>
-    <button type="submit" class="knop goud breed" id="knop-login">Inloggen</button>
-  </form>
-  <p class="login-voet">VaCom v<?= VACOM_VERSION ?> · <?= h(vacom_merk_naam()) ?></p>
-</main>
+      <input type="password" id="login-wachtwoord" class="veld groot glas" name="wachtwoord" required autocomplete="current-password" placeholder="Jouw wachtwoord">
+      <button type="submit" class="knop goud breed" id="knop-login">Inloggen</button>
+    </form>
+    <?php if (VACOM_PORTAL): ?><a class="tekstlink inlog-link" href="<?= VACOM_PORTAL_URL ?>">Naar de Portal</a><?php endif; ?>
+  </div>
+</div>
+<div class="voet login">
+  &copy; Copyright &mdash; <a href="<?= h(vacom_merk()['site'] ?? 'https://invite.nl/') ?>" target="_blank" rel="noopener noreferrer" class="voetlink"><?= h(vacom_merk()['lang'] ?? 'Invite Vastgoedcommunicatie') ?></a><br>
+  VaCom v<?= VACOM_VERSION ?> &mdash; created by Ad Grainger &nbsp;&nbsp;&nbsp;*&#92;o/*
+</div>
 <?php if (VACOM_PORTAL): ?>
+<script src="<?= VACOM_PORTAL_URL ?>ms_login_ipp.js"></script><!-- v0.15: Inloggen met Microsoft, uit de Portal (knop blijft weg zonder ipp_data/microsoft.json) -->
 <script>
 (() => {
   const form = document.getElementById('form-login');
   const fout = document.getElementById('fout');
   const knop = document.getElementById('knop-login');
+  const meld = (t) => { fout.textContent = t; fout.style.display = t ? 'block' : 'none'; };
+  // v0.15: de Microsoft-knop; redirectUri = deze pagina (moet in Entra als SPA-redirect staan)
+  if (window.IPP_MS) IPP_MS.init({ blok: document.getElementById('login-ms-blok'), knop: document.getElementById('login-ms'), melding: meld, redirectUri: location.origin + location.pathname });
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    knop.disabled = true; fout.hidden = true;
+    knop.disabled = true; meld('');
     const fd = new FormData();
     fd.append('action', 'login');
     fd.append('name', form.naam.value.trim());
@@ -103,10 +108,9 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
       const r = await fetch('<?= VACOM_PORTAL_URL ?>api_ipp.php', { method: 'POST', body: fd, credentials: 'same-origin' });
       const j = await r.json().catch(() => ({}));
       if (j.success && !j.is_external) { location.href = 'index.php'; return; }
-      fout.textContent = j.success ? 'VaCom is alleen voor medewerkers.' : (j.error || 'Inloggen is niet gelukt.');
-      fout.hidden = false;
+      meld(j.success ? 'VaCom is alleen voor medewerkers.' : (j.error || 'Inloggen is niet gelukt.'));
     } catch (err) {
-      fout.textContent = 'Geen verbinding met de Portal.'; fout.hidden = false;
+      meld('Geen verbinding met de Portal.');
     }
     knop.disabled = false;
   });
