@@ -32,6 +32,33 @@ function vacom_portal_lees(string $bestand): ?array {
     return is_array($data) ? $data : null;
 }
 
+/**
+ * Het merk van het bezochte adres (v0.11, Portal v5.4+): Invite op
+ * portal.invite.nl, Incombinatie op portal.incombinatie.nl. Komt uit de Portal
+ * (merk_ipp.php, één bron voor naam, kleuren en logo's). Zonder Portal, of
+ * zonder merk_ipp.php (oudere Portal): null = alles zoals Invite.
+ */
+function vacom_merk(): ?array {
+    static $merk = false;
+    if ($merk !== false) return $merk;
+    $pad = VACOM_PORTAL ? VACOM_PORTAL_ROOT . '/merk_ipp.php' : '';
+    if ($pad === '' || !is_file($pad)) return $merk = null;
+    if (!defined('IPP_IS_DEV')) define('IPP_IS_DEV', VACOM_IS_DEV); // lokaal: ?merk= uit de Portal-sessie
+    require_once $pad;
+    return $merk = function_exists('ipp_merk') ? ipp_merk() : null;
+}
+/** Naam van het merk ("Invite" / "Incombinatie"). */
+function vacom_merk_naam(): string {
+    $m = vacom_merk();
+    return (string)($m['naam'] ?? 'Invite');
+}
+/** Voor in de <head>, ná de stylesheets: favicon, kleurtokens en logo van het
+ *  merk (ipp_merk_head van de Portal, met '../' omdat VaCom in een submap staat). */
+function vacom_merk_head(): string {
+    $m = vacom_merk();
+    return ($m !== null && function_exists('ipp_merk_head')) ? ipp_merk_head($m, '../') : '';
+}
+
 /** Interne Portal-gebruikers: [['name','role','email'], ...] — klanten (external) niet. */
 function vacom_portal_gebruikers(): array {
     $data = vacom_portal_lees('users.json');
@@ -56,6 +83,12 @@ function vacom_portal_projecten(): array {
         $manager = trim((string)($p['manager'] ?? ''));
         $gekoppeld = [];
         if ($manager !== '') $gekoppeld[vacom_naam_sleutel($manager)] = true;
+        // v0.11 (Portal v5.5.1): een gedeeld project kan een tweede projectmanager
+        // van het andere bedrijf hebben; die hoort ook in het projectkanaal.
+        foreach ((array)($p['managers_extra'] ?? []) as $m2) {
+            $m2 = trim((string)$m2);
+            if ($m2 !== '') $gekoppeld[vacom_naam_sleutel($m2)] = true;
+        }
         foreach ($p['onderdelen'] ?? [] as $o) {
             $d = trim((string)($o['designer'] ?? ''));
             if ($d !== '') $gekoppeld[vacom_naam_sleutel($d)] = true;

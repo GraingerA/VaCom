@@ -49,6 +49,7 @@ $start = [
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="<?= h(vacom_gedeelde_stijl()) ?>">
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
+<?= vacom_merk_head() /* v0.11: kleuren en logo van het merk (Invite / Incombinatie), ná de stylesheets */ ?>
 </head>
 <body data-pane="lijst"<?= $embed ? ' class="embed"' : '' ?>>
 <script>

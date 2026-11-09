@@ -85,6 +85,7 @@ $csrf = vacom_csrf();
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="<?= h(vacom_gedeelde_stijl()) ?>">
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
+<?= vacom_merk_head() /* v0.11: kleuren en logo van het merk (Invite / Incombinatie), ná de stylesheets */ ?>
 </head>
 <body class="pagina-body">
 <script>try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
@@ -100,7 +101,7 @@ $csrf = vacom_csrf();
   <?php if (VACOM_PORTAL): ?>
   <section class="vlak kaart">
     <h2>Accounts komen uit de Portal</h2>
-    <p class="uitleg">VaCom gebruikt de inlog van de Invite Project Portal. Een collega toevoegen,
+    <p class="uitleg">VaCom gebruikt de inlog van de <?= h(vacom_merk_naam()) ?> Project Portal. Een collega toevoegen,
       een wachtwoord wijzigen of iemand de toegang ontnemen doe je dus <a href="<?= VACOM_PORTAL_URL ?>">in de Portal</a>;
       VaCom neemt dat vanzelf over. Klanten (externe accounts) hebben geen toegang tot VaCom.</p>
     <table class="tabel">

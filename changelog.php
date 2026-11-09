@@ -21,6 +21,7 @@ vacom_require_login();
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="<?= h(vacom_gedeelde_stijl()) ?>">
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
+<?= vacom_merk_head() /* v0.11: kleuren en logo van het merk (Invite / Incombinatie), ná de stylesheets */ ?>
 </head>
 <body class="pagina-body">
 <script>try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
@@ -29,6 +30,14 @@ vacom_require_login();
     <a class="knop" href="index.php"><i>←</i> Terug naar VaCom</a>
     <h1>Wat is er nieuw</h1>
   </header>
+
+  <section class="vlak kaart">
+    <h2>v0.11.0 <span class="stil">— 9 november 2026</span></h2>
+    <ul>
+      <li><strong>VaCom voor Invite én Incombinatie.</strong> Collega's van beide bedrijven zitten in dezelfde VaCom: één #algemeen, iedereen kan elkaar een bericht sturen. Op <code>portal.incombinatie.nl/vacom/</code> heet het "het interne kanaal van Incombinatie" en krijgt VaCom hun kleuren, net als de Portal en de Hub daar; op portal.invite.nl verandert er niets.</li>
+      <li>Heeft een gedeeld project in de Portal een tweede projectmanager (van het andere bedrijf), dan wordt die ook lid van het projectkanaal.</li>
+    </ul>
+  </section>
 
   <section class="vlak kaart">
     <h2>v0.10.0 <span class="stil">— 2 november 2026</span></h2>

@@ -21,7 +21,7 @@ vacom_bootstrap_if_needed();
 
 $fout = '';
 if (VACOM_PORTAL && !empty($_SESSION['is_external'])) {
-    $fout = 'VaCom is alleen voor medewerkers van Invite.';
+    $fout = 'VaCom is alleen voor medewerkers.';
 }
 if (!VACOM_PORTAL && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!vacom_csrf_ok($_POST['csrf'] ?? null)) {
@@ -52,6 +52,7 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="<?= h(vacom_gedeelde_stijl()) ?>">
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
+<?= vacom_merk_head() /* v0.11: kleuren en logo van het merk (Invite / Incombinatie), ná de stylesheets */ ?>
 </head>
 <body class="login-body">
 <script>try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
@@ -60,7 +61,7 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
     <img class="logo-icoon" src="assets/icon-192.png" alt="">
     <span class="logo-naam">VaCom</span>
   </div>
-  <p class="login-sub">Het interne kanaal van Invite</p>
+  <p class="login-sub">Het interne kanaal van <?= h(vacom_merk_naam()) ?></p>
 
   <p class="meldregel fout" id="fout" <?= $fout === '' ? 'hidden' : '' ?>><?= h($fout) ?></p>
   <?php if ($eersteKeer): ?>
@@ -84,7 +85,7 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
     </div>
     <button type="submit" class="knop goud breed" id="knop-login">Inloggen</button>
   </form>
-  <p class="login-voet">VaCom v<?= VACOM_VERSION ?> · Invite</p>
+  <p class="login-voet">VaCom v<?= VACOM_VERSION ?> · <?= h(vacom_merk_naam()) ?></p>
 </main>
 <?php if (VACOM_PORTAL): ?>
 <script>
@@ -103,7 +104,7 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
       const r = await fetch('<?= VACOM_PORTAL_URL ?>api_ipp.php', { method: 'POST', body: fd, credentials: 'same-origin' });
       const j = await r.json().catch(() => ({}));
       if (j.success && !j.is_external) { location.href = 'index.php'; return; }
-      fout.textContent = j.success ? 'VaCom is alleen voor medewerkers van Invite.' : (j.error || 'Inloggen is niet gelukt.');
+      fout.textContent = j.success ? 'VaCom is alleen voor medewerkers.' : (j.error || 'Inloggen is niet gelukt.');
       fout.hidden = false;
     } catch (err) {
       fout.textContent = 'Geen verbinding met de Portal.'; fout.hidden = false;

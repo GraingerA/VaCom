@@ -68,6 +68,22 @@ het kanaal en maakt de starter 'handmatig' lid), en de URL's
 `index.php?embed=1&project=TOKEN` (alleen de gesprekskaart, `body.embed`, in de
 popup op de projectkaart) en `index.php?project=TOKEN` (volledige app, kanaal open).
 
+## Twee bedrijven (v0.11, Portal plan 2)
+
+Sinds Portal v5.4 draait dezelfde Portal ook op `portal.incombinatie.nl`
+(DirectAdmin-alias van dezelfde map), dus VaCom ook: `portal.incombinatie.nl/vacom/`.
+Eén VaCom voor beide bedrijven (zelfde SQLite, zelfde kanalen): collega's van
+Invite en Incombinatie zien elkaar, zoals in de Hub. Wat per merk anders is:
+`vacom_merk()` in `inc/portal.php` laadt `merk_ipp.php` van de Portal (los,
+zonder config_ipp.php) en geeft het merk van het bezochte adres;
+`vacom_merk_head()` zet `ipp_merk_head($merk, '../')` ná de stylesheets op
+elke pagina (kleurtokens `--goud/--blauw/…`, `--voet-logo`, favicon-link),
+`vacom_merk_naam()` staat in de login-tekst, de voet en gebruikers.php. VaCom
+heeft verder geen vaste Invite-kleuren meer in app.css, dus hun kleuren komen
+vanzelf mee. Projectkanalen: ook de tweede projectmanager van een gedeeld
+project (`managers_extra` in projects.json, Portal v5.5.1) is "gekoppeld".
+Niet per bedrijf gescheiden: kanalen, DM's, zoeken (bewust: één team).
+
 ## Opbouw
 
 | Bestand | Wat |
