@@ -104,6 +104,19 @@ Niet per bedrijf gescheiden: kanalen, DM's, zoeken (bewust: één team).
   `#opties-dm-verwijderen` in de opties-popup (CSS `.dm`). "Uit mijn lijst
   halen" (`gesprek_verbergen`) blijft.
 
+## v0.14: systeemberichten
+
+`messages.systeem` (migratie 13). `systeembericht($db, $kanaalId, $doorId,
+$tekst)` in api.php voegt een gewone rij toe met `systeem = 1`; aangeroepen bij
+`kanaal_nieuw` (aangemaakt), `kanaal_deelnemen` en `lid_toevoegen` (doet mee /
+is toegevoegd door), `lid_verwijderen` (heeft het kanaal verlaten / is
+verwijderd door). `bericht_uit()` geeft `systeem` mee; de client tekent
+`.bericht.systeem` (één grijze regel, geen avatar/acties, breekt het groeperen
+van vervolgberichten). Niet meegeteld als ongelezen (`x.systeem = 0` in
+overzicht.php en `portal_project`), niet in `zoek`, geen push en geen
+vermeldingen (die lopen alleen via `stuur`). Verwijderen van een kanaal of
+gesprek geeft geen bericht: het kanaal is dan voor iedereen weg.
+
 ## Opbouw
 
 | Bestand | Wat |

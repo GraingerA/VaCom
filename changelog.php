@@ -32,6 +32,13 @@ vacom_require_login();
   </header>
 
   <section class="vlak kaart">
+    <h2>v0.14.0 <span class="stil">— 9 november 2026</span></h2>
+    <ul>
+      <li><strong>Systeemberichten.</strong> In een kanaal verschijnt nu een stille grijze regel als er iets met de leden gebeurt: "Ad heeft het kanaal aangemaakt", "Kim is toegevoegd door Ad", "Pim doet mee in het kanaal", "Ad heeft het kanaal verlaten" of "Kim is uit het kanaal verwijderd door Ad". Zo'n regel telt niet mee als ongelezen, geeft geen pushmelding en is niet doorzoekbaar.</li>
+    </ul>
+  </section>
+
+  <section class="vlak kaart">
     <h2>v0.13.1 <span class="stil">— 9 november 2026</span></h2>
     <ul>
       <li><strong>Ook projectkanalen zijn te verwijderen.</strong> De knop Verwijderen in de kanaal-opties werkte niet voor kanalen die ooit voor een Portal-project zijn gestart; die mochten alleen via de Portal weg. Nu kan de superadmin (of wie het kanaal aanmaakte) ze gewoon verwijderen.</li>

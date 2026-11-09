@@ -18,7 +18,7 @@ function vacom_overzicht(PDO $db, array $ik): array {
     // v0.7: 'mentions' = ongelezen berichten waarin ík met @Naam genoemd word.
     $st = $db->prepare(<<<'SQL'
 SELECT c.id, c.type, c.name, c.topic, c.dm_key, c.project_token, c.archived, c.created_by, m.last_read_id,
-       (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.id > m.last_read_id AND x.user_id != m.user_id AND x.deleted = 0) AS unread,
+       (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.id > m.last_read_id AND x.user_id != m.user_id AND x.deleted = 0 AND x.systeem = 0) AS unread,
        (SELECT COUNT(*) FROM mentions mn JOIN messages x ON x.id = mn.message_id
           WHERE x.channel_id = c.id AND mn.user_id = ? AND x.id > m.last_read_id AND x.deleted = 0) AS mentions,
        (SELECT MAX(id) FROM messages x WHERE x.channel_id = c.id) AS last_id

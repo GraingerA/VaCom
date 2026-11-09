@@ -112,9 +112,16 @@ function reacties_bij(PDO $db, array $ids): array {
     return $uit;
 }
 
+/** v0.14: systeembericht in een kanaal ("… heeft het kanaal verlaten"). Geen
+ *  push, geen vermeldingen, telt niet als ongelezen (zie overzicht.php). */
+function systeembericht(PDO $db, int $kanaalId, int $doorId, string $tekst): void {
+    $db->prepare('INSERT INTO messages(channel_id, user_id, body, created, systeem) VALUES (?,?,?,?,1)')
+       ->execute([$kanaalId, $doorId, $tekst, vacom_now()]);
+}
+
 /** Berichten van één kanaal, met auteur en reacties, als lijst voor de client. */
 function berichten_uit(PDO $db, string $where, array $params, int $limiet, bool $oplopend): array {
-    $sql = "SELECT m.id, m.channel_id, m.user_id, m.parent_id, m.body, m.created, m.edited, m.deleted, m.attachment, m.preview, u.name AS author
+    $sql = "SELECT m.id, m.channel_id, m.user_id, m.parent_id, m.body, m.created, m.edited, m.deleted, m.attachment, m.preview, m.systeem, u.name AS author
             FROM messages m JOIN users u ON u.id = m.user_id
             WHERE $where ORDER BY m.id " . ($oplopend ? 'ASC' : 'DESC') . " LIMIT $limiet";
     $st = $db->prepare($sql);
@@ -367,6 +374,7 @@ function bericht_uit(array $r): array {
         'created'    => $r['created'],
         'edited'     => $r['edited'],
         'deleted'    => (int)$r['deleted'] === 1,
+        'systeem'    => (int)($r['systeem'] ?? 0) === 1,   // v0.14
         // v0.6: bijlage als array, of null (geen bijlage / bericht verwijderd)
         'attachment' => ((int)$r['deleted'] === 1 || empty($r['attachment'])) ? null : (json_decode((string)$r['attachment'], true) ?: null),
         // v0.9: linkvoorvertoning
@@ -943,6 +951,7 @@ case 'kanaal_nieuw': {
     // Iedereen wordt lid: bij 25 collega's is "iedereen ziet elk kanaal" precies wat je wilt.
     $db->prepare('INSERT INTO channel_members(channel_id, user_id, last_read_id, joined) SELECT ?, id, 0, ? FROM users WHERE active = 1')
        ->execute([$id, vacom_now()]);
+    systeembericht($db, $id, $mijnId, $ik['name'] . ' heeft het kanaal aangemaakt'); // v0.14
     vacom_bump_state();
     $db->commit();
     vacom_json(['ok' => true, 'channel_id' => $id] + vacom_overzicht($db, $ik));
@@ -1114,7 +1123,7 @@ case 'portal_project': {
         // v0.6: ook id + bijlage mee, zodat de kaart een foto/gif klein kan tonen.
         $uit['berichten'] = array_map(fn($m) => ['id' => $m['id'], 'author' => $m['author'], 'body' => mb_substr($m['body'], 0, 200), 'created' => $m['created'], 'attachment' => $m['attachment']],
             berichten_uit($db, 'm.channel_id = ? AND m.parent_id IS NULL AND m.deleted = 0', [$kid], 5, false));
-        $o = $db->prepare('SELECT COUNT(*) FROM messages WHERE channel_id = ? AND deleted = 0 AND user_id != ? AND id > ?');
+        $o = $db->prepare('SELECT COUNT(*) FROM messages WHERE channel_id = ? AND deleted = 0 AND systeem = 0 AND user_id != ? AND id > ?');
         $o->execute([$kid, $mijnId, (int)$lidRij['last_read_id']]);
         $uit['ongelezen'] = (int)$o->fetchColumn();
     }
@@ -1130,8 +1139,9 @@ case 'kanaal_deelnemen': {
     $st->execute([$token]);
     $k = $st->fetch();
     if (!$k) vacom_fout('Dit projectkanaal bestaat niet (meer).', 404);
-    $db->prepare("INSERT OR IGNORE INTO channel_members(channel_id, user_id, last_read_id, joined, via) VALUES (?, ?, ?, ?, 'handmatig')")
-       ->execute([(int)$k['id'], $mijnId, vacom_max_message_id(), vacom_now()]);
+    $st = $db->prepare("INSERT OR IGNORE INTO channel_members(channel_id, user_id, last_read_id, joined, via) VALUES (?, ?, ?, ?, 'handmatig')");
+    $st->execute([(int)$k['id'], $mijnId, vacom_max_message_id(), vacom_now()]);
+    if ($st->rowCount() > 0) systeembericht($db, (int)$k['id'], $mijnId, $ik['name'] . ' doet mee in het kanaal'); // v0.14
     vacom_bump_state();
     vacom_json(['ok' => true, 'channel_id' => (int)$k['id']] + vacom_overzicht($db, $ik));
 }
@@ -1229,8 +1239,13 @@ case 'lid_toevoegen': {
     if ($k['type'] !== 'public') vacom_fout('Aan een gesprek kun je niemand toevoegen.');
     $ander = vacom_user_by_id(param_int($invoer, 'user_id'));
     if ($ander === null || (int)$ander['active'] !== 1) vacom_fout('Collega niet gevonden.');
-    $db->prepare("INSERT OR IGNORE INTO channel_members(channel_id, user_id, last_read_id, joined, via) VALUES (?,?,?,?,'handmatig')")
-       ->execute([(int)$k['id'], (int)$ander['id'], vacom_max_message_id(), vacom_now()]);
+    $st = $db->prepare("INSERT OR IGNORE INTO channel_members(channel_id, user_id, last_read_id, joined, via) VALUES (?,?,?,?,'handmatig')");
+    $st->execute([(int)$k['id'], (int)$ander['id'], vacom_max_message_id(), vacom_now()]);
+    if ($st->rowCount() > 0) { // v0.14: systeembericht, alleen als hij er echt bij kwam
+        systeembericht($db, (int)$k['id'], $mijnId, (int)$ander['id'] === $mijnId
+            ? $ik['name'] . ' doet mee in het kanaal'
+            : $ander['name'] . ' is toegevoegd door ' . $ik['name']);
+    }
     vacom_bump_state();
     vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
 }
@@ -1256,6 +1271,13 @@ case 'lid_verwijderen': {
         vacom_fout('Van een algemeen kanaal is iedereen lid; dat kun je niet verlaten.');
     }
     $db->prepare('DELETE FROM channel_members WHERE channel_id = ? AND user_id = ?')->execute([(int)$k['id'], $wie]);
+    // v0.14: systeembericht voor wie achterblijft
+    if ($wie === $mijnId) {
+        systeembericht($db, (int)$k['id'], $mijnId, $ik['name'] . ' heeft het kanaal verlaten');
+    } else {
+        $anderNaam = (vacom_user_by_id($wie)['name'] ?? 'Een collega');
+        systeembericht($db, (int)$k['id'], $mijnId, $anderNaam . ' is uit het kanaal verwijderd door ' . $ik['name']);
+    }
     vacom_bump_state();
     vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
 }
@@ -1420,7 +1442,7 @@ FROM messages_fts f
 JOIN messages m ON m.id = f.rowid
 JOIN users u ON u.id = m.user_id
 JOIN channel_members cm ON cm.channel_id = m.channel_id AND cm.user_id = ?
-WHERE messages_fts MATCH ? AND m.deleted = 0 $filters
+WHERE messages_fts MATCH ? AND m.deleted = 0 AND m.systeem = 0 $filters
 ORDER BY m.id DESC LIMIT 50");
         $params = array_merge([$mijnId, $fts], $fp);
     } else {

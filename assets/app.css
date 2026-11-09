@@ -221,6 +221,10 @@ body.embed #chat-open-vacom { flex: none; }
 .bericht.eerste { margin-top: 8px; }
 .bericht.vervolg .avatar { visibility: hidden; height: 0; }
 .bericht.vervolg { padding-top: 1px; padding-bottom: 1px; }
+/* v0.14: systeembericht ("Ad heeft het kanaal verlaten"): één stille regel */
+.bericht.systeem { display: flex; align-items: baseline; gap: 8px; padding: 4px 8px 4px 54px; margin-top: 4px; font-size: var(--letter-klein); color: var(--muted); font-style: italic; }
+.bericht.systeem:hover { background: none; }
+.bericht.systeem .tijd { font-style: normal; font-size: var(--letter-hint); }
 .bericht-kop { display: flex; align-items: baseline; gap: 8px; }
 .bericht-kop .auteur { font-weight: 700; }
 .bericht-kop .tijd, .bericht.vervolg .tijd-klein { font-size: var(--letter-klein); color: var(--muted); }

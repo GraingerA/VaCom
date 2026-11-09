@@ -297,6 +297,15 @@ SQL);
         $pdo->exec('ALTER TABLE users ADD COLUMN kijkt_at INTEGER NOT NULL DEFAULT 0');
         $pdo->exec('PRAGMA user_version = 12');
     }
+
+    if ($versie < 13) {
+        // v0.14: systeemberichten ("Ad heeft het kanaal verlaten", "Kim is
+        // toegevoegd door Ad", …). Gewone rij in messages met systeem = 1:
+        // grijs en zonder avatar in de lijst, telt niet mee als ongelezen,
+        // niet doorzoekbaar, geen pushmelding. user_id = wie het deed.
+        $pdo->exec('ALTER TABLE messages ADD COLUMN systeem INTEGER NOT NULL DEFAULT 0');
+        $pdo->exec('PRAGMA user_version = 13');
+    }
 }
 
 /* ---------- Kleine helpers rond de database ---------- */

@@ -706,7 +706,8 @@
       }
       // v0.7.1: streep boven het eerste bericht dat je nog niet gelezen had.
       if (S.nieuwVanaf && m.id === S.nieuwVanaf) delen.push('<div class="datum-scheiding nieuw" id="nieuw-vanaf">Nieuwe berichten</div>');
-      const vervolg = vorige && vorige.user_id === m.user_id && dagSleutel(vorige.created) === dagSleutel(m.created)
+      // v0.14: een systeembericht groepeert niet (geen vervolg, en het bericht erna begint opnieuw)
+      const vervolg = vorige && !m.systeem && !vorige.systeem && vorige.user_id === m.user_id && dagSleutel(vorige.created) === dagSleutel(m.created)
         && new Date(m.created) - new Date(vorige.created) < 5 * 60 * 1000 && !vorige.replies;
       delen.push(berichtHtml(m, vervolg, false));
       vorige = m;
@@ -759,7 +760,7 @@
     const delen = [berichtHtml(t.parent, false, true), `<div class="datum-scheiding thread-scheiding">${t.msgs.length} ${t.msgs.length === 1 ? 'antwoord' : 'antwoorden'}</div>`];
     let vorige = null;
     for (const m of t.msgs) {
-      const vervolg = vorige && vorige.user_id === m.user_id && new Date(m.created) - new Date(vorige.created) < 5 * 60 * 1000;
+      const vervolg = vorige && !m.systeem && !vorige.systeem && vorige.user_id === m.user_id && new Date(m.created) - new Date(vorige.created) < 5 * 60 * 1000;
       delen.push(berichtHtml(m, vervolg, true));
       vorige = m;
     }
@@ -1033,7 +1034,7 @@
   // bericht, verschuift niets): reageren met emoji (iedereen), bewerken
   // (eigen bericht) en verwijderen (eigen, of superadmin).
   function berichtActies(m, inThread) {
-    if (m.deleted || !S.me || (S.current && S.current.archived) || S.bewerkId === m.id) return '';
+    if (m.deleted || m.systeem || !S.me || (S.current && S.current.archived) || S.bewerkId === m.id) return '';
     const eigen = m.user_id === S.me.id;
     const superadmin = S.me.role === 'superadmin';
     const knoppen = [`<button type="button" data-reageer="${m.id}" title="Reageer met emoji" aria-label="Reageer met emoji">☺<span class="plusje">+</span></button>`];
@@ -1056,6 +1057,10 @@
 
   // Eén bericht als HTML — gedeeld door het gesprek en het thread-paneel (v0.9).
   function berichtHtml(m, vervolg, inThread) {
+    // v0.14: systeembericht — één grijze regel, zonder avatar, reacties of knoppen
+    if (m.systeem) {
+      return `<div class="bericht systeem" data-id="${m.id}"><span class="systeem-tekst">${esc(m.body)}</span><span class="tijd">${tijd(m.created)}</span></div>`;
+    }
     const tekst = berichtTekst(m);
     const groot = !m.deleted && !m.attachment && isAlleenEmoji(m.body) ? ' alleen-emoji' : '';
     const chips = reactieChips(m);
