@@ -32,6 +32,13 @@ vacom_require_login();
   </header>
 
   <section class="vlak kaart">
+    <h2>v0.13.1 <span class="stil">— 9 november 2026</span></h2>
+    <ul>
+      <li><strong>Ook projectkanalen zijn te verwijderen.</strong> De knop Verwijderen in de kanaal-opties werkte niet voor kanalen die ooit voor een Portal-project zijn gestart; die mochten alleen via de Portal weg. Nu kan de superadmin (of wie het kanaal aanmaakte) ze gewoon verwijderen.</li>
+    </ul>
+  </section>
+
+  <section class="vlak kaart">
     <h2>v0.13.0 <span class="stil">— 9 november 2026</span></h2>
     <ul>
       <li><strong>Kop zoals in de Portal.</strong> Geen glazen balk meer bovenin: het woordmerk staat groot links op een open regel, de knoppen rechts op de basislijn, net als de kop van de Portal-pagina's.</li>

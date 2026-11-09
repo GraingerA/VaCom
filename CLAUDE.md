@@ -96,7 +96,9 @@ Niet per bedrijf gescheiden: kanalen, DM's, zoeken (bewust: één team).
   inc/portal.php (leden, archiveren bij prullenbak) blijft werken voor
   bestaande projectkanalen. Op `true` komt alles terug.
 - **Verwijderen:** `kanaal_verwijderen` mag nu door `mag_kanaal_beheren()`
-  (superadmin óf wie het kanaal aanmaakte; `kan_wissen` in `kanaal_leden`).
+  (superadmin óf wie het kanaal aanmaakte; `kan_wissen` in `kanaal_leden`),
+  sinds v0.13.1 ook voor een projectkanaal (zet `pk_gewist:<token>` in meta,
+  zoals `beheer_kanaal_wissen`).
   Nieuw `gesprek_verwijderen` (DM, door een van de twee deelnemers): wist
   berichten, reacties, bijlagen, leden en het kanaal; knop
   `#opties-dm-verwijderen` in de opties-popup (CSS `.dm`). "Uit mijn lijst

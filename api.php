@@ -1218,7 +1218,7 @@ case 'kanaal_leden': {
         'archived'      => $gesloten,
         'kan_sluiten'   => !$isProject && !$gesloten && mag_kanaal_beheren($k, $mijnId),
         'kan_heropenen' => !$isProject &&  $gesloten && mag_kanaal_beheren($k, $mijnId),
-        'kan_wissen'    => !$isProject && mag_kanaal_beheren($k, $mijnId),   // v0.13: ook wie het kanaal aanmaakte
+        'kan_wissen'    => mag_kanaal_beheren($k, $mijnId),   // v0.13: ook wie het kanaal aanmaakte; v0.13.1: ook een projectkanaal
     ]);
 }
 
@@ -1290,13 +1290,18 @@ case 'kanaal_verwijderen': {
     // ook gesloten kanalen (die ruim je zo alsnog definitief op).
     $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId, true);
     if (!mag_kanaal_beheren($k, $mijnId)) vacom_fout('Alleen de superadmin of wie het kanaal aanmaakte kan het verwijderen.', 403); // v0.13
-    if ($k['type'] !== 'public' || is_projectkanaal($k)) vacom_fout('Een projectkanaal verwijder je via de Portal.');
+    if ($k['type'] !== 'public') vacom_fout('Een gesprek verwijder je via Gesprek verwijderen.');
+    // v0.13.1: ook een projectkanaal mag weg (projectkanalen staan toch uit).
+    // We onthouden wanneer, zodat de Portal-vlag het niet meteen opnieuw aanmaakt.
     bijlagen_wis_kanaal($db, (int)$k['id']); // v0.6
     $db->beginTransaction();
     $db->prepare('DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE channel_id = ?)')->execute([(int)$k['id']]);
     $db->prepare('DELETE FROM messages WHERE channel_id = ?')->execute([(int)$k['id']]);
     $db->prepare('DELETE FROM channel_members WHERE channel_id = ?')->execute([(int)$k['id']]);
     $db->prepare('DELETE FROM channels WHERE id = ?')->execute([(int)$k['id']]);
+    if (is_projectkanaal($k)) {
+        $db->prepare('INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?)')->execute(['pk_gewist:' . $k['project_token'], (string)time()]);
+    }
     vacom_bump_state();
     $db->commit();
     vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
