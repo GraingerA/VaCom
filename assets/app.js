@@ -36,7 +36,7 @@
     kanaalTopic: $('#kanaal-topic'), kanaalFout: $('#kanaal-fout'),
     bannerIos: $('#banner-ios'),
     optiesKnop: $('#knop-kanaal-opties'), optiesDialoog: $('#dialoog-opties'), optiesTitel: $('#opties-titel'),
-    optiesProject: $('#opties-project'), optiesTopic: $('#opties-topic'), optiesLeden: $('#opties-leden'),
+    optiesProject: $('#opties-project'), optiesTopic: $('#opties-topic'), optiesNaam: $('#opties-naam'), optiesLeden: $('#opties-leden'),
     optiesAantal: $('#opties-aantal'), optiesCollega: $('#opties-collega'), optiesFout: $('#opties-fout'),
     optiesGesloten: $('#opties-gesloten'),
     // v0.4.1: gesloten kanalen (zijbalk-sectie + alleen-lezen-balk boven het gesprek)
@@ -2067,6 +2067,7 @@
     el.optiesDialoog.classList.toggle('dm', k.type === 'dm');
     if (k.type === 'dm') { el.optiesDialoog.showModal(); return; }
     el.optiesTopic.value = k.topic || '';
+    el.optiesNaam.value = k.name || ''; el.optiesNaam.disabled = true; // v0.17: aan zodra kanaal_leden zegt dat het mag
     el.optiesLeden.innerHTML = '<li class="stil">Laden…</li>';
     el.optiesDialoog.showModal();
     try {
@@ -2084,6 +2085,7 @@
     el.optiesProject.hidden = !j.is_project;
     el.optiesGesloten.hidden = !dicht;
     el.optiesTopic.disabled = j.is_project || dicht; // onderwerp van een projectkanaal komt uit de Portal
+    el.optiesNaam.disabled = !j.kan_hernoemen;        // v0.17
     el.optiesAantal.textContent = `(${j.members.length})`;
     const superadmin = S.me && S.me.role === 'superadmin';
     el.optiesLeden.innerHTML = j.members.map((m) => {
@@ -2140,6 +2142,20 @@
   });
   $('#opties-sluit').addEventListener('click', () => el.optiesDialoog.close());
   el.optiesDialoog.addEventListener('click', (e) => { if (e.target === el.optiesDialoog) el.optiesDialoog.close(); });
+
+  // v0.17: kanaal hernoemen
+  el.optiesNaam.addEventListener('change', async () => {
+    if (!S.current || !optiesInfo || !optiesInfo.kan_hernoemen) return;
+    const k = S.current;
+    try {
+      const j = await api('kanaal_naam', { channel_id: k.id, name: el.optiesNaam.value });
+      pasOverzichtToe(j);
+      el.optiesNaam.value = j.name;
+      el.optiesTitel.textContent = kanaalNaam(S.current || k);
+      el.naam.textContent = kanaalNaam(S.current || k);
+      toast('Kanaal heet nu #' + j.name);
+    } catch (e) { optiesFout(e.message); el.optiesNaam.value = k.name || ''; }
+  });
 
   el.optiesTopic.addEventListener('change', async () => {
     if (!S.current || optiesInfo?.is_project) return;

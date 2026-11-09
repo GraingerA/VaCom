@@ -957,6 +957,27 @@ case 'kanaal_nieuw': {
     vacom_json(['ok' => true, 'channel_id' => $id] + vacom_overzicht($db, $ik));
 }
 
+case 'kanaal_naam': {
+    // v0.17: kanaal hernoemen (superadmin of wie het aanmaakte). Zelfde regels
+    // als bij aanmaken: kleine letters, letters/cijfers/streepjes, max 40, uniek.
+    // Een projectkanaal niet: die naam komt van het project in de Portal.
+    $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
+    if ($k['type'] !== 'public') vacom_fout('Een gesprek heeft geen naam.');
+    if (is_projectkanaal($k)) vacom_fout('De naam van een projectkanaal komt uit de Portal.');
+    if (!mag_kanaal_beheren($k, $mijnId)) vacom_fout('Alleen de superadmin of wie het kanaal aanmaakte kan het hernoemen.', 403);
+    $naam = mb_strtolower(param_str($invoer, 'name'));
+    $naam = trim(preg_replace('/[^\p{L}\p{N}\-_]+/u', '-', $naam) ?? '', '-');
+    if ($naam === '' || mb_strlen($naam) > 40) vacom_fout('Geef een kanaalnaam op (letters, cijfers, streepjes).');
+    if ($naam === $k['name']) vacom_json(['ok' => true, 'name' => $naam] + vacom_overzicht($db, $ik));
+    $st = $db->prepare("SELECT id FROM channels WHERE type = 'public' AND name = ? AND id != ?");
+    $st->execute([$naam, (int)$k['id']]);
+    if ($st->fetchColumn()) vacom_fout("Kanaal #$naam bestaat al.");
+    $db->prepare('UPDATE channels SET name = ? WHERE id = ?')->execute([$naam, (int)$k['id']]);
+    systeembericht($db, (int)$k['id'], $mijnId, $ik['name'] . ' heeft het kanaal hernoemd van #' . $k['name'] . ' naar #' . $naam);
+    vacom_bump_state();
+    vacom_json(['ok' => true, 'name' => $naam] + vacom_overzicht($db, $ik));
+}
+
 case 'kanaal_topic': {
     $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
     if ($k['type'] !== 'public') vacom_fout('Alleen kanalen hebben een onderwerp.');
@@ -1231,6 +1252,7 @@ case 'kanaal_leden': {
         'kan_sluiten'   => !$isProject && !$gesloten && mag_kanaal_beheren($k, $mijnId),
         'kan_heropenen' => !$isProject &&  $gesloten && mag_kanaal_beheren($k, $mijnId),
         'kan_wissen'    => mag_kanaal_beheren($k, $mijnId),   // v0.13: ook wie het kanaal aanmaakte; v0.13.1: ook een projectkanaal
+        'kan_hernoemen' => !$isProject && !$gesloten && mag_kanaal_beheren($k, $mijnId),   // v0.17
     ]);
 }
 

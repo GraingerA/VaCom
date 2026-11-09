@@ -104,6 +104,14 @@ Niet per bedrijf gescheiden: kanalen, DM's, zoeken (bewust: één team).
   `#opties-dm-verwijderen` in de opties-popup (CSS `.dm`). "Uit mijn lijst
   halen" (`gesprek_verbergen`) blijft.
 
+## v0.17: kanaal hernoemen
+
+API `kanaal_naam` (channel_id, name): `mag_kanaal_beheren()`, geen projectkanaal,
+zelfde slug-regels als `kanaal_nieuw`, uniek; schrijft een systeembericht
+"… heeft het kanaal hernoemd van #a naar #b". `kanaal_leden` geeft `kan_hernoemen`.
+UI: veld `#opties-naam` (`.hash-veld`) boven Onderwerp in `#dialoog-opties`,
+uitgeschakeld tot `kan_hernoemen`; opslaan bij `change`.
+
 ## v0.16: kop en zijbalk-kopjes met de maten van de Portal
 
 - `.app-kop`: titel `var(--letter-pagina)` (40px; mobiel `--letter-cijfer`),

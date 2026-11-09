@@ -428,6 +428,11 @@ try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'd
     <p class="stil" id="opties-project" hidden>Projectkanaal — leden volgen de koppeling in de Portal (projectmanager en designers). Verwijderen kan wel (v0.13.1).</p>
     <p class="stil" id="opties-dm">Een gesprek uit je lijst halen verwijdert niets: de berichten blijven bewaard en doorzoekbaar, en het gesprek komt terug bij een nieuw bericht. <strong>Gesprek verwijderen</strong> wist alle berichten definitief, ook bij de ander.</p>
     <p class="meldregel info" id="opties-gesloten" hidden>Dit kanaal is gesloten: iedereen kan het lezen en doorzoeken, maar er kan niets meer in geplaatst worden.</p>
+    <!-- v0.17: kanaal hernoemen (alleen superadmin of de maker; projectkanalen niet) -->
+    <div class="veldrij">
+      <label class="veldlabel" for="opties-naam">Naam</label>
+      <div class="hash-veld"><span>#</span><input type="text" id="opties-naam" class="veld" maxlength="40" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore></div>
+    </div>
     <div class="veldrij">
       <label class="veldlabel" for="opties-topic">Onderwerp</label>
       <input type="text" id="opties-topic" class="veld" maxlength="200" placeholder="Waar gaat dit kanaal over?" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore>

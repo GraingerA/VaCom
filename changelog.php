@@ -32,6 +32,13 @@ vacom_require_login();
   </header>
 
   <section class="vlak kaart">
+    <h2>v0.17.0 <span class="stil">— 9 november 2026</span></h2>
+    <ul>
+      <li><strong>Kanaal hernoemen.</strong> In de kanaal-opties (⋯) staat boven het onderwerp nu het veld Naam. De superadmin en wie het kanaal aanmaakte kunnen de naam wijzigen; dezelfde regels als bij aanmaken (kleine letters, letters, cijfers en streepjes, uniek). In het kanaal verschijnt een systeembericht met de oude en nieuwe naam. Projectkanalen en gesloten kanalen hernoem je niet.</li>
+    </ul>
+  </section>
+
+  <section class="vlak kaart">
     <h2>v0.16.2 <span class="stil">— 9 november 2026</span></h2>
     <ul>
       <li><strong>Bredere zijbalk.</strong> De zijbalk met kanalen en collega's groeit nu mee met het scherm: minimaal 300px, op een groot scherm tot 400px (was altijd 272px). Zo staat hij beter in verhouding tot het gesprek.</li>
