@@ -44,7 +44,6 @@ $start = [
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VaCom">
 <title>VaCom</title>
-<link rel="icon" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="<?= asset('assets/apple-touch-icon.png') ?>"><!-- met versie: iOS bewaart het oude icoon anders hardnekkig -->
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -53,6 +52,7 @@ $start = [
 <link rel="stylesheet" href="<?= h(vacom_gedeelde_stijl()) ?>">
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
 <?= vacom_merk_head() /* v0.11: kleuren en logo van het merk (Invite / Incombinatie), ná de stylesheets */ ?>
+<?= vacom_favicon() /* v0.16.1: het nieuwe VaCom-icoon (per merk), ná de merk-head zodat deze wint */ ?>
 </head>
 <body data-pane="lijst"<?= $embed ? ' class="embed"' : '' ?>>
 <script>

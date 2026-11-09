@@ -59,6 +59,18 @@ function vacom_merk_head(): string {
     return ($m !== null && function_exists('ipp_merk_head')) ? ipp_merk_head($m, '../') : '';
 }
 
+/** v0.16.1: de favicon (svg) van VaCom, per merk: het VaCom-icoon van de Invite Hub
+ *  (iconen/vacom.svg → assets/favicon.svg) of de Incombinatie-variant (vacom_inc.svg →
+ *  assets/favicon_inc.svg). Hoort ná vacom_merk_head() in de <head>: de browser neemt
+ *  de laatste <link rel="icon">. */
+function vacom_favicon(): string {
+    $m = vacom_merk();
+    $sleutel = (string)($m['sleutel'] ?? 'invite');
+    $pad = $sleutel !== 'invite' && is_file(VACOM_ROOT . '/assets/favicon_' . substr($sleutel, 0, 3) . '.svg')
+        ? 'assets/favicon_' . substr($sleutel, 0, 3) . '.svg' : 'assets/favicon.svg';
+    return '<link rel="icon" href="' . h(asset($pad)) . '" type="image/svg+xml">';
+}
+
 /** Interne Portal-gebruikers: [['name','role','email'], ...] — klanten (external) niet. */
 function vacom_portal_gebruikers(): array {
     $data = vacom_portal_lees('users.json');

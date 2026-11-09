@@ -44,7 +44,6 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1319">
 <title>Inloggen — VaCom</title>
-<link rel="icon" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="<?= asset('assets/apple-touch-icon.png') ?>">
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -53,6 +52,7 @@ $eersteKeer = !VACOM_PORTAL && is_file(VACOM_BOOTSTRAP_FILE);
 <link rel="stylesheet" href="<?= h(vacom_gedeelde_stijl()) ?>">
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
 <?= vacom_merk_head() /* v0.11: kleuren en logo van het merk (Invite / Incombinatie), ná de stylesheets */ ?>
+<?= vacom_favicon() /* v0.16.1: het nieuwe VaCom-icoon (per merk), ná de merk-head zodat deze wint */ ?>
 </head>
 <body class="login-body">
 <script>try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>

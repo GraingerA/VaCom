@@ -265,9 +265,14 @@ Portal v5.5.4 opgebouwd met de huidige klassen (laadt eerst `invite_stijl.css`,
 dan `vacom/assets/app.css`, en volgt het merk via `?merk=`). Komt er een nieuwe
 bouwsteen bij, dan daar ook een voorbeeld toevoegen.
 **Logo (v0.12):** alleen het woordmerk `.logo > .logo-naam` (`.logo.groot` op
-het inlogscherm en in het lege gesprek); `.logo-icoon` bestaat niet meer. De
-bestanden `assets/icon-*.png`, `apple-touch-icon.png` en `ICOONTJE.png` blijven
-voor de PWA en de favicon.
+het inlogscherm en in het lege gesprek); `.logo-icoon` bestaat niet meer.
+**Icoon (v0.16.1):** `assets/favicon.svg` en `assets/favicon_inc.svg` zijn
+kopieën van `iconen/vacom.svg` en `iconen/vacom_inc.svg` uit de Invite Hub
+(bij een nieuw Hub-icoon hier ook vervangen); `vacom_favicon()` (inc/portal.php)
+kiest per merk en staat ná `vacom_merk_head()`. De PNG's voor de PWA
+(`icon-192`, `icon-512`, `icon-512-maskable` met 10% rand op geel,
+`apple-touch-icon` 180) zijn uit die svg gerenderd (browser-canvas); bij een
+nieuw icoon opnieuw maken. `ICOONTJE.png` is weg.
 
 ## Werkwijze bij elke release
 

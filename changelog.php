@@ -15,13 +15,13 @@ vacom_require_login();
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1319">
 <title>Wat is er nieuw — VaCom</title>
-<link rel="icon" href="assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="<?= h(vacom_gedeelde_stijl()) ?>">
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
 <?= vacom_merk_head() /* v0.11: kleuren en logo van het merk (Invite / Incombinatie), ná de stylesheets */ ?>
+<?= vacom_favicon() /* v0.16.1: het nieuwe VaCom-icoon (per merk), ná de merk-head zodat deze wint */ ?>
 </head>
 <body class="pagina-body">
 <script>try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
@@ -30,6 +30,13 @@ vacom_require_login();
     <a class="knop" href="index.php"><i>←</i> Terug naar VaCom</a>
     <h1>Wat is er nieuw</h1>
   </header>
+
+  <section class="vlak kaart">
+    <h2>v0.16.1 <span class="stil">— 9 november 2026</span></h2>
+    <ul>
+      <li><strong>Nieuw icoon.</strong> De favicon en het app-icoon op het beginscherm zijn nu het VaCom-icoon dat ook in de Invite Hub staat (het gele tekstwolkje; op portal.incombinatie.nl de Incombinatie-variant). Het oude icoontje is weg.</li>
+    </ul>
+  </section>
 
   <section class="vlak kaart">
     <h2>v0.16.0 <span class="stil">— 9 november 2026</span></h2>
