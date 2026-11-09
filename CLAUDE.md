@@ -104,6 +104,16 @@ Niet per bedrijf gescheiden: kanalen, DM's, zoeken (bewust: één team).
   `#opties-dm-verwijderen` in de opties-popup (CSS `.dm`). "Uit mijn lijst
   halen" (`gesprek_verbergen`) blijft.
 
+## v0.16: kop en zijbalk-kopjes met de maten van de Portal
+
+- `.app-kop`: titel `var(--letter-pagina)` (40px; mobiel `--letter-cijfer`),
+  knoppen in `.kop-acties` met `margin-bottom: 10px` (basislijn van de
+  titel, zoals `.kop-acties` in style_ipp.css), themaknop `.knop.icoon.doorzichtig`.
+  Verticale ruimte bewust kleiner dan de Portal-kop (chat moet eronder passen).
+- Zijbalk: `summary` van de secties oogt als `.kopje` (geen gouden driehoek
+  meer); een klein pijltje `::after` achter `.sectie-titel` draait als de sectie
+  dicht is.
+
 ## v0.15: kop, profiel en inloggen zoals de Portal
 
 - **Kop:** knoppen in de Portal-volgorde (zoeken, @, opgeslagen, instellingen,

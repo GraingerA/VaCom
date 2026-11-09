@@ -8,7 +8,7 @@
 
 declare(strict_types=1);
 
-define('VACOM_VERSION', '0.15.0');
+define('VACOM_VERSION', '0.16.0');
 
 /* v0.13: projectkanalen (kanaal per Portal-project) staan voorlopig UIT op
    verzoek van Ad. De code blijft: op true verschijnen de sectie Projecten en

@@ -32,6 +32,14 @@ vacom_require_login();
   </header>
 
   <section class="vlak kaart">
+    <h2>v0.16.0 <span class="stil">— 9 november 2026</span></h2>
+    <ul>
+      <li><strong>Kop met de maten van de Portal.</strong> Het woordmerk staat nu even groot als de paginatitel in de Portal (40px, op de telefoon 28px), de knoppen staan rechts op de basislijn van de titel en de themaknop is doorzichtig, net als in de Portal.</li>
+      <li><strong>Zijbalk-kopjes zoals in de Portal.</strong> Kanalen, Berichten en Collega's hebben nu het kopje van de stijlgids: klein, in kapitalen en gedempt, met een klein pijltje achter de naam in plaats van de gouden driehoek. Inklappen werkt nog net zo.</li>
+    </ul>
+  </section>
+
+  <section class="vlak kaart">
     <h2>v0.15.0 <span class="stil">— 9 november 2026</span></h2>
     <ul>
       <li><strong>Kop zoals de Portal.</strong> Rechts staan de knoppen in de volgorde van de Portal, met het thema als laatste knop en daarna het profielrondje met je foto of letter (klik = Instellingen). De naam-pil is weg.</li>

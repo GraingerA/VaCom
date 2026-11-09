@@ -5,7 +5,7 @@
  * is er zodat de app installeerbaar is, om een nette offline-pagina te tonen,
  * en (v0.9) om pushmeldingen te ontvangen en te tonen.
  */
-const VERSIE = 'vacom-0.15.0';
+const VERSIE = 'vacom-0.16.0';
 const OFFLINE = './offline.html';
 
 self.addEventListener('install', (e) => {

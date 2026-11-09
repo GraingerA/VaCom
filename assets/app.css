@@ -65,16 +65,19 @@ a.logo:hover .logo-naam { color: var(--goud-tekst); }
 }
 
 /* Kop: over de volle breedte, zoals de gezakte Portal-kop (glazen balk). */
-/* v0.13: een open regel zonder kader, zoals de Portal-kop (.kop in style_ipp.css):
-   het woordmerk groot links, de knoppen rechts op de basislijn. */
+/* v0.13/v0.16: een open regel zonder kader, met de maten van de Portal-kop
+   (.kop in style_ipp.css): het woordmerk 40px/800/-0.03em links, de knoppen
+   rechts op de basislijn van de titel (10px onder de regel). Alleen de
+   verticale ruimte is kleiner dan in de Portal (36px/32px), want hieronder
+   moet het gesprek nog passen. */
 .app-kop {
   grid-column: 1 / -1;
-  display: flex; align-items: flex-end; gap: 6px;
-  padding: 10px 6px 0 10px;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
+  padding: 18px 20px 6px 20px;
 }
-.app-kop .logo { margin-right: auto; margin-bottom: -2px; }
-.app-kop .logo-naam { font-size: var(--letter-cijfer); font-weight: 800; letter-spacing: -0.03em; line-height: 1.25; }   /* 28px; de Portal-kop is 40px, voor een chat-app te groot */
-.app-kop .knop, .app-kop .kop-profiel { margin-bottom: 2px; }
+.app-kop .logo { margin-right: auto; min-width: 0; }
+.app-kop .logo-naam { font-size: var(--letter-pagina); font-weight: 800; letter-spacing: -0.03em; line-height: 1.25; white-space: nowrap; }
+.app-kop .kop-acties { display: flex; align-items: center; gap: 6px; flex: none; margin-bottom: 10px; }
 .app-kop .kop-profiel { margin-left: 4px; }   /* v0.15: het profielrondje van de Portal als laatste */
 /* De svg-icoontjes in een icoonknop (31px) iets kleiner dan de 20px van vroeger */
 .knop.icoon > svg { width: 18px; height: 18px; }
@@ -136,23 +139,23 @@ body.embed #chat-open-vacom { flex: none; }
 .zijbalk-lijsten .avatar.mini img { border-radius: 7px; }
 .zijbalk-lijsten .avatar.mini .stip { position: absolute; right: -4px; bottom: -4px; width: 8px; height: 8px; border: 2px solid var(--surface); box-shadow: none; }
 
-/* Inklapbare secties: het kopje (.kopje-letter) met een gouden driehoek */
+/* Inklapbare secties (v0.16): het kopje zoals .kopje van de stijlgids (klein,
+   kapitaal, gedempt), met een klein stil pijltje achter de naam dat draait als
+   de sectie dicht is. De gouden driehoek van vroeger is weg. */
 .zijbalk-lijsten details.sectie { margin-bottom: 14px; }
 .zijbalk-lijsten details.sectie summary, .gesloten-details summary {
   display: flex; align-items: center; gap: 6px; list-style: none; cursor: pointer;
-  padding: 6px 8px; font-size: var(--letter-hint); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+  padding: 6px 10px; font-size: var(--letter-hint); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
   border-radius: var(--radius); user-select: none; -webkit-tap-highlight-color: transparent;
 }
 .zijbalk-lijsten details.sectie summary::-webkit-details-marker, .gesloten-details summary::-webkit-details-marker { display: none; }
-.zijbalk-lijsten details.sectie summary::before, .gesloten-details summary::before {
-  content: ""; width: 0; height: 0; flex: none; margin: 0 4px 0 2px;
-  border-left: 7px solid transparent; border-right: 7px solid transparent;
-  border-bottom: 11px solid var(--goud);
-  transform: rotate(90deg); transition: transform var(--t-fast);
+.zijbalk-lijsten details.sectie summary .sectie-titel::after, .gesloten-details summary::after {
+  content: ""; display: inline-block; width: 5px; height: 5px; margin: 0 0 2px 7px;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg); opacity: .7; transition: transform var(--t-fast);
 }
-.gesloten-details summary::before { border-bottom-color: var(--muted); }
-.zijbalk-lijsten details.sectie[open] summary::before, .gesloten-details[open] summary::before { transform: rotate(180deg); }
-.zijbalk-lijsten details.sectie summary:hover { background: var(--tint); }
+.zijbalk-lijsten details.sectie:not([open]) summary .sectie-titel::after, .gesloten-details:not([open]) summary::after { transform: rotate(-45deg); margin-bottom: 0; }
+.zijbalk-lijsten details.sectie summary:hover { background: var(--tint); color: var(--text); }
 .zijbalk-lijsten details.sectie summary .sectie-titel { flex: 1; }
 .zijbalk-lijsten details.sectie summary .sectie-badge { flex: none; }
 .zijbalk-lijsten details.sectie[open] summary .sectie-badge { display: none; }
@@ -570,8 +573,12 @@ body.lichtbak-open { overflow: hidden; }
 /* ── Telefoon ──────────────────────────────────────────────────────── */
 @media (max-width: 800px) {
   .app { grid-template-columns: 1fr; --lucht: 8px; }
-  .app-kop { padding: 4px 2px 0 6px; gap: 4px; }
-  .app-kop .logo-naam { font-size: 20px; }   /* v0.12: blijft zichtbaar, er is geen icoontje meer */
+  /* Op een telefoon moeten de titel en zeven knoppen op één regel passen (375px):
+     titel 22px, knoppen tegen elkaar. (De Portal-kop is op mobiel 28px, maar heeft minder knoppen.) */
+  .app-kop { padding: 10px 6px 2px 10px; gap: 6px; min-width: 0; }
+  .app-kop .logo-naam { font-size: var(--letter-titel); }
+  .app-kop .kop-acties { gap: 2px; margin-bottom: 4px; }
+  .app-kop .kop-profiel { margin-left: 2px; }
   body[data-pane="lijst"] .chat { display: none; }
   body[data-pane="chat"] .zijbalk { display: none; }
   .alleen-mobiel { display: inline-flex; font-size: 26px; font-weight: 400; padding-bottom: 3px; }
