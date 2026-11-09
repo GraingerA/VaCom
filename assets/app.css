@@ -28,7 +28,7 @@
 :root, body {
   --tint:   rgba(255, 255, 255, 0.04);   /* lichte vulling (rij bij aanwijzen, poll, bijlage) */
   --tint-2: rgba(255, 255, 255, 0.08);
-  --zijbalk: 272px;
+  --zijbalk: clamp(300px, 28vw, 400px);   /* v0.16.2: breder, groeit mee met het scherm (was 272px) */
   --lucht: 12px;                         /* ruimte tussen de losse kaarten */
   --sa-top: env(safe-area-inset-top, 0px);
   --sa-bottom: env(safe-area-inset-bottom, 0px);

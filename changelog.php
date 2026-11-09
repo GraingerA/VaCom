@@ -32,6 +32,13 @@ vacom_require_login();
   </header>
 
   <section class="vlak kaart">
+    <h2>v0.16.2 <span class="stil">— 9 november 2026</span></h2>
+    <ul>
+      <li><strong>Bredere zijbalk.</strong> De zijbalk met kanalen en collega's groeit nu mee met het scherm: minimaal 300px, op een groot scherm tot 400px (was altijd 272px). Zo staat hij beter in verhouding tot het gesprek.</li>
+    </ul>
+  </section>
+
+  <section class="vlak kaart">
     <h2>v0.16.1 <span class="stil">— 9 november 2026</span></h2>
     <ul>
       <li><strong>Nieuw icoon.</strong> De favicon en het app-icoon op het beginscherm zijn nu het VaCom-icoon dat ook in de Invite Hub staat (het gele tekstwolkje; op portal.incombinatie.nl de Incombinatie-variant). Het oude icoontje is weg.</li>
