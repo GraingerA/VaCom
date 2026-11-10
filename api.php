@@ -39,12 +39,20 @@ $actie = (string)($invoer['actie'] ?? '');
 // v0.9.7: via GET (zonder CSRF-token) mogen alleen alleen-lezen acties. Anders
 // kan een gewone link op een andere site — de sessie-cookie gaat bij een klik
 // mee — ongemerkt iets wijzigen of verwijderen. Gebruikers van GET: de poll van
-// de app, de Portal (chat_ipp.php) en de Invite Hub (overzicht, portal_vermeldingen).
+// de app en de Invite Hub (portal_vermeldingen, het bolletje op de tegel). De
+// andere portal_*-acties zijn van de Portal-koppeling die sinds Portal v4.21
+// weg is; ze blijven bestaan voor als die terugkomt.
 const VACOM_GET_ACTIES = ['poll', 'overzicht', 'portal_vermeldingen', 'portal_ongelezen', 'portal_push_info', 'portal_project'];
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($actie, VACOM_GET_ACTIES, true)) {
     header('Allow: POST');
     vacom_fout('Deze actie kan alleen via POST.', 405);
 }
+// v0.18: de sessie is nu gelezen (wie ben ik, CSRF) — meteen vrijgeven. PHP
+// houdt het sessiebestand anders op slot tot het verzoek klaar is, en dan
+// wachten alle andere verzoeken van dezelfde collega (de poll, maar ook de
+// Portal en de Hub: het is dezelfde sessie). Wie de sessie nog nodig heeft
+// (uitloggen, portal_push_info) opent hem zelf opnieuw via vacom_session_start().
+session_write_close();
 $db = vacom_db();
 $mijnId = (int)$ik['id'];
 
@@ -186,39 +194,82 @@ function eerste_link(string $body): ?string {
     return mb_substr($url, 0, 500);
 }
 
-/** Is deze host veilig om vanaf de server op te halen? (geen privé-/lokale adressen) */
-function host_publiek(string $host): bool {
+/** Het publieke IP-adres van een host, of '' als de host niet te vinden is of
+ *  naar een privé-/lokaal adres wijst (dan halen we er vanaf de server niets op). */
+function host_publiek_ip(string $host): string {
     $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
-    if ($ip === $host && !filter_var($host, FILTER_VALIDATE_IP)) return false; // niet te resolven
-    return (bool)filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+    if ($ip === $host && !filter_var($host, FILTER_VALIDATE_IP)) return ''; // niet te resolven
+    return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) ? $ip : '';
 }
 
 /**
- * Titel, omschrijving en plaatje van een pagina (Open Graph / <title>), met
- * cache per URL. Korte timeouts: het versturen mag er niet op wachten.
- * null = niets te tonen.
+ * v0.18: een pagina ophalen voor de linkvoorvertoning. Doorverwijzingen volgen
+ * we zelf (hooguit 3), en bij elke stap opnieuw: alleen http/https en alleen
+ * een publiek adres. Voorheen volgde cURL ze, en dan werd alleen de eerste host
+ * gecontroleerd — een link kon zo doorsturen naar een intern adres. Het
+ * gecontroleerde IP-adres wordt vastgezet (CURLOPT_RESOLVE), zodat de host niet
+ * tussen controle en ophalen naar iets anders kan wijzen.
+ * Geeft [html, content-type, uiteindelijke url] of null.
  */
-function vacom_link_preview(PDO $db, string $url): ?array {
-    $st = $db->prepare('SELECT data FROM link_previews WHERE url = ?');
-    $st->execute([$url]);
-    $cache = $st->fetch();
-    if ($cache) return $cache['data'] ? (json_decode((string)$cache['data'], true) ?: null) : null;
-    $data = null;
-    $u = parse_url($url);
-    if (!empty($u['host']) && in_array(strtolower((string)($u['scheme'] ?? '')), ['http', 'https'], true) && host_publiek($u['host']) && function_exists('curl_init')) {
+function vacom_link_haal(string $url): ?array {
+    if (!function_exists('curl_init')) return null;
+    $tot = microtime(true) + 6; // alles bij elkaar hooguit 6 s
+    for ($stap = 0; $stap < 4; $stap++) {
+        $u = parse_url($url);
+        $scheme = strtolower((string)($u['scheme'] ?? ''));
+        if (empty($u['host']) || !in_array($scheme, ['http', 'https'], true)) return null;
+        $ip = host_publiek_ip((string)$u['host']);
+        $rest = (int)ceil($tot - microtime(true));
+        if ($ip === '' || $rest < 1) return null;
+        $poort = (int)($u['port'] ?? ($scheme === 'https' ? 443 : 80));
         $c = curl_init($url);
         curl_setopt_array($c, [
-            CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 3,
-            CURLOPT_TIMEOUT => 4, CURLOPT_CONNECTTIMEOUT => 3, CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_TIMEOUT => min(4, $rest), CURLOPT_CONNECTTIMEOUT => min(3, $rest),
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_RESOLVE => [$u['host'] . ':' . $poort . ':' . $ip],
             CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; VaCom-linkpreview/1.0; +https://portal.invite.nl/vacom/)',
             CURLOPT_HTTPHEADER => ['Accept: text/html,application/xhtml+xml', 'Accept-Language: nl,en'],
             CURLOPT_RANGE => '0-300000',
         ]);
         $html = curl_exec($c);
+        $code = (int)curl_getinfo($c, CURLINFO_RESPONSE_CODE);
         $type = (string)curl_getinfo($c, CURLINFO_CONTENT_TYPE);
-        $eind = (string)curl_getinfo($c, CURLINFO_EFFECTIVE_URL);
+        $naar = (string)curl_getinfo($c, CURLINFO_REDIRECT_URL); // waar de server ons heen stuurt (absoluut), '' = nergens
         curl_close($c);
-        if (is_string($html) && $html !== '' && stripos($type, 'html') !== false) {
+        if ($code >= 300 && $code < 400 && $naar !== '') { $url = $naar; continue; }
+        return is_string($html) ? [$html, $type, $url] : null;
+    }
+    return null; // te veel doorverwijzingen
+}
+
+/**
+ * Titel, omschrijving en plaatje van een pagina (Open Graph / <title>), met
+ * cache per URL. Korte timeouts: het versturen mag er niet op wachten.
+ * null = niets te tonen. Met $alleenCache = true wordt er niets opgehaald:
+ * false = staat (nog) niet in de cache.
+ * v0.18: de cache verloopt — een gelukte voorvertoning na 30 dagen, een
+ * mislukte na een dag (de site kan toen even plat hebben gelegen); voorheen
+ * bleef "geen voorvertoning" voor altijd staan. Rijen ouder dan 90 dagen
+ * worden opgeruimd.
+ */
+function vacom_link_preview(PDO $db, string $url, bool $alleenCache = false): array|false|null {
+    $st = $db->prepare('SELECT data, fetched FROM link_previews WHERE url = ?');
+    $st->execute([$url]);
+    $cache = $st->fetch();
+    if ($cache) {
+        $gelukt = (string)$cache['data'] !== '';
+        if ((int)$cache['fetched'] > time() - ($gelukt ? 30 : 1) * 86400) {
+            return $gelukt ? (json_decode((string)$cache['data'], true) ?: null) : null;
+        }
+    }
+    if ($alleenCache) return false;
+    $data = null;
+    $u = parse_url($url);
+    $antwoord = vacom_link_haal($url);
+    if ($antwoord !== null && !empty($u['host'])) {
+        [$html, $type, $eind] = $antwoord;
+        if ($html !== '' && stripos($type, 'html') !== false) {
             $html = substr($html, 0, 300000);
             $meta = fn(string $naam) => (preg_match('~<meta[^>]+(?:property|name)=["\']' . preg_quote($naam, '~') . '["\'][^>]+content=["\']([^"\']*)["\']~i', $html, $m)
                 || preg_match('~<meta[^>]+content=["\']([^"\']*)["\'][^>]+(?:property|name)=["\']' . preg_quote($naam, '~') . '["\']~i', $html, $m)) ? html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8') : '';
@@ -240,7 +291,37 @@ function vacom_link_preview(PDO $db, string $url): ?array {
     }
     $db->prepare('INSERT OR REPLACE INTO link_previews(url, data, fetched) VALUES (?, ?, ?)')
        ->execute([$url, $data ? json_encode($data, JSON_UNESCAPED_UNICODE) : '', time()]);
+    $db->prepare('DELETE FROM link_previews WHERE fetched < ?')->execute([time() - 90 * 86400]); // v0.18: oude rijen opruimen
     return $data;
+}
+
+/* ---- Eerst antwoorden, dan het trage werk (v0.18) ---- */
+
+/** Kan deze server het antwoord al versturen en daarna doorwerken? (LiteSpeed / PHP-FPM) */
+function vacom_kan_doorwerken(): bool {
+    return function_exists('litespeed_finish_request') || function_exists('fastcgi_finish_request');
+}
+
+/**
+ * Stuurt het JSON-antwoord en doet daarna pas $daarna (pushmeldingen sturen,
+ * een linkvoorvertoning ophalen). Zo wacht "versturen" niet meer op de
+ * meldingsdiensten van Apple/Google of op een trage website. Kan de server dat
+ * niet (bv. de lokale testserver), dan gaat het zoals voorheen: eerst het werk,
+ * dan het antwoord.
+ */
+function vacom_antwoord_dan(array $data, callable $daarna): void {
+    if (!vacom_kan_doorwerken()) {
+        $daarna();
+        vacom_json($data);
+    }
+    ignore_user_abort(true);
+    http_response_code(200);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (function_exists('litespeed_finish_request')) litespeed_finish_request(); else fastcgi_finish_request();
+    try { $daarna(); } catch (Throwable $e) { error_log('VaCom api (na het antwoord): ' . $e->getMessage()); }
+    exit;
 }
 
 /* ---- Pushmeldingen bij een nieuw bericht (v0.9) ---- */
@@ -474,9 +555,10 @@ case 'poll': {
     // maken geen nieuw bericht-id aan en hebben dus een eigen teller, v0.3).
     // Alles gelijk aan wat de client al weet? Dan één klein antwoord en klaar.
     $maxId   = vacom_max_message_id();
-    $state   = (int)vacom_meta('state');
-    $rx      = (int)vacom_meta('rx');
-    $mx      = (int)vacom_meta('mx'); // v0.6: bewerkt/verwijderd
+    $tellers = vacom_metas(['state', 'rx', 'mx']); // v0.18: één query in plaats van drie
+    $state   = (int)$tellers['state'];
+    $rx      = (int)$tellers['rx'];
+    $mx      = (int)$tellers['mx']; // v0.6: bewerkt/verwijderd
     $sinceId = param_int($invoer, 'since_id');
     $kanaalId = param_int($invoer, 'channel_id');
     $threadId = param_int($invoer, 'thread_id'); // v0.9: open thread (starter-id), 0 = geen
@@ -488,10 +570,13 @@ case 'poll': {
     }
     // v0.9: typt-indicator — wie typte de laatste 6 s in dit kanaal (niet ikzelf)?
     // Klein genoeg om altijd mee te sturen; verandert ook als er verder niets nieuw is.
+    // v0.18: alleen als je lid bent van dat kanaal — anders kon je met een
+    // willekeurig kanaalnummer zien wie er in andermans gesprek zat te typen.
     $typt = [];
     if ($kanaalId > 0) {
-        $st = $db->prepare('SELECT u.name FROM typing t JOIN users u ON u.id = t.user_id WHERE t.channel_id = ? AND t.user_id != ? AND t.at > ? ORDER BY t.at');
-        $st->execute([$kanaalId, $mijnId, time() - 6]);
+        $st = $db->prepare('SELECT u.name FROM typing t JOIN users u ON u.id = t.user_id WHERE t.channel_id = ? AND t.user_id != ? AND t.at > ?
+            AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.channel_id = t.channel_id AND cm.user_id = ?) ORDER BY t.at');
+        $st->execute([$kanaalId, $mijnId, time() - 6, $mijnId]);
         $typt = $st->fetchAll(PDO::FETCH_COLUMN);
     }
     if ($maxId <= $sinceId && $state === param_int($invoer, 'state') && $rx === param_int($invoer, 'rx') && $mx === param_int($invoer, 'mx')) {
@@ -546,10 +631,13 @@ case 'poll': {
     }
     // Ongelezen-tellers per kanaal (voor de badges in de zijbalk), en (v0.7)
     // hoeveel daarvan berichten zijn waarin ik met @Naam genoemd word.
+    // v0.18: systeemberichten tellen niet mee (zoals in overzicht.php; de poll
+    // telde ze wel en zette zo toch een badge), en de vermeldingen zoeken via
+    // de index alleen boven de leesmarkering (mn.message_id > last_read_id).
     $st = $db->prepare('SELECT c.id,
-        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.id > m.last_read_id AND x.user_id != ? AND x.deleted = 0) AS unread,
+        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.id > m.last_read_id AND x.user_id != ? AND x.deleted = 0 AND x.systeem = 0) AS unread,
         (SELECT COUNT(*) FROM mentions mn JOIN messages x ON x.id = mn.message_id
-           WHERE x.channel_id = c.id AND mn.user_id = ? AND x.id > m.last_read_id AND x.deleted = 0) AS mentions
+           WHERE x.channel_id = c.id AND mn.user_id = ? AND mn.message_id > m.last_read_id AND x.deleted = 0) AS mentions
         FROM channels c JOIN channel_members m ON m.channel_id = c.id WHERE m.user_id = ? AND c.archived = 0');
     $st->execute([$mijnId, $mijnId, $mijnId]);
     $unread = []; $mentions = [];
@@ -575,7 +663,18 @@ case 'stuur': {
         if (!$ouder || (int)$ouder['deleted'] === 1) vacom_fout('Dit bericht bestaat niet (meer).', 404);
         if ($ouder['parent_id'] !== null) $parentId = (int)$ouder['parent_id'];
     }
-    $preview = ($link = eerste_link($body)) ? vacom_link_preview($db, $link) : null; // v0.9, vóór de transactie (kan even duren)
+    // v0.9: linkvoorvertoning. v0.18: staat hij in de cache, dan gaat hij meteen
+    // mee. Anders halen we hem pas op ná het antwoord (als de server dat kan,
+    // zie vacom_antwoord_dan) en komt hij via de poll-'updates' bij iedereen
+    // binnen; kan dat niet, dan zoals voorheen vóór de transactie.
+    $link = eerste_link($body);
+    $preview = null; $previewLater = false;
+    if ($link) {
+        $uitCache = vacom_link_preview($db, $link, true);
+        if ($uitCache !== false) $preview = $uitCache;
+        elseif (vacom_kan_doorwerken()) $previewLater = true;
+        else $preview = vacom_link_preview($db, $link);
+    }
     $db->beginTransaction();
     $db->prepare('INSERT INTO messages(channel_id, user_id, parent_id, body, created, preview) VALUES (?,?,?,?,?,?)')
        ->execute([(int)$k['id'], $mijnId, $parentId, $body, vacom_now(), $preview ? json_encode($preview, JSON_UNESCAPED_UNICODE) : null]);
@@ -592,9 +691,17 @@ case 'stuur': {
     $db->commit();
     if ($terug->rowCount() > 0) vacom_bump_state();
     if ($parentId) vacom_bump_mx(); // de teller "n antwoorden" bij de starter moet bij iedereen verversen
-    push_bij_bericht($db, $k, $id, $mijnId, $body, $parentId); // v0.9
     $lijst = berichten_uit($db, 'm.id = ?', [$id], 1, true);
-    vacom_json(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id(), 'mx' => (int)vacom_meta('mx')]);
+    // v0.18: eerst het antwoord, dan pas de voorvertoning en de pushmeldingen.
+    vacom_antwoord_dan(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id(), 'mx' => (int)vacom_meta('mx')],
+        function () use ($db, $k, $id, $mijnId, $body, $parentId, $link, $previewLater) {
+            if ($previewLater && ($p = vacom_link_preview($db, (string)$link))) {
+                $st = $db->prepare('UPDATE messages SET preview = ? WHERE id = ? AND deleted = 0');
+                $st->execute([json_encode($p, JSON_UNESCAPED_UNICODE), $id]);
+                if ($st->rowCount() > 0) vacom_bump_mx(); // iedereen (ook de schrijver) krijgt hem via de poll
+            }
+            push_bij_bericht($db, $k, $id, $mijnId, $body, $parentId); // v0.9
+        });
 }
 
 /* ---- Threads (v0.9) ---- */
@@ -688,6 +795,10 @@ case 'push_abonneer': {
     $p256dh   = (string)($sub['keys']['p256dh'] ?? '');
     $auth     = (string)($sub['keys']['auth'] ?? '');
     if (!preg_match('~^https://~', $endpoint) || $p256dh === '' || $auth === '') vacom_fout('Ongeldig abonnement.');
+    // v0.18: alleen de meldingsdiensten van de browsers (Google, Mozilla, Microsoft,
+    // Apple). Een abonnement is een adres waar de server berichten naartoe stuurt;
+    // zonder deze lijst kon dat elk https-adres zijn, ook een intern.
+    if (!vacom_push_dienst_ok($endpoint)) vacom_fout('Deze meldingsdienst kent VaCom niet. Geef dit door aan Ad, met de naam van je browser.');
     if (!vacom_vapid()) vacom_fout('Deze server kan geen pushmeldingen sturen.');
     $db->prepare('INSERT INTO push_subs(user_id, endpoint, p256dh, auth, created) VALUES (?, ?, ?, ?, ?)
                   ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth')
@@ -774,9 +885,9 @@ case 'stuur_bestand': {
     $terug->execute([(int)$k['id']]);
     $db->commit();
     if ($terug->rowCount() > 0) vacom_bump_state();
-    push_bij_bericht($db, $k, $id, $mijnId, ($bijschrift !== '' ? $bijschrift . ' ' : '') . '📎 ' . $naam); // v0.9
     $lijst = berichten_uit($db, 'm.id = ?', [$id], 1, true);
-    vacom_json(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id()]);
+    vacom_antwoord_dan(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id()], // v0.18: push na het antwoord
+        fn() => push_bij_bericht($db, $k, $id, $mijnId, ($bijschrift !== '' ? $bijschrift . ' ' : '') . '📎 ' . $naam)); // v0.9
 }
 
 /* ---- Polls / stemmingen (v0.8) ---- */
@@ -810,9 +921,9 @@ case 'stemming_maak': {
     $terug->execute([(int)$k['id']]);
     $db->commit();
     if ($terug->rowCount() > 0) vacom_bump_state();
-    push_bij_bericht($db, $k, $id, $mijnId, '📊 ' . $vraag); // v0.9
     $lijst = berichten_uit($db, 'm.id = ?', [$id], 1, true);
-    vacom_json(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id()]);
+    vacom_antwoord_dan(['ok' => true, 'message' => $lijst[0], 'max_id' => vacom_max_message_id()], // v0.18: push na het antwoord
+        fn() => push_bij_bericht($db, $k, $id, $mijnId, '📊 ' . $vraag)); // v0.9
 }
 
 case 'stemming_stem': {
@@ -981,6 +1092,7 @@ case 'kanaal_naam': {
 case 'kanaal_topic': {
     $k = kanaal_voor_mij($db, param_int($invoer, 'channel_id'), $mijnId);
     if ($k['type'] !== 'public') vacom_fout('Alleen kanalen hebben een onderwerp.');
+    if (is_projectkanaal($k)) vacom_fout('Het onderwerp van een projectkanaal komt uit de Portal.'); // v0.18: de app blokkeerde dit al, de API nog niet
     $db->prepare('UPDATE channels SET topic = ? WHERE id = ?')->execute([mb_substr(param_str($invoer, 'topic'), 0, 200), (int)$k['id']]);
     vacom_bump_state();
     vacom_json(['ok' => true] + vacom_overzicht($db, $ik));
@@ -1071,18 +1183,22 @@ case 'gif_zoeken': {
 /* ---- Portal-koppeling (v0.5.1): alleen-lezen, via GET vanaf de Portal-pagina's ---- */
 
 case 'portal_ongelezen': {
-    // Per projectkanaal: ben ik lid en hoeveel ongelezen? Voor het VaCom-
+    // Per projectkanaal waar ik lid van ben: hoeveel ongelezen? Voor het VaCom-
     // icoontje (kleur + badge) op de projectkaarten van de Portal-homepage.
+    // v0.18: alleen nog mijn eigen projectkanalen. Voorheen stonden álle
+    // projectkanalen erin (met lid = false), en dus ook de projecttokens van
+    // projecten waar je niet bij hoort — dat token is tegelijk de klantlink
+    // van de Portal. Zelfde formaat: {token: {lid, ongelezen}}; een project dat
+    // ontbreekt = geen lid (of geen kanaal). Systeemberichten tellen niet mee.
     $st = $db->prepare('SELECT c.project_token,
-        (SELECT COUNT(*) FROM channel_members m WHERE m.channel_id = c.id AND m.user_id = ?) AS lid,
-        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.deleted = 0 AND x.user_id != ?
-            AND x.id > COALESCE((SELECT last_read_id FROM channel_members m WHERE m.channel_id = c.id AND m.user_id = ?), 0)) AS ongelezen
-        FROM channels c WHERE c.project_token IS NOT NULL AND c.archived = 0');
-    $st->execute([$mijnId, $mijnId, $mijnId]);
+        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.deleted = 0 AND x.systeem = 0 AND x.user_id != m.user_id
+            AND x.id > m.last_read_id) AS ongelezen
+        FROM channels c JOIN channel_members m ON m.channel_id = c.id AND m.user_id = ?
+        WHERE c.project_token IS NOT NULL AND c.archived = 0');
+    $st->execute([$mijnId]);
     $uit = [];
     foreach ($st->fetchAll() as $r) {
-        $lid = (int)$r['lid'] === 1;
-        $uit[$r['project_token']] = ['lid' => $lid, 'ongelezen' => $lid ? (int)$r['ongelezen'] : 0];
+        $uit[$r['project_token']] = ['lid' => true, 'ongelezen' => (int)$r['ongelezen']];
     }
     vacom_json(['ok' => true, 'projecten' => (object)$uit]);
 }
@@ -1090,12 +1206,12 @@ case 'portal_ongelezen': {
 case 'portal_vermeldingen': {
     // v0.7.1: voor de VaCom-knop in de Portal-header. v0.9.1: niet alleen
     // @vermeldingen maar álle ongelezen berichten per kanaal ('unread', zelfde
-    // telling als de zijbalk), plus 'mentions' als deel daarvan. Alleen-lezen,
+    // telling als de zijbalk — v0.18: dus ook zonder systeemberichten), plus 'mentions' als deel daarvan. Alleen-lezen,
     // GET. 'totaal' = vermeldingen (naam uit v0.7.1, de Portal leest hem nog).
     $st = $db->prepare('SELECT c.id, c.type, c.name, c.dm_key, c.project_token,
-        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.id > m.last_read_id AND x.user_id != m.user_id AND x.deleted = 0) AS unread,
+        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.id > m.last_read_id AND x.user_id != m.user_id AND x.deleted = 0 AND x.systeem = 0) AS unread,
         (SELECT COUNT(*) FROM mentions mn JOIN messages x ON x.id = mn.message_id
-           WHERE x.channel_id = c.id AND mn.user_id = ? AND x.id > m.last_read_id AND x.deleted = 0) AS mentions
+           WHERE x.channel_id = c.id AND mn.user_id = ? AND mn.message_id > m.last_read_id AND x.deleted = 0) AS mentions
         FROM channels c JOIN channel_members m ON m.channel_id = c.id
         WHERE m.user_id = ? AND c.archived = 0 AND NOT (c.type = \'dm\' AND m.hidden = 1)');
     $st->execute([$mijnId, $mijnId]);
@@ -1157,6 +1273,9 @@ case 'kanaal_deelnemen': {
     // v0.5.1: jezelf bij een projectkanaal voegen — bv. als niet-gekoppelde
     // collega vanuit de Portal. Iedereen mag collega's toevoegen, dus jezelf
     // ook; je wordt 'handmatig' lid (de Portal-sync laat dat met rust).
+    // v0.18: alleen zolang projectkanalen aan staan. Nu ze uit staan is er geen
+    // knop meer voor, en kon je met een los verzoek elk projectkanaal in.
+    if (!VACOM_PROJECTKANALEN) vacom_fout('Projectkanalen staan voorlopig uit.');
     $token = preg_replace('/[^a-f0-9]/', '', param_str($invoer, 'project_token'));
     $st = $db->prepare('SELECT * FROM channels WHERE project_token = ? AND archived = 0');
     $st->execute([$token]);
@@ -1477,8 +1596,8 @@ ORDER BY m.id DESC LIMIT 50");
 FROM messages m
 JOIN users u ON u.id = m.user_id
 JOIN channel_members cm ON cm.channel_id = m.channel_id AND cm.user_id = ?
-WHERE m.deleted = 0 $filters
-ORDER BY m.id DESC LIMIT 50");
+WHERE m.deleted = 0 AND m.systeem = 0 $filters
+ORDER BY m.id DESC LIMIT 50"); // v0.18: ook hier geen systeemberichten
         $params = array_merge([$mijnId], $fp);
     }
     try {

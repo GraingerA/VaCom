@@ -227,11 +227,29 @@ function vacom_portal_sync(bool $forceer = false): void {
     // zijn. Dit vlaggetje wordt alleen door déze code gezet, zodat een oude
     // portal.php (bv. halverwege een FTP-upload) het niet per ongeluk kan
     // afvinken.
-    if (vacom_meta('lidmaatschap') !== '4') $forceer = true;
-    if (!$forceer && $stempel === vacom_meta('portal_stempel')) return;
+    $meta = vacom_metas(['lidmaatschap', 'portal_stempel']); // v0.18: één query (dit draait bij elk verzoek)
+    if ($meta['lidmaatschap'] !== '4') $forceer = true;
+    if (!$forceer && $stempel === $meta['portal_stempel']) return;
 
     $db = vacom_db();
-    $db->beginTransaction();
+    // v0.18: BEGIN IMMEDIATE — meteen het schrijfslot vragen. Na een wijziging in
+    // de Portal zien alle open VaCom-vensters tegelijk een nieuwe stempel en
+    // willen ze allemaal synchroniseren. Met een gewone transactie (eerst
+    // lezen, dan schrijven) kreeg de tweede dan direct "database is locked";
+    // nu wacht hij netjes (busy_timeout) en ziet daarna dat het al gedaan is.
+    $db->exec('BEGIN IMMEDIATE');
+    try {
+        if (!$forceer && $stempel === vacom_meta('portal_stempel')) { $db->exec('COMMIT'); return; }
+        vacom_portal_sync_werk($db, $stempel);
+        $db->exec('COMMIT');
+    } catch (Throwable $e) {
+        try { $db->exec('ROLLBACK'); } catch (Throwable $e2) { /* was al teruggedraaid */ }
+        throw $e;
+    }
+}
+
+/** Het eigenlijke werk van vacom_portal_sync(), binnen de transactie die daar geopend is. */
+function vacom_portal_sync_werk(PDO $db, string $stempel): void {
     $veranderd = false;
     $nu = vacom_now();
     $maxId = vacom_max_message_id();
@@ -363,7 +381,6 @@ function vacom_portal_sync(bool $forceer = false): void {
     $db->prepare("INSERT OR REPLACE INTO meta(key, value) VALUES ('portal_stempel', ?)")->execute([$stempel]);
     $db->exec("INSERT OR REPLACE INTO meta(key, value) VALUES ('lidmaatschap', '4')");
     if ($veranderd) vacom_bump_state();
-    $db->commit();
 }
 
 /**

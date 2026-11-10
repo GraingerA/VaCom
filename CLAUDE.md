@@ -84,6 +84,59 @@ vanzelf mee. Projectkanalen: ook de tweede projectmanager van een gedeeld
 project (`managers_extra` in projects.json, Portal v5.5.1) is "gekoppeld".
 Niet per bedrijf gescheiden: kanalen, DM's, zoeken (bewust: één team).
 
+## v0.18: nalooprondje (veiligheid, snelheid, opruimen)
+
+Uitkomst van een audit op 10 nov 2026. Wat er sindsdien anders werkt:
+
+- **Sessie vrijgeven:** `api.php` (na de CSRF-controle), `bestand.php` en
+  `avatar.php` doen `session_write_close()`. Wie daarna de sessie nodig heeft
+  (`uitloggen`, `portal_push_info` via `vacom_csrf()`) opent hem opnieuw met
+  `vacom_session_start()`. Nieuwe code die `$_SESSION` wil schrijven moet dat
+  dus ook doen.
+- **Eerst antwoorden, dan het trage werk:** `vacom_antwoord_dan($data, $daarna)`
+  (api.php) stuurt het JSON-antwoord, sluit het verzoek af met
+  `litespeed_finish_request()` / `fastcgi_finish_request()` en doet dan pas de
+  push (`stuur`, `stuur_bestand`, `stemming_maak`). Bestaat geen van beide
+  functies (lokale testserver), dan zoals voorheen: eerst het werk.
+  Linkvoorvertoning bij `stuur`: uit de cache = meteen mee; anders ná het
+  antwoord ophalen, `messages.preview` zetten en `vacom_bump_mx()` (komt via
+  de poll-`updates` binnen).
+- **Linkvoorvertoning:** `vacom_link_haal()` volgt doorverwijzingen zelf
+  (hooguit 3), per stap alleen http/https en `host_publiek_ip()` (publiek
+  adres, vastgezet met `CURLOPT_RESOLVE`). Cache `link_previews`: gelukt 30
+  dagen geldig, mislukt 1 dag, ouder dan 90 dagen wordt gewist.
+- **Push:** `push_abonneer` neemt alleen endpoints van de meldingsdiensten van
+  browsers aan (`vacom_push_dienst_ok()` in inc/push.php: Google, Mozilla,
+  Windows, Apple; nieuwe dienst = daar toevoegen). Uitloggen in de app meldt
+  het apparaat eerst af (`push_afmelden` + `unsubscribe`). Uitloggen via de
+  Portal of de Hub doet dat niet (open punt).
+- **Bijlagen:** `bestand.php` stuurt `Cache-Control: private, no-cache` met een
+  `ETag` en antwoordt 304; de toegangscontrole draait dus bij elke weergave.
+  Avatars blijven een jaar in de cache (`?v=mtime`).
+- **Minder prijsgeven:** de poll geeft `typing` alleen aan kanaalleden;
+  `portal_ongelezen` alleen je eigen projectkanalen; `kanaal_deelnemen` alleen
+  als `VACOM_PROJECTKANALEN` aan staat; `kanaal_topic` weigert een
+  projectkanaal; `vacom_public_user($u, $metEmail)` geeft het e-mailadres
+  alleen bij `me`.
+- **Systeemberichten** tellen nergens meer als ongelezen (ook niet in de poll,
+  `portal_ongelezen` en `portal_vermeldingen`) en staan niet in `zoek`, ook
+  niet met alleen filters. Elke nieuwe telling: `x.systeem = 0` erbij.
+- **Opmaak (app.js `opmaak()`):** links worden net als code weggezet met
+  `bewaar()` vóór de @namen en de opmaak, zodat die niet in de `href` komen.
+- **Database:** migratie 14 (alleen indexen: `idx_reactions_message` weg,
+  `saved(message_id)`, `stemming_opties(stemming_id)`, `push_subs(user_id)`
+  erbij). `vacom_metas([...])` leest meer meta-waarden in één query.
+  `vacom_portal_sync()` gebruikt `BEGIN IMMEDIATE` en kijkt na het slot opnieuw
+  naar de stempel; het werk zelf staat in `vacom_portal_sync_werk()`.
+- **Bewust niet gedaan:** tellers `rx`/`mx` per kanaal (nu globaal: elke
+  wijziging laat elke open client de laatste 150 berichten van zijn kanaal
+  nakijken). Vraagt een wijziging in de poll aan beide kanten en een test in
+  de browser.
+- **Geparkeerd, geen aanroeper meer** (Portal-koppeling weg sinds Portal
+  v4.21): `portal_ongelezen`, `portal_project`, `portal_push_info`,
+  `kanaal_deelnemen`, de embed-modus. Alleen `portal_vermeldingen` wordt nog
+  gebruikt (Invite Hub, het bolletje op de tegel): antwoordformaat niet wijzigen.
+
 ## v0.13: kop, projectkanalen uit, verwijderen
 
 - **Kop** (`.app-kop`, geen `.vlak` meer): open regel zonder kader zoals de
@@ -174,7 +227,7 @@ gesprek geeft geen bericht: het kanaal is dan voor iedereen weg.
 | `inc/overzicht.php` | het overzicht (kanalen + tellers) voor index én api |
 | `assets/app.js`, `assets/app.css` | de client en de vormgeving |
 | `manifest.json`, `sw.js`, `offline.html` | PWA (installeerbaar; SW cachet bewust niets) |
-| `tools/` | eenmalige hulpscripts (iconen maken, servercheck) — niet uploaden |
+| `tools/` | eenmalig hulpscript `vacom_check.php` (servercheck, toont serverdetails zonder inlog) — niet uploaden |
 
 Datamodel: `users`, `channels` (type public/dm; DM = `dm_key` "kleinsteId:grootsteId";
 `project_token` bij projectkanalen), `channel_members` (met `last_read_id`, `via`, `hidden`),
@@ -210,7 +263,7 @@ delete (`deleted=1`, body leeg → uit de zoekindex, bijlage van schijf).
 - **Opslaan/vastzetten**: tabellen `saved` (privé) en `pins` (per kanaal).
 - **Voorvertoning**: `messages.preview` (JSON) + cache `link_previews`;
   `vacom_link_preview()` haalt og:title/description/image op met SSRF-guard
-  (`host_publiek`), 4 s timeout, alleen html.
+  (`host_publiek_ip`, per doorverwijzing — zie v0.18), 4 s timeout, alleen html.
 - **Typt**: tabel `typing` (channel_id, user_id, at); `api typ` max. elke 2,5 s
   vanaf de client; de poll stuurt `typing` (namen, laatste 6 s) altijd mee.
 - **Zoekfilters**: `zoek` met `user_id`, `channel_id`, `from`, `to`; zonder `q`
@@ -229,7 +282,10 @@ server, `vacom/data/` lokaal — beide buiten Git). Zie `vacom_giphy_key()` in
 - CSRF-token op elke schrijfactie; `hash_equals`; wachtwoorden `password_hash`.
 - Rate-limiting op login (8 pogingen / 15 min per IP) in losse modus; in
   Portal-modus doet de Portal dat.
-- `VACOM_BASE_URL` hardcoded (host header injection); `trim()` bij tokens/wachtwoorden.
+- Host header injection: VaCom maakt nergens een volledige URL (alle links zijn
+  relatief; `VACOM_BASE_URL` is in v0.18 weggehaald, werd niet gebruikt). Komt er
+  ooit een absolute link (e-mail): een vaste waarde of het merk uit `merk_ipp.php`,
+  nooit de Host-header. `trim()` bij tokens/wachtwoorden.
 - API zet `display_errors` uit: waarschuwingen mogen nooit in JSON lekken.
 - Alle uitvoer escapen (`h()` in PHP, `esc()` in JS).
 
@@ -281,7 +337,8 @@ kopieën van `iconen/vacom.svg` en `iconen/vacom_inc.svg` uit de Invite Hub
 kiest per merk en staat ná `vacom_merk_head()`. De PNG's voor de PWA
 (`icon-192`, `icon-512`, `icon-512-maskable` met 10% rand op geel,
 `apple-touch-icon` 180) zijn uit die svg gerenderd (browser-canvas); bij een
-nieuw icoon opnieuw maken. `ICOONTJE.png` is weg.
+nieuw icoon opnieuw maken. `ICOONTJE.png` is weg; `tools/maak_iconen.php` (tekende
+het oude icoon) ook, sinds v0.18.
 
 ## Werkwijze bij elke release
 

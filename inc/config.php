@@ -8,7 +8,7 @@
 
 declare(strict_types=1);
 
-define('VACOM_VERSION', '0.17.0');
+define('VACOM_VERSION', '0.18.0');
 
 /* v0.13: projectkanalen (kanaal per Portal-project) staan voorlopig UIT op
    verzoek van Ad. De code blijft: op true verschijnen de sectie Projecten en
@@ -54,12 +54,10 @@ if (!defined('VACOM_PORTAL_DATA')) {
 // Relatieve link naar de Portal (VaCom staat altijd precies Ã©Ã©n map dieper).
 define('VACOM_PORTAL_URL', '../');
 
-// Vaste basis-URL, zonder slash aan het eind. Hardcoded en niet afgeleid uit
-// de Host-header (die is door een bezoeker te vervalsen).
-if (!defined('VACOM_BASE_URL')) {
-    define('VACOM_BASE_URL', VACOM_IS_DEV ? 'http://localhost:8400'
-        : (VACOM_PORTAL ? 'https://portal.invite.nl/vacom' : 'https://test.invite.nl/vacom'));
-}
+// v0.18: VACOM_BASE_URL is weg (werd nergens gebruikt). VaCom maakt nergens een
+// volledige URL: alle links zijn relatief, dus de Host-header speelt geen rol.
+// Mocht er ooit een absolute link nodig zijn (bv. in een e-mail): dan een vaste
+// waarde of het merk uit merk_ipp.php, nooit de Host-header.
 
 // Datamap. Op de server staat die BUITEN de webroot (../vacom_data naast
 // public_html), zodat de database nooit via de browser te downloaden is â€”

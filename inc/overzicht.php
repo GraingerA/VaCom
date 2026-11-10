@@ -20,7 +20,7 @@ function vacom_overzicht(PDO $db, array $ik): array {
 SELECT c.id, c.type, c.name, c.topic, c.dm_key, c.project_token, c.archived, c.created_by, m.last_read_id,
        (SELECT COUNT(*) FROM messages x WHERE x.channel_id = c.id AND x.id > m.last_read_id AND x.user_id != m.user_id AND x.deleted = 0 AND x.systeem = 0) AS unread,
        (SELECT COUNT(*) FROM mentions mn JOIN messages x ON x.id = mn.message_id
-          WHERE x.channel_id = c.id AND mn.user_id = ? AND x.id > m.last_read_id AND x.deleted = 0) AS mentions,
+          WHERE x.channel_id = c.id AND mn.user_id = ? AND mn.message_id > m.last_read_id AND x.deleted = 0) AS mentions, -- v0.18: via de index, alleen boven de leesmarkering
        (SELECT MAX(id) FROM messages x WHERE x.channel_id = c.id) AS last_id
 FROM channels c JOIN channel_members m ON m.channel_id = c.id
 WHERE m.user_id = ? AND NOT (c.type = 'dm' AND m.hidden = 1) -- v0.5.1: verborgen gesprekken niet in de lijst
@@ -49,9 +49,10 @@ SQL);
         }
         $kanalen[] = $rij;
     }
-    $gebruikers = array_map('vacom_public_user', $db->query('SELECT * FROM users ORDER BY name COLLATE NOCASE')->fetchAll());
+    // v0.18: e-mailadressen gaan alleen nog bij 'me' mee (zie vacom_public_user).
+    $gebruikers = array_map(fn($u) => vacom_public_user($u), $db->query('SELECT * FROM users ORDER BY name COLLATE NOCASE')->fetchAll());
     return [
-        'me'         => vacom_public_user($ik) + ['push_alles' => (int)($ik['push_alles'] ?? 0) === 1], // v0.9: push-voorkeur (alleen voor jezelf)
+        'me'         => vacom_public_user($ik, true) + ['push_alles' => (int)($ik['push_alles'] ?? 0) === 1], // v0.9: push-voorkeur (alleen voor jezelf)
         'channels'   => $kanalen,
         'users'      => $gebruikers,
         'state'      => (int)vacom_meta('state'),

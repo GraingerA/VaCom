@@ -176,7 +176,11 @@
     const bewaar = (html) => { code.push(html); return ` ${code.length - 1} `; };
     s = s.replace(/```\n?([\s\S]*?)```/g, (m, c) => bewaar(`<pre class="codeblok">${c.replace(/\n$/, '')}</pre>`));
     s = s.replace(/`([^`\n]+)`/g, (m, c) => bewaar(`<code>${c}</code>`));
-    s = s.replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)"'\]])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+    // v0.18: ook links worden even weggezet (net als code). Voorheen liepen de
+    // @namen en de opmaak daarna óók over de link heen: een adres met @Naam of
+    // _tekst_ erin kreeg dan <span>/<em> midden in de href en werkte niet meer.
+    // \u0000 hoort niet bij een link: dat is het merkteken van weggezette code.
+    s = s.replace(/(https?:\/\/[^\s<\u0000]+[^\s<\u0000.,;:!?)"'\]])/g, (m, url) => bewaar(`<a href="${url}" target="_blank" rel="noopener">${url}</a>`));
     if (mentionRegex) {
       s = s.replace(mentionRegex, (m, naam) => {
         const ik = S.me && naam.toLowerCase() === S.me.name.toLowerCase();
@@ -2469,6 +2473,21 @@
   });
 
   $('#knop-uitloggen').addEventListener('click', async () => {
+    // v0.18: eerst dit apparaat afmelden voor pushmeldingen. Anders bleef deze
+    // browser na het uitloggen meldingen tonen (afzender + begin van het
+    // bericht) — vervelend op een gedeelde computer. Hooguit 2 s wachten: is
+    // de service worker er niet, dan loggen we gewoon uit.
+    try {
+      await Promise.race([
+        (async () => {
+          const sub = await pushAbonnement();
+          if (!sub) return;
+          await api('push_afmelden', { endpoint: sub.endpoint });
+          await sub.unsubscribe();
+        })(),
+        new Promise((klaar) => setTimeout(klaar, 2000)),
+      ]);
+    } catch (e) { /* dan zonder afmelden uitloggen */ }
     try { await api('uitloggen'); } catch (e) { /* toch naar login */ }
     location.href = 'login.php';
   });

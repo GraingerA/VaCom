@@ -61,7 +61,6 @@ $start = [
 // Portal-modus en donker in losse modus.
 try { if ((localStorage.getItem('ipp_theme') || '<?= VACOM_PORTAL ? 'light' : 'dark' ?>') === 'light') document.body.classList.add('light-mode'); } catch (e) {}
 </script>
-<script>/* v0.5: thema direct zetten (vóór render, geen flits). Zelfde voorkeur als de Portal. */try{if(localStorage.getItem('ipp_theme')==='light')document.body.classList.add('light-mode')}catch(e){}</script>
 
 <div class="app">
 

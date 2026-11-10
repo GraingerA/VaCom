@@ -32,6 +32,18 @@ vacom_require_login();
   </header>
 
   <section class="vlak kaart">
+    <h2>v0.18.0 <span class="stil">— 10 november 2026</span></h2>
+    <ul>
+      <li><strong>Veiliger.</strong> Na een nalooprondje door de hele app: een linkvoorvertoning volgt een doorverwijzing alleen nog naar een gewoon, openbaar adres. Log je uit in VaCom, dan krijgt dat apparaat ook geen meldingen meer. Een bijlage komt niet meer zonder controle uit het geheugen van de browser (ook niet na uitloggen). "Typt…" zie je alleen in gesprekken waar je bij hoort. Meldingen kunnen alleen naar de meldingsdiensten van de browsers zelf. E-mailadressen van collega's gaan niet meer mee naar ieders browser.</li>
+      <li><strong>Sneller.</strong> Versturen wacht niet meer op de meldingsdiensten van Apple en Google of op een trage website: je bericht staat er meteen, de voorvertoning van een link verschijnt een tel later. Een grote download of een kanaal vol foto's houdt de rest van VaCom (en de Portal en de Hub) niet meer op.</li>
+      <li><strong>Opgelost: een bolletje bij een systeembericht.</strong> Een regel als "Kim is toegevoegd door Ad" gaf soms toch een ongelezen-teller, ook op de VaCom-tegel in de Hub. Systeemberichten staan ook niet meer in zoekresultaten als je alleen op filters zoekt.</li>
+      <li><strong>Opgelost: links met een @naam of _onderstreepjes_.</strong> Een webadres waar toevallig de naam van een collega of _tekst_ in stond, werkte niet als link. Nu wel.</li>
+      <li><strong>Voorvertoning opnieuw proberen.</strong> Lukte een voorvertoning een keer niet (site even plat), dan bleef dat voor altijd zo. Nu probeert VaCom het na een dag opnieuw.</li>
+      <li><strong>Opgeruimd.</strong> Het onderwerp van een projectkanaal is ook via een omweg niet meer te wijzigen, de offline-pagina heeft het woordmerk in plaats van het oude icoontje, en wat oude resten in de code zijn weg.</li>
+    </ul>
+  </section>
+
+  <section class="vlak kaart">
     <h2>v0.17.0 <span class="stil">— 9 november 2026</span></h2>
     <ul>
       <li><strong>Kanaal hernoemen.</strong> In de kanaal-opties (⋯) staat boven het onderwerp nu het veld Naam. De superadmin en wie het kanaal aanmaakte kunnen de naam wijzigen; dezelfde regels als bij aanmaken (kleine letters, letters, cijfers en streepjes, uniek). In het kanaal verschijnt een systeembericht met de oude en nieuwe naam. Projectkanalen en gesloten kanalen hernoem je niet.</li>

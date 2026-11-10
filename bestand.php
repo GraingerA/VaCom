@@ -19,6 +19,10 @@ require_once __DIR__ . '/inc/auth.php';
 
 $ik = vacom_user();
 if ($ik === null) { http_response_code(401); exit; }
+// v0.18: sessie meteen vrijgeven. Anders staat hij op slot zolang het bestand
+// verstuurd wordt (bij 25 MB op een trage lijn: lang) en wachten de poll, de
+// Portal en de Hub van dezelfde collega daar al die tijd op.
+session_write_close();
 
 $id    = (int)($_GET['m'] ?? 0);
 $thumb = !empty($_GET['thumb']);
@@ -50,10 +54,23 @@ if ($thumb && !empty($a['thumb'])) {
 }
 if (!is_file($pad)) { http_response_code(404); exit; }
 
+// v0.18: niet meer een jaar "vers" in de browsercache. Dan toonde de browser een
+// bijlage zonder de server iets te vragen — dus ook na uitloggen, of nadat je
+// uit het kanaal was gehaald. Nu vraagt de browser het elke keer na (no-cache):
+// de toegangscontrole hierboven draait dus altijd, en is het bestand niet
+// veranderd (ETag), dan volgt een leeg 304-antwoord en komt het beeld alsnog
+// uit de cache — het bestand zelf gaat niet opnieuw over de lijn.
+$etag = '"' . $id . ($thumb ? 't' : 'b') . '-' . (int)filemtime($pad) . '-' . (int)filesize($pad) . '"';
+header_remove('Pragma');  // de sessie zette "niet cachen"-koppen; die horen hier niet
+header_remove('Expires');
+header('Cache-Control: private, no-cache');
+header('ETag: ' . $etag);
+$bekend = array_map('trim', explode(',', (string)($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')));
+if (in_array($etag, $bekend, true) || in_array('W/' . $etag, $bekend, true)) { http_response_code(304); exit; }
+
 $ascii = preg_replace('/[^\x20-\x7E]/', '_', $naam) ?: 'bestand';
 header('Content-Type: ' . $mime);
 header('Content-Length: ' . (string)filesize($pad));
 header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . '; filename="' . str_replace('"', '', $ascii) . "\"; filename*=UTF-8''" . rawurlencode($naam));
 header('X-Content-Type-Options: nosniff');
-header('Cache-Control: private, max-age=31536000, immutable'); // bericht-id is uniek, inhoud verandert nooit
 readfile($pad);

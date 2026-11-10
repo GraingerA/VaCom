@@ -227,7 +227,6 @@ function vacom_require_login(): array {
     return $u;
 }
 
-/** Publieke weergave van een gebruiker (nooit de hash of het e-mailadres). */
 /** Pad van de avatarfoto van een gebruiker (v0.5): in de datamap, dus buiten
  *  de webroot; avatar.php serveert hem. */
 function vacom_avatar_pad(int $id): string {
@@ -275,7 +274,14 @@ function vacom_foto_pad(array $u): string {
     return vacom_avatar_pad((int)$u['id']);
 }
 
-function vacom_public_user(array $u): array {
+/**
+ * Publieke weergave van een gebruiker (nooit de hash). v0.18: het e-mailadres
+ * gaat alleen mee met $metEmail = true, en dat is alleen bij jezelf ('me' in
+ * het overzicht, voor Instellingen). Voorheen kreeg iedereen bij elk overzicht
+ * de adressen van alle collega's van beide bedrijven mee, terwijl de app ze
+ * nergens toont.
+ */
+function vacom_public_user(array $u, bool $metEmail = false): array {
     $avatarPad = vacom_foto_pad($u);
     $status = (string)($u['status'] ?? '');
     if (VACOM_PORTAL) $status = (string)(vacom_portal_profielen()[$u['name']]['status'] ?? ''); // v0.15: status uit de Portal
@@ -283,7 +289,7 @@ function vacom_public_user(array $u): array {
         'id'        => (int)$u['id'],
         'name'      => $u['name'],
         'role'      => $u['role'],
-        'email'     => (string)($u['email'] ?? ''),
+        'email'     => $metEmail ? (string)($u['email'] ?? '') : '',
         'status'    => $status,
         'active'    => (int)$u['active'] === 1,
         'last_seen' => $u['last_seen'],

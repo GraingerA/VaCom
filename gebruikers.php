@@ -189,8 +189,7 @@ $csrf = vacom_csrf();
   <?php endif; ?>
   <?php endif; ?>
 
-  <p class="login-voet">VaCom v<?= VACOM_VERSION ?> · <a href="changelog.php">wat is er nieuw</a></p>
-  <!-- v0.15: de voet van de Portal (.voet uit invite_stijl.css) -->
+  <!-- v0.15: de voet van de Portal (.voet uit invite_stijl.css); v0.18: de oude regel erboven (.login-voet, zonder opmaak, dubbel versienummer) is weg -->
   <div class="voet">
     &copy; Copyright &mdash; <a href="<?= h(vacom_merk()['site'] ?? 'https://invite.nl/') ?>" target="_blank" rel="noopener noreferrer" class="voetlink"><?= h(vacom_merk()['lang'] ?? 'Invite Vastgoedcommunicatie') ?></a><br>
     VaCom v<?= VACOM_VERSION ?> &mdash; <a class="voetlink" href="changelog.php">changelog</a> &mdash; created by Ad Grainger &nbsp;&nbsp;&nbsp;*&#92;o/*

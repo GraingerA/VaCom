@@ -306,6 +306,20 @@ SQL);
         $pdo->exec('ALTER TABLE messages ADD COLUMN systeem INTEGER NOT NULL DEFAULT 0');
         $pdo->exec('PRAGMA user_version = 13');
     }
+
+    if ($versie < 14) {
+        // v0.18: indexen opruimen en aanvullen. Alleen indexen, er verandert
+        // niets aan de gegevens; IF (NOT) EXISTS zodat twee verzoeken die dit
+        // tegelijk doen elkaar niet in de weg zitten.
+        //   idx_reactions_message : dubbel met de primaire sleutel van reactions (begint ook met message_id)
+        //   saved(message_id)     : bij het wissen van berichten zocht SQLite de hele tabel door
+        //   stemming_opties(stemming_id), push_subs(user_id) : werden bij elk bericht / elke poll helemaal gelezen
+        $pdo->exec('DROP INDEX IF EXISTS idx_reactions_message');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_saved_message ON saved(message_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_stemming_opties_stemming ON stemming_opties(stemming_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subs(user_id)');
+        $pdo->exec('PRAGMA user_version = 14');
+    }
 }
 
 /* ---------- Kleine helpers rond de database ---------- */
@@ -314,6 +328,16 @@ function vacom_meta(string $key): string {
     $st = vacom_db()->prepare('SELECT value FROM meta WHERE key = ?');
     $st->execute([$key]);
     return (string)($st->fetchColumn() ?: '');
+}
+
+/** v0.18: meer meta-waarden in één query (de poll vraagt er elke 3 s drie). Wat ontbreekt = ''. */
+function vacom_metas(array $keys): array {
+    $uit = array_fill_keys($keys, '');
+    if (!$keys) return $uit;
+    $st = vacom_db()->prepare('SELECT key, value FROM meta WHERE key IN (' . implode(',', array_fill(0, count($keys), '?')) . ')');
+    $st->execute(array_values($keys));
+    foreach ($st->fetchAll() as $r) $uit[$r['key']] = (string)$r['value'];
+    return $uit;
 }
 
 /** Verhoog de state-teller: clients halen daarna hun overzicht opnieuw op. */

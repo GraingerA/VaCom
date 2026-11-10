@@ -28,6 +28,25 @@ function vacom_b64url_decode(string $s): string {
     return (string)base64_decode(strtr($s, '-_', '+/') . str_repeat('=', (4 - strlen($s) % 4) % 4));
 }
 
+/**
+ * v0.18: is dit het adres van een echte meldingsdienst van een browser? Chrome,
+ * Edge, Brave e.d. gebruiken Google (fcm.googleapis.com), Firefox Mozilla,
+ * Edge soms Windows (…notify.windows.com), Safari/iPhone Apple. Alleen https
+ * op de standaardpoort. Komt er ooit een browser met een andere dienst bij,
+ * dan hier de host toevoegen.
+ */
+function vacom_push_dienst_ok(string $endpoint): bool {
+    $u = parse_url($endpoint);
+    if (!is_array($u) || strtolower((string)($u['scheme'] ?? '')) !== 'https' || empty($u['host'])) return false;
+    if (isset($u['port']) && (int)$u['port'] !== 443) return false;
+    if (isset($u['user']) || isset($u['pass'])) return false;
+    $host = strtolower((string)$u['host']);
+    foreach (['fcm.googleapis.com', 'android.googleapis.com', 'push.services.mozilla.com', 'notify.windows.com', 'push.apple.com'] as $dienst) {
+        if ($host === $dienst || str_ends_with($host, '.' . $dienst)) return true;
+    }
+    return false;
+}
+
 /** Kan deze server pushen? (OpenSSL met EC, HKDF, AES-GCM en cURL) */
 function vacom_push_kan(): bool {
     return function_exists('openssl_pkey_new') && function_exists('openssl_pkey_derive')
