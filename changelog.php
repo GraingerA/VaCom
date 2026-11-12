@@ -32,6 +32,10 @@ vacom_require_login();
   </header>
 
   <section class="vlak kaart">
+    <h2>v0.19.0 <span class="stil">— 12 november 2026</span></h2>
+    <ul>
+      <li><strong>Naam gewijzigd in de Portal.</strong> Krijgt een collega in het gebruikersbeheer van de Portal een andere naam, dan houdt VaCom hetzelfde account (met de gesprekken, kanalen en foto) en toont het meteen de nieuwe naam. Eerder kwam er een nieuw, leeg account bij en bleef de oude naam staan.</li>
+    </ul>
     <h2>v0.18.0 <span class="stil">— 10 november 2026</span></h2>
     <ul>
       <li><strong>Veiliger.</strong> Na een nalooprondje door de hele app: een linkvoorvertoning volgt een doorverwijzing alleen nog naar een gewoon, openbaar adres. Log je uit in VaCom, dan krijgt dat apparaat ook geen meldingen meer. Een bijlage komt niet meer zonder controle uit het geheugen van de browser (ook niet na uitloggen). "Typt…" zie je alleen in gesprekken waar je bij hoort. Meldingen kunnen alleen naar de meldingsdiensten van de browsers zelf. E-mailadressen van collega's gaan niet meer mee naar ieders browser.</li>

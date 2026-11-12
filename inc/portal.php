@@ -228,7 +228,7 @@ function vacom_portal_sync(bool $forceer = false): void {
     // portal.php (bv. halverwege een FTP-upload) het niet per ongeluk kan
     // afvinken.
     $meta = vacom_metas(['lidmaatschap', 'portal_stempel']); // v0.18: één query (dit draait bij elk verzoek)
-    if ($meta['lidmaatschap'] !== '4') $forceer = true;
+    if ($meta['lidmaatschap'] !== '5') $forceer = true;   // v0.19: '5' = hernoemen via e-mail
     if (!$forceer && $stempel === $meta['portal_stempel']) return;
 
     $db = vacom_db();
@@ -262,17 +262,37 @@ function vacom_portal_sync_werk(PDO $db, string $stempel): void {
     $gezien = [];
     $ins = $db->prepare("INSERT INTO users(name, name_key, email, role, password_hash, created) VALUES (?,?,?,?,'',?)");
     $upd = $db->prepare('UPDATE users SET name = ?, role = ?, email = ?, active = 1 WHERE id = ?');
-    foreach (vacom_portal_gebruikers() as $pu) {
+    $portalGebruikers = vacom_portal_gebruikers();
+    // v0.19: hernoemd in de Portal? Dan een account dat niet meer in de Portal
+    // staat met hetzelfde e-mailadres overnemen (naam erop), zodat gesprekken,
+    // kanalen en foto bij dezelfde collega blijven. Alleen bij precies één
+    // zo'n account per e-mailadres.
+    $inPortal = [];
+    foreach ($portalGebruikers as $pu) $inPortal[vacom_naam_sleutel($pu['name'])] = true;
+    $wees = []; // e-mail (kleine letters) → account dat niet meer in de Portal staat; false = meer dan één
+    foreach ($bestaand as $k => $b) {
+        $mail = mb_strtolower(trim((string)$b['email']));
+        if ($mail === '' || isset($inPortal[$k])) continue;
+        $wees[$mail] = isset($wees[$mail]) ? false : $b;
+    }
+    $hernoem = $db->prepare('UPDATE users SET name = ?, name_key = ?, role = ?, email = ?, active = 1 WHERE id = ?');
+    foreach ($portalGebruikers as $pu) {
         $key = vacom_naam_sleutel($pu['name']);
         if (isset($gezien[$key])) continue;
         $gezien[$key] = true;
         $rol = vacom_portal_rol($pu['role']);
+        $mail = mb_strtolower(trim((string)$pu['email']));
         if (isset($bestaand[$key])) {
             $b = $bestaand[$key];
             if ($b['name'] !== $pu['name'] || $b['role'] !== $rol || $b['email'] !== $pu['email'] || (int)$b['active'] !== 1) {
                 $upd->execute([$pu['name'], $rol, $pu['email'], $b['id']]);
                 $veranderd = true;
             }
+        } elseif ($mail !== '' && !empty($wees[$mail])) {
+            $b = $wees[$mail];
+            $hernoem->execute([$pu['name'], $key, $rol, $pu['email'], $b['id']]);
+            unset($bestaand[$b['name_key']], $wees[$mail]);
+            $veranderd = true;
         } else {
             $ins->execute([$pu['name'], $key, $pu['email'], $rol, $nu]);
             $veranderd = true;
@@ -379,7 +399,7 @@ function vacom_portal_sync_werk(PDO $db, string $stempel): void {
     }
 
     $db->prepare("INSERT OR REPLACE INTO meta(key, value) VALUES ('portal_stempel', ?)")->execute([$stempel]);
-    $db->exec("INSERT OR REPLACE INTO meta(key, value) VALUES ('lidmaatschap', '4')");
+    $db->exec("INSERT OR REPLACE INTO meta(key, value) VALUES ('lidmaatschap', '5')");
     if ($veranderd) vacom_bump_state();
 }
 

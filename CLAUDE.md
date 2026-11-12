@@ -84,6 +84,15 @@ vanzelf mee. Projectkanalen: ook de tweede projectmanager van een gedeeld
 project (`managers_extra` in projects.json, Portal v5.5.1) is "gekoppeld".
 Niet per bedrijf gescheiden: kanalen, DM's, zoeken (bewust: één team).
 
+## v0.19: hernoemen in de Portal
+
+`vacom_portal_sync_werk()` (inc/portal.php): staat een Portal-naam nog niet in
+`users`, maar is er precies één account dat niet meer in de Portal staat met
+hetzelfde e-mailadres, dan krijgt dát account de nieuwe naam en `name_key`
+(geen nieuw account). Meta `lidmaatschap` is daarvoor `'5'` (dwingt na de
+upload één sync af). Lukt het niet (geen of dubbel e-mailadres), dan blijft
+het oude gedrag: nieuw account, het oude wordt inactief.
+
 ## v0.18: nalooprondje (veiligheid, snelheid, opruimen)
 
 Uitkomst van een audit op 10 nov 2026. Wat er sindsdien anders werkt:
