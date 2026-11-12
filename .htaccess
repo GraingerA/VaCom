@@ -1,0 +1,34 @@
+# VaCom — bestanden die niet via de browser bereikbaar mogen zijn (12 nov 2026)
+#
+# De database en de bijlagen staan online buiten de webroot (../vacom_data),
+# dus die hangen hier niet van af. Dit bestand sluit wat er per ongeluk wél
+# in public_html/vacom/ kan staan:
+#  - tools/ (vacom_check.php toont serverdetails zonder inloggen);
+#  - de projectbestanden CLAUDE.md, LEESMIJ.md en .gitignore;
+#  - data/ (de lokale datamap, als die ooit mee wordt geüpload);
+#  - SQLite-bestanden en logs, waar ze ook staan.
+# manifest.json moet wél bereikbaar blijven (app op het beginscherm), dus
+# .json staat hier bewust niet in.
+#
+# Schrijfwijze: zonder <IfModule mod_authz_core.c>. Op deze hosting (LiteSpeed
+# bij init3) deden regels in dat blok niets; dit is de vorm die bij Invite
+# Transfer, de Hub en 3D Planning op dezelfde server wel werkt, met dezelfde
+# regel via mod_rewrite als tweede slot.
+#
+# Na uploaden controleren (uitgelogd):
+#   https://portal.invite.nl/vacom/CLAUDE.md                hoort 403 te geven
+#   https://portal.invite.nl/vacom/tools/vacom_check.php    hoort 403 te geven
+#   https://portal.invite.nl/vacom/manifest.json            hoort te werken
+#   https://portal.invite.nl/vacom/                         hoort te werken
+
+<FilesMatch "(\.(md|db|db-wal|db-shm|sqlite3?|log|bak|tmp)$|^\.gitignore$|^vacom_check\.php$)">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule (^|/)(tools|data|\.git|\.claude)(/|$) - [F,NC,L]
+  RewriteRule (\.(md|db|db-wal|db-shm|sqlite3?|log|bak|tmp)$|(^|/)\.gitignore$) - [F,NC,L]
+</IfModule>
+
+Options -Indexes

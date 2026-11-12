@@ -28,7 +28,7 @@ interface is volledig Nederlands; ±25 collega's op Mac, PC en vooral iPhone.
   het aantal gelijktijdige PHP-processen.
 - **Opslag: SQLite** (`vacom.sqlite`, WAL, FTS5 voor zoeken) in een datamap
   **buiten de webroot** (`../vacom_data/` naast `public_html`, dus naast `ipp_data/`;
-  lokaal `./data/`). `.htaccess` is op deze hosting niet betrouwbaar — daar nooit op leunen.
+  lokaal `./data/`). `.htaccess` is op deze hosting niet betrouwbaar — daar nooit op leunen. Wel staat er sinds 12 nov 2026 een `.htaccess` als vangnet (tools/, .md, data/, SQLite); zonder `<IfModule>` eromheen, want die vorm deed op LiteSpeed niets.
 - Schemawijzigingen alleen via `vacom_migreer()` in `inc/db.php` (user_version).
 - Geen externe libraries tenzij expliciet besproken. Google Fonts (Manrope) mag.
 - **Volledig gescheiden van de Portal**: alle VaCom-bestanden staan in `vacom/`;
